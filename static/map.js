@@ -26,7 +26,7 @@ const CRATE = 0.66;
 const UNITS_PER_CRATE = 5;
 const MAX_CRATES = 16;         // 2 x 2 per layer, 4 layers; the sign shows the exact count
 const LANE_Z = 10.9;           // truck lane
-const DOORS = { library: new THREE.Vector3(-20, 0, -9.2), hall: new THREE.Vector3(19, 0, -9.6) };
+const DOORS = { west: new THREE.Vector3(-10.5, 0, -7.6), east: new THREE.Vector3(10.5, 0, -7.6) };
 const SERVICE_MS = 750;
 const MAX_CUSTOMERS = 20;
 const WALK_SPEED = 4.2;        // metres per second
@@ -57,7 +57,7 @@ function tellDashboard(message) {
 
 // scene objects that change with the run
 let scene, camera, renderer, labels, controls;
-const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null };
+const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null, sea: null, foam: null, lighthouse: null };
 
 // ---- small helpers -----------------------------------------------------------
 
@@ -271,20 +271,28 @@ function crateSlot(pid, i) {
   );
 }
 
-// ---- the campus ------------------------------------------------------------------
+// ---- the campus: a stylised Nova SBE in Carcavelos -----------------------------------
+// Low white buildings with glass ribbons ("fingers") behind the plaza, the coastal
+// road in front, then Carcavelos beach and the Atlantic. Not a measured model.
 
 const FOOTPATHS = [
-  [new THREE.Vector3(-20, 0, -9.2), new THREE.Vector3(-17, 0, -3), new THREE.Vector3(-11, 0, 3.5), new THREE.Vector3(-7, 0, 6)],
-  [new THREE.Vector3(19, 0, -9.6), new THREE.Vector3(15, 0, -2.5), new THREE.Vector3(9, 0, 4.6), new THREE.Vector3(0, 0, 6.6)],
+  [new THREE.Vector3(-10.5, 0, -7.6), new THREE.Vector3(-10.2, 0, -3), new THREE.Vector3(-9, 0, 2.5), new THREE.Vector3(-7, 0, 6)],
+  [new THREE.Vector3(10.5, 0, -7.6), new THREE.Vector3(12.8, 0, -4), new THREE.Vector3(13, 0, 3), new THREE.Vector3(8, 0, 5.8), new THREE.Vector3(0, 0, 6.6)],
 ];
+const TUNNEL = { x: -17, campusZ: 7.4, beachZ: 17.9 };   // under the coastal road to the beach
+const SHORE_Z = 24.5;                                    // where the sand meets the water
+
+const WHITE = 0xf4f2ec;
 
 function buildGround() {
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(220, 160), mat(0x8cc870));
+  // the campus ends at the beach: grass only up to the promenade
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(240, 112), mat(0x8cc870));
   grass.rotation.x = -Math.PI / 2;
+  grass.position.z = -40;
   grass.receiveShadow = true;
   scene.add(grass);
 
-  for (const [x, z, r] of [[-12, -4, 5], [14, 4, 4], [-26, 4, 6], [26, -2, 5], [0, -12, 6]]) {
+  for (const [x, z, r] of [[-20, 2, 5], [20, 2, 4], [0, -2, 4], [-34, -4, 6], [34, -2, 5]]) {
     const patch = new THREE.Mesh(new THREE.CircleGeometry(r, 24), mat(0x80bd65));
     patch.rotation.x = -Math.PI / 2;
     patch.position.set(x, 0.005, z);
@@ -292,9 +300,12 @@ function buildGround() {
     scene.add(patch);
   }
 
-  // footpaths from the buildings to the plaza, and the plaza itself
+  // footpaths from the buildings to the plaza and to the beach tunnel, and the plaza
   const pathMat = mat(0xeadfc4, { side: THREE.DoubleSide });
   for (const pts of FOOTPATHS) scene.add(ribbon(new THREE.CatmullRomCurve3(pts), 2.2, pathMat));
+  scene.add(ribbon(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-11, 0, 6.6), new THREE.Vector3(-14.5, 0, 7.2), new THREE.Vector3(TUNNEL.x, 0, TUNNEL.campusZ - 0.6),
+  ]), 2, pathMat));
   const plaza = new THREE.Mesh(new THREE.CircleGeometry(6.5, 40), pathMat);
   plaza.rotation.x = -Math.PI / 2;
   plaza.scale.set(1.35, 1, 1);
@@ -302,107 +313,253 @@ function buildGround() {
   plaza.receiveShadow = true;
   scene.add(plaza);
 
-  // driveway, sidewalk, road with lane markings
+  // driveway, sidewalk, coastal road with lane markings, promenade
   scene.add(box(3.2, 0.06, 6.6, mat(0xc9c5ba), SHED.x, 0.03, 5.3));
-  scene.add(box(220, 0.14, 1.0, mat(0xdcd7ca), 0, 0.07, 9.0));
-  const road = box(220, 0.06, 6.2, mat(0x5d6168), 0, 0.03, 12.6);
+  scene.add(box(240, 0.14, 1.0, mat(0xdcd7ca), 0, 0.07, 9.0));
+  const road = box(240, 0.06, 6.2, mat(0x5d6168), 0, 0.03, 12.6);
   road.castShadow = false;
   scene.add(road);
   const dash = mat(0xf5f2e8);
-  for (let x = -100; x <= 100; x += 5) {
+  for (let x = -110; x <= 110; x += 5) {
     const d = box(2.6, 0.02, 0.18, dash, x, 0.07, 12.6);
     d.castShadow = false;
     scene.add(d);
   }
+  scene.add(box(240, 0.22, 1.1, mat(0xd8d1bf), 0, 0.11, 16.25));
 }
 
-function buildLibrary() {
-  const g = new THREE.Group();
-  g.position.set(-20, 0, -15);
-  const stone = mat(0xefe4d2);
-  const trim = mat(0xd8c7a6);
-  g.add(box(15, 6.4, 8, stone, 0, 3.2, 0));
-  g.add(box(16, 0.6, 9.4, trim, 0, 6.7, 0.3));
-  const pediment = prism(16, 2.4, 1.2, trim);
-  pediment.position.set(0, 7, 4.4);
-  g.add(pediment);
-  g.add(box(16, 0.5, 2.6, trim, 0, 0.25, 5));
-  g.add(box(14, 0.35, 1.8, trim, 0, 0.6, 4.6));
-  for (let i = 0; i < 6; i++) {
-    const col = cylinder(0.38, 0.42, 5.8, mat(0xfbf7ef));
-    col.position.set(-6 + i * 2.4, 3.6, 4.4);
-    g.add(col);
-  }
-  g.add(box(2.2, 3.4, 0.2, mat(0x6b4f3a), 0, 2.2, 4.05));
-  const name = label("lbl-building", "LIBRARY");
-  name.position.set(0, 10, 4);
-  g.add(name);
-  scene.add(g);
-}
+function buildCoast() {
+  // Carcavelos beach
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(240, SHORE_Z - 16.6 + 1.5), mat(0xedd9a6));
+  sand.rotation.x = -Math.PI / 2;
+  sand.position.set(0, 0.0, (16.6 + SHORE_Z + 1.5) / 2);
+  sand.receiveShadow = true;
+  scene.add(sand);
 
-function buildHall() {
-  const g = new THREE.Group();
-  g.position.set(19, 0, -15.5);
-  const brick = canvasTexture(256, 256, (c, w, h) => {
-    c.fillStyle = "#c8704c";
-    c.fillRect(0, 0, w, h);
-    c.strokeStyle = "#a95b3c";
-    c.lineWidth = 3;
-    for (let y = 0; y < h; y += 16) {
-      c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke();
-      for (let x = (y / 16) % 2 ? 0 : 16; x < w; x += 32) {
-        c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 16); c.stroke();
-      }
-    }
+  // the Atlantic, with gentle waves (moved in the render loop)
+  const sea = new THREE.Mesh(
+    new THREE.PlaneGeometry(320, 160, 96, 48),
+    new THREE.MeshStandardMaterial({ color: 0x2f8fc4, roughness: 0.35, metalness: 0.05, flatShading: true }),
+  );
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set(0, -0.25, SHORE_Z + 80);
+  sea.receiveShadow = true;
+  scene.add(sea);
+  world.sea = sea;
+  const foam = new THREE.Mesh(new THREE.PlaneGeometry(240, 1.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+  foam.rotation.x = -Math.PI / 2;
+  foam.position.set(0, 0.04, SHORE_Z + 0.2);
+  scene.add(foam);
+  world.foam = foam;
+
+  // beach umbrellas and towels
+  const colours = [0xe34948, 0xffd25a, 0x2a78d6, 0x1baf7a, 0xe87ba4, 0xeb6834];
+  [[-30, 19.5], [-22, 21], [-6, 20.2], [3, 21.6], [14, 19.8], [26, 21], [36, 19.6]].forEach(([x, z], i) => {
+    const pole = cylinder(0.05, 0.05, 2.2, mat(0xf4f2ec), 6);
+    pole.position.set(x, 1.1, z);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.6, 10), mat(colours[i % colours.length], { flatShading: true }));
+    top.position.set(x, 2.3, z);
+    top.castShadow = true;
+    const towel = box(0.9, 0.03, 1.8, mat(colours[(i + 2) % colours.length]), x + 1.1, 0.02, z + 0.4);
+    towel.castShadow = false;
+    scene.add(pole, top, towel);
   });
-  brick.wrapS = brick.wrapT = THREE.RepeatWrapping;
-  brick.repeat.set(3, 2);
-  g.add(box(15, 8.5, 9, mat(0xffffff, { map: brick }), 0, 4.25, 0));
-  g.add(box(15.6, 0.6, 9.6, mat(0x8e4a32), 0, 8.8, 0));
-  const glass = mat(0xcfe7f7, { roughness: 0.3, emissive: 0x000000 });
-  world.windows = glass;
-  for (let row = 0; row < 2; row++) {
-    for (let i = 0; i < 5; i++) {
-      if (row === 0 && i === 2) continue;
-      g.add(box(1.6, 1.7, 0.12, glass, -5.6 + i * 2.8, 2.6 + row * 3, 4.52));
-    }
+
+  // the tunnel under the road: one portal on campus, one on the beach
+  scene.add(portal(TUNNEL.x, TUNNEL.campusZ, 0));
+  scene.add(portal(TUNNEL.x, TUNNEL.beachZ, Math.PI));
+  const sign = label("lbl-building", "🏖️ BEACH TUNNEL");
+  sign.position.set(TUNNEL.x, 3.6, TUNNEL.campusZ);
+  scene.add(sign);
+  const beach = label("lbl-building", "PRAIA DE CARCAVELOS");
+  beach.position.set(8, 1.5, 22.5);
+  scene.add(beach);
+}
+
+// a concrete tunnel mouth facing +z (rotated for the beach side)
+function portal(x, z, rot) {
+  const g = new THREE.Group();
+  const concrete = mat(0xd9d6cf);
+  g.add(box(0.5, 2.6, 2.2, concrete, -1.75, 1.3, 0), box(0.5, 2.6, 2.2, concrete, 1.75, 1.3, 0));
+  g.add(box(4, 0.5, 2.2, concrete, 0, 2.85, 0));
+  const dark = box(3, 2.6, 0.1, mat(0x1d1f24), 0, 1.3, -0.9);
+  dark.castShadow = false;
+  g.add(dark);
+  g.position.set(x, 0, z);
+  g.rotation.y = rot;
+  return g;
+}
+
+// the Forte de São Julião da Barra on the coast, with its lighthouse
+function buildFort() {
+  const g = new THREE.Group();
+  g.position.set(-56, 0, 27);
+  const rock = new THREE.Mesh(new THREE.CylinderGeometry(15, 17, 1.6, 9), mat(0x9c9483, { flatShading: true }));
+  rock.position.y = -0.5;
+  rock.receiveShadow = true;
+  g.add(rock);
+  // star-shaped bastions
+  const star = new THREE.Shape();
+  const points = 10;
+  for (let i = 0; i <= points; i++) {
+    const a = (i / points) * Math.PI * 2;
+    const r = i % 2 ? 7.2 : 11.5;
+    const px = Math.cos(a) * r;
+    const py = Math.sin(a) * r;
+    if (i === 0) star.moveTo(px, py);
+    else star.lineTo(px, py);
   }
-  g.add(box(2.4, 3.2, 0.2, mat(0x5a3426), 0, 1.6, 4.55));
-  g.add(box(3.6, 0.3, 1.4, mat(0x8e4a32), 0, 3.5, 5.1));
-  const name = label("lbl-building", "HALL A");
-  name.position.set(0, 10.6, 4);
+  const wallGeo = new THREE.ExtrudeGeometry(star, { depth: 3.4, bevelEnabled: false });
+  wallGeo.rotateX(-Math.PI / 2);
+  const walls = new THREE.Mesh(wallGeo, mat(0xd8c39a, { flatShading: true }));
+  walls.position.y = 0.2;
+  walls.castShadow = true;
+  walls.receiveShadow = true;
+  g.add(walls);
+  g.add(box(9, 4, 7, mat(0xe9dcc0), 0, 5.4, 0));
+  g.add(box(9.4, 0.5, 7.4, mat(0xc8704c), 0, 7.6, 0));
+  const tower = cylinder(0.9, 1.1, 8, mat(0xffffff), 14);
+  tower.position.set(3, 9, 1.5);
+  const lantern = cylinder(0.75, 0.75, 1.2, mat(0xfff3c4, { emissive: 0xffd77a, emissiveIntensity: 0 }), 12);
+  lantern.position.set(3, 13.6, 1.5);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 12), mat(0xc03030));
+  cap.position.set(3, 14.7, 1.5);
+  g.add(tower, lantern, cap);
+  world.lighthouse = lantern.material;
+  const name = label("lbl-building", "FORTE DE S. JULIÃO DA BARRA");
+  name.position.set(0, 16.5, 0);
   g.add(name);
   scene.add(g);
 }
 
-function buildDorms() {
+// a low white building with glass ribbons, its front facing the plaza (+z)
+function finger(x, front, length, floors, width = 9) {
   const g = new THREE.Group();
-  g.position.set(0, 0, -26);
-  g.add(box(12, 11, 7, mat(0xd9cbb5), 0, 5.5, 0));
-  for (let row = 0; row < 4; row++) {
-    for (let i = 0; i < 4; i++) g.add(box(1.4, 1.4, 0.12, world.windows, -4.2 + i * 2.8, 2 + row * 2.4, 3.52));
+  const h = floors * 3.4;
+  g.position.set(x, 0, front - length / 2);
+  g.add(box(width, h, length, mat(WHITE), 0, h / 2, 0));
+  g.add(box(width + 1.4, 0.45, length + 1.4, mat(0xffffff), 0, h + 0.22, 0));          // thin roof slab
+  for (let f = 0; f < floors; f++) {
+    const y = f * 3.4 + 1.85;
+    g.add(box(0.16, 1.7, length - 1.6, world.windows, width / 2 + 0.04, y, 0));
+    g.add(box(0.16, 1.7, length - 1.6, world.windows, -width / 2 - 0.04, y, 0));
+    g.add(box(width - 1.6, 1.7, 0.16, world.windows, 0, y, length / 2 + 0.04));
   }
-  g.add(box(12.4, 0.5, 7.4, mat(0xb8a588), 0, 11.2, 0));
-  const name = label("lbl-building", "DORMS");
-  name.position.set(0, 12.6, 3);
-  g.add(name);
+  g.add(box(3.2, 2.7, 0.3, mat(0x2d3a48, { roughness: 0.3 }), 0, 1.35, length / 2 + 0.12)); // entrance
+  g.add(box(4.6, 0.25, 2.4, mat(0xffffff), 0, 3.0, length / 2 + 1.2));                   // entrance canopy
   scene.add(g);
+  return g;
 }
 
-function tree(x, z, s = 1) {
+function buildNovaCampus() {
+  world.windows = mat(0x5f87a6, { roughness: 0.15, metalness: 0.3, emissive: 0x000000 });
+
+  // four fingers behind the plaza, joined at the back by the learning street
+  finger(-24, -8, 28, 2);
+  const main = finger(-10.5, -7.8, 28, 3);
+  finger(10.5, -7.8, 28, 3);
+  finger(24, -8, 28, 2);
+  const street = box(60, 6.8, 9, mat(WHITE), 0, 3.4, -40);
+  scene.add(street);
+  scene.add(box(61.4, 0.45, 10.4, mat(0xffffff), 0, 7.02, -40));
+  scene.add(box(57, 1.7, 0.16, world.windows, 0, 1.85, -35.46));
+  scene.add(box(57, 1.7, 0.16, world.windows, 0, 5.25, -35.46));
+
+  // school name on the main finger, facing the plaza
+  const nameTex = canvasTexture(512, 128, (c, w, h) => {
+    c.fillStyle = "#f4f2ec";
+    c.fillRect(0, 0, w, h);
+    c.fillStyle = "#1d2a4a";
+    c.font = "800 78px system-ui, sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText("NOVA SBE", w / 2, h / 2 + 4);
+  });
+  // lettering standing on the roof edge, facing the plaza
+  const white = mat(WHITE);
+  const nameSign = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.6, 0.2), [white, white, white, white, mat(0xffffff, { map: nameTex }), white]);
+  nameSign.position.set(0, 11.5, 13.6);
+  nameSign.castShadow = true;
+  main.add(nameSign);
+
+  // the atrium between the middle fingers: steel frame and a glass roof
+  const atrium = new THREE.Group();
+  atrium.position.set(0, 0, -29);
+  const glass = new THREE.MeshStandardMaterial({ color: 0xbfe1f2, transparent: true, opacity: 0.38, roughness: 0.1 });
+  atrium.add(new THREE.Mesh(new THREE.BoxGeometry(11.6, 6.4, 12), glass));
+  atrium.children[0].position.y = 3.2;
+  const steel = mat(0xe8e8e8);
+  for (const sx of [-5.8, 5.8]) for (const sz of [-6, 6]) atrium.add(box(0.3, 6.6, 0.3, steel, sx, 3.3, sz));
+  for (let i = -5; i <= 5; i += 2.5) atrium.add(box(0.18, 0.18, 12, steel, i, 6.5, 0));
+  scene.add(atrium);
+
+  // the pentagonal water tank on the lawn
+  const pentagon = new THREE.Shape();
+  for (let i = 0; i <= 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    if (i === 0) pentagon.moveTo(Math.cos(a) * 3.6, Math.sin(a) * 3.6);
+    else pentagon.lineTo(Math.cos(a) * 3.6, Math.sin(a) * 3.6);
+  }
+  const rim = new THREE.ExtrudeGeometry(pentagon, { depth: 0.45, bevelEnabled: false });
+  rim.rotateX(-Math.PI / 2);
+  const tank = new THREE.Mesh(rim, mat(0xe2ddd2));
+  tank.position.set(0, 0, -15);
+  tank.receiveShadow = true;
+  scene.add(tank);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(3.1, 5), mat(0x3d9bd0, { roughness: 0.2 }));
+  water.rotation.x = -Math.PI / 2;
+  water.rotation.z = Math.PI / 2;
+  water.position.set(0, 0.47, -15);
+  scene.add(water);
+
+  // student residences to the east, a sports field to the west
+  const res = finger(42, -6, 22, 3, 8);
+  for (let f = 1; f < 3; f++) res.add(box(8.6, 0.15, 1.2, mat(0xffffff), 0, f * 3.4, 11.6));
+  const field = new THREE.Mesh(new THREE.PlaneGeometry(14, 22), mat(0x5fae4f));
+  field.rotation.x = -Math.PI / 2;
+  field.position.set(-42, 0.01, -18);
+  field.receiveShadow = true;
+  scene.add(field);
+  const line = mat(0xffffff);
+  for (const [w, d, x, z] of [[14, 0.15, -42, -7.1], [14, 0.15, -42, -28.9], [0.15, 22, -48.9, -18], [0.15, 22, -35.1, -18], [14, 0.15, -42, -18]]) {
+    const l = box(w, 0.02, d, line, x, 0.03, z);
+    l.castShadow = false;
+    scene.add(l);
+  }
+
+  for (const [text, x, y, z] of [["LIBRARY", -24, 8.6, -8], ["ATRIUM", 0, 8, -25],
+    ["LEARNING STREET", 0, 9.5, -40], ["RESIDENCES", 42, 12.4, -6], ["SPORTS FIELD", -42, 1.5, -18]]) {
+    const tag = label("lbl-building", text);
+    tag.position.set(x, y, z);
+    scene.add(tag);
+  }
+}
+
+// Mediterranean stone pine: tall bare trunk, flat wide crown
+function stonePine(x, z, s = 1) {
   const g = new THREE.Group();
-  const trunk = cylinder(0.18 * s, 0.26 * s, 1.6 * s, mat(0x7a5236), 7);
-  trunk.position.y = 0.8 * s;
-  const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3 * s, 0), mat(pick([0x4f9e4a, 0x5cae55, 0x47924a]), { flatShading: true }));
-  leaves.position.y = 2.3 * s;
-  leaves.castShadow = true;
-  const top = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85 * s, 0), mat(0x63b85b, { flatShading: true }));
-  top.position.set(0.3 * s, 3.1 * s, 0.1 * s);
-  top.castShadow = true;
-  g.add(trunk, leaves, top);
+  const trunk = cylinder(0.18 * s, 0.3 * s, 4.6 * s, mat(0x7a5236), 7);
+  trunk.position.y = 2.3 * s;
+  trunk.rotation.z = (Math.random() - 0.5) * 0.18;
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(2.7 * s, 9, 6), mat(pick([0x3f7f3a, 0x4a8a3f, 0x3b7536]), { flatShading: true }));
+  crown.scale.set(1, 0.42, 1);
+  crown.position.y = 4.9 * s;
+  crown.castShadow = true;
+  const crown2 = new THREE.Mesh(new THREE.SphereGeometry(1.8 * s, 8, 5), mat(0x4f9445, { flatShading: true }));
+  crown2.scale.set(1, 0.45, 1);
+  crown2.position.set(1.2 * s, 5.4 * s, 0.6 * s);
+  crown2.castShadow = true;
+  g.add(trunk, crown, crown2);
   g.position.set(x, 0, z);
   g.rotation.y = Math.random() * Math.PI;
   scene.add(g);
+}
+
+function juniper(x, z, s = 1) {
+  const bush = new THREE.Mesh(new THREE.ConeGeometry(0.9 * s, 2.4 * s, 7), mat(0x2f6a3a, { flatShading: true }));
+  bush.position.set(x, 1.2 * s, z);
+  bush.castShadow = true;
+  scene.add(bush);
 }
 
 function lamp(x, z) {
@@ -661,8 +818,8 @@ function initScene() {
   controls.maxDistance = 85;
   controls.addEventListener("change", () => {
     const t = controls.target;
-    t.x = THREE.MathUtils.clamp(t.x, -28, 28);
-    t.z = THREE.MathUtils.clamp(t.z, -24, 14);
+    t.x = THREE.MathUtils.clamp(t.x, -50, 45);
+    t.z = THREE.MathUtils.clamp(t.z, -40, 26);
     t.y = 0;
   });
 
@@ -671,20 +828,23 @@ function initScene() {
   const sun = new THREE.DirectionalLight(0xfff4e0, 2.4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 160 });
+  Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 60, bottom: -60, near: 1, far: 200 });
   sun.shadow.bias = -0.0004;
   scene.add(sun, sun.target);
   world.sun = sun;
 
   buildGround();
-  buildLibrary();
-  buildHall();
-  buildDorms();
+  buildCoast();
+  buildNovaCampus();
+  buildFort();
   buildKiosk();
   buildShed();
   buildClouds();
-  for (const [x, z, s] of [[-9, -6, 1.1], [-14, 6, 0.9], [-28, -2, 1.2], [-30, 8, 1], [12, -6, 1.1], [16, 6, 0.9],
-    [28, -4, 1.2], [30, 6, 1], [-6, -10, 1], [6, -12, 1.1], [-34, -16, 1.3], [34, -14, 1.2], [-22, 7, 0.8], [24, 8, 0.8]]) tree(x, z, s);
+  // the pine and juniper woodland around the campus
+  for (const [x, z, s] of [[-17, -2, 1.1], [-30, 4, 1.2], [-36, -2, 1], [-52, -8, 1.3], [-56, -24, 1.2], [-50, 4, 1.1],
+    [18, -2, 1], [31, 3, 1.2], [52, -8, 1.2], [56, -26, 1.3], [-31, -26, 1.1], [31, -27, 1], [-6, -46, 1.2],
+    [14, -50, 1.3], [-24, -50, 1.1], [36, -44, 1.2], [-44, -40, 1.3]]) stonePine(x, z, s);
+  for (const [x, z] of [[-14, 3], [-20, 5], [17, 4.5], [22, 5], [-5, -12], [5, -12], [-29, -6], [29, -6]]) juniper(x, z, 0.8 + Math.random() * 0.4);
   lamp(-11.5, 6.4);
   lamp(3.4, 6.6);
   lamp(-4, 8.3);
@@ -696,8 +856,9 @@ function initScene() {
   window.addEventListener("resize", resize);
   setSky(0);
 
-  renderer.setAnimationLoop(() => {
+  renderer.setAnimationLoop((now) => {
     controls.update();
+    waves(now / 1000);
     world.clouds.forEach((c, i) => {
       c.position.x += 0.004 * (i + 1);
       if (c.position.x > 60) c.position.x = -60;
@@ -707,11 +868,25 @@ function initScene() {
   });
 }
 
+// gentle Atlantic swell and foam at the shoreline
+function waves(t) {
+  if (calm.matches) return;
+  const pos = world.sea.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    pos.setZ(i, Math.sin(x * 0.11 + t * 1.1) * 0.16 + Math.cos(y * 0.17 + t * 0.8) * 0.14);
+  }
+  pos.needsUpdate = true;
+  world.foam.material.opacity = 0.45 + Math.sin(t * 1.3) * 0.25;
+  world.foam.position.z = SHORE_Z + 0.2 + Math.sin(t * 1.3) * 0.35;
+}
+
 function defaultView() {
   if (mode === "preview") return { position: new THREE.Vector3(-9, 21, 29), target: new THREE.Vector3(2, 0, -1) };
   const aspect = window.innerWidth / window.innerHeight;
   const k = aspect < 0.8 ? 1.9 : aspect < 1.3 ? 1.35 : 1;
-  return { position: new THREE.Vector3(-4 * k, 33 * k, 42 * k), target: new THREE.Vector3(1.5, 0, -4.5) };
+  return { position: new THREE.Vector3(-8 * k, 30 * k, 56 * k), target: new THREE.Vector3(1, 0, -4) };
 }
 
 function resetCamera(animate = true) {
@@ -771,6 +946,7 @@ function setSky(k) {
     l.light.intensity = night * 14;
   }
   world.windows.emissive.set(0x000000).lerp(new THREE.Color(0x8a6a20), night);
+  world.lighthouse.emissiveIntensity = night * 3;
 }
 
 // clicks on the kiosk or the shed open their panel; dragging the camera does not
@@ -1293,9 +1469,9 @@ async function walkAlong(person, points) {
 }
 
 function routeIn(door, to) {
-  const path = door === DOORS.library ? FOOTPATHS[0] : FOOTPATHS[1];
+  const path = door === DOORS.west ? FOOTPATHS[0] : FOOTPATHS[1];
   const approach = new THREE.Vector3(to.x + (door.x < to.x ? -1.2 : 1.2), 0, Math.max(to.z + 1.6, 6.4));
-  return [...path.slice(0, 3), approach, to];
+  return [...path.slice(0, -1), approach, to];
 }
 
 function routeOut(from) {
@@ -1308,6 +1484,29 @@ function routeOut(from) {
   ];
 }
 
+// After buying, some students head back along the road, others take the tunnel to the beach.
+async function leaveCampus(person) {
+  const from = person.position.clone();
+  if (Math.random() < 0.45) {
+    await walkAlong(person, [
+      from,
+      new THREE.Vector3(from.x - 1.5, 0, Math.max(from.z + 1.5, 6.8)),
+      new THREE.Vector3(TUNNEL.x + 2, 0, 7.2),
+      new THREE.Vector3(TUNNEL.x, 0, TUNNEL.campusZ - 0.4),
+    ]);
+    await tween(450, (k) => { person.position.y = -1.9 * k; }, linear);       // down into the tunnel
+    person.position.set(TUNNEL.x, -1.9, TUNNEL.beachZ - 0.4);
+    person.rotation.y = 0;
+    await tween(450, (k) => { person.position.y = -1.9 * (1 - k); }, linear); // up on the beach
+    const spot = new THREE.Vector3(TUNNEL.x - 8 + Math.random() * 30, 0, 19.5 + Math.random() * 3.5);
+    await walkAlong(person, [person.position.clone(), new THREE.Vector3(TUNNEL.x, 0, TUNNEL.beachZ + 1.2), spot]);
+    await wait(500);
+  } else {
+    await walkAlong(person, routeOut(from));
+  }
+  scene.remove(person);
+}
+
 // one lane per product window: students queue and are served one by one
 function makeLanes() {
   return Object.fromEntries(Object.keys(WINDOW_X).map((pid) => [pid, { queue: [], turn: Promise.resolve() }]));
@@ -1315,7 +1514,7 @@ function makeLanes() {
 
 async function visit(customer, ledger, lanes) {
   const person = buildPerson();
-  const door = Math.random() < 0.5 ? DOORS.library : DOORS.hall;
+  const door = Math.random() < 0.5 ? DOORS.west : DOORS.east;
   person.position.copy(door);
   scene.add(person);
   const lane = lanes[customer.pid];
@@ -1368,7 +1567,7 @@ async function visit(customer, ledger, lanes) {
       const start = other.position.clone();
       tween(350, (k) => other.position.lerpVectors(start, target, k));
     });
-    leave = walkAlong(person, routeOut(person.position.clone())).then(() => scene.remove(person));
+    leave = leaveCampus(person);
   });
   lane.turn = myTurn;
   await myTurn;

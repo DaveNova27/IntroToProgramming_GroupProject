@@ -36,10 +36,11 @@ h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
 p { margin: 0; }
 
 .shell { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
-#stage { position: absolute; inset: 0; }
+#stage { position: absolute; inset: 0; z-index: 0; }
 #stage canvas { display: block; touch-action: none; }
 #stage.pointer canvas { cursor: pointer; }
-.labels { position: absolute; inset: 0; pointer-events: none; }
+/* labels get their own stacking layer, so they always stay below the HUD */
+.labels { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .loading {
   position: absolute;
   inset: 0;
