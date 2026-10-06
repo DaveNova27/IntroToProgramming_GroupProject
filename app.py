@@ -87,6 +87,11 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.get("/map")
+def campus_map():
+    return send_from_directory(app.static_folder, "map.html")
+
+
 @app.get("/api/state")
 def get_state():
     with _lock:

@@ -3,8 +3,6 @@
 // (affordability, valid prices, demand, the day's result) is decided in
 // logic.py; a rejected action comes back as an error and changes nothing.
 
-const EMOJI = { sandwich: "🥪", coffee: "☕", cookie: "🍪" };
-const ACCENT = { sandwich: "var(--sandwich)", coffee: "var(--coffee)", cookie: "var(--cookie)" };
 
 let state = null;
 let busy = false;
@@ -13,34 +11,8 @@ const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 // ---- helpers ---------------------------------------------------------------
 
-const $ = (sel, root = document) => root.querySelector(sel);
-
-function esc(text) {
-  return String(text).replace(/[&<>"']/g, (c) => (
-    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
-  ));
-}
-
-// cents -> "€12.50", the same format as logic.fmt
-function fmt(cents) {
-  const sign = cents < 0 ? "-" : "";
-  const euros = (Math.abs(cents) / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `${sign}€${euros}`;
-}
-const fmtSigned = (cents) => (cents > 0 ? "+" : "") + fmt(cents);
+// $, esc, fmt, fmtSigned and toast come from common.js
 const fmtAxis = (cents) => `${cents < 0 ? "-" : ""}€${(Math.abs(cents) / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-
-function toast(text, kind = "ok") {
-  const el = document.createElement("div");
-  el.className = `toast ${kind === "error" ? "error" : ""}`;
-  el.innerHTML = `<span aria-hidden="true">${kind === "error" ? "✕" : "✓"}</span><span></span>`;
-  el.lastChild.textContent = text;
-  $("#toasts").append(el);
-  setTimeout(() => el.remove(), kind === "error" ? 6000 : 3500);
-}
 
 async function send(path, body) {
   if (busy) return null;
