@@ -43,9 +43,12 @@ def euros_to_cents(text):
     """Turn '4', '4.5' or '4,01' into cents. Reject more than two decimals (CT R3)."""
     try:
         value = Decimal(str(text).strip().replace(",", "."))
+        if not value.is_finite():
+            raise RejectedAction("Enter a finite euro amount.")
+        rounded = value.quantize(Decimal("0.01"))
     except InvalidOperation:
         raise RejectedAction(f"'{text}' is not a valid euro amount.")
-    if value != value.quantize(Decimal("0.01")):
+    if value != rounded:
         raise RejectedAction("Use at most two decimal places.")
     return int(value * 100)
 

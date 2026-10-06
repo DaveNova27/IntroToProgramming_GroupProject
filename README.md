@@ -42,14 +42,12 @@ animate that answer.
 | `campus-map.md` | `campus-map` | 3D campus map with truck, queues, ticker |
 | `view-switch.md` | `view-switch` | Live window on the dashboard, map as main view, dashboard as side panel |
 | `nova-campus.md` | `nova-campus` | Scene styled after Nova SBE Carcavelos (beach, tunnel, fort, pines) |
+| `finite-prices.md` | `finite-prices` | Refuse non-finite prices without changing the saved run; regression checks in `checks/` |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
 ## Known issues and ideas
 
-- `logic.euros_to_cents("Infinity")` raises an uncaught `InvalidOperation`, so the
-  server answers 500 (nothing is saved; the page shows "The server hit an
-  error"). Fix in `logic.py` with its own small spec and test.
 - The 3D map needs an internet connection for three.js; the dashboard works offline.
 - To try changes without touching your own save, copy `app.py`, `logic.py`,
   `db.py` and `static/` to a temporary folder and start it there on another
