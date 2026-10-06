@@ -57,7 +57,7 @@ function tellDashboard(message) {
 
 // scene objects that change with the run
 let scene, camera, renderer, labels, controls;
-const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null, sea: null, foam: null, lighthouse: null };
+const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null, sea: null, foam: null, lighthouse: null, sky: null };
 
 // ---- small helpers -----------------------------------------------------------
 
@@ -82,7 +82,9 @@ function tween(ms, update, easing = easeInOut) {
   return new Promise((resolve) => {
     const start = performance.now();
     const frame = (now) => {
-      const t = fast ? 1 : Math.min((now - start) / ms, 1);
+      // A frame timestamp can precede performance.now() from the same frame.
+      // Curves require 0..1, including while Skip finishes concurrent walks.
+      const t = fast ? 1 : Math.max(0, Math.min((now - start) / ms, 1));
       update(easing(t));
       if (t < 1) nextFrame(frame);
       else resolve();
@@ -284,16 +286,86 @@ const SHORE_Z = 24.5;                                    // where the sand meets
 
 const WHITE = 0xf4f2ec;
 
+// Small procedural finishes keep the diorama crisp without downloaded assets.
+function pavingMaterial() {
+  const texture = canvasTexture(512, 512, (c, w, h) => {
+    c.fillStyle = "#e4ddc9";
+    c.fillRect(0, 0, w, h);
+    for (let row = 0; row < 8; row++) for (let col = -1; col < 8; col++) {
+      c.fillStyle = ["#eee7d7", "#e9e1d1", "#f2eadc"][(row + col + 9) % 3];
+      c.fillRect(col * 64 + (row % 2) * 32 + 1, row * 64 + 1, 62, 62);
+    }
+  });
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return mat(0xffffff, { map: texture });
+}
+
+function planter(x, z, width = 2.1) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.add(box(width, 0.48, 0.85, mat(0xd5c6ae), 0, 0.24, 0));
+  g.add(box(width - 0.16, 0.05, 0.68, mat(0x68523d), 0, 0.5, 0));
+  for (let i = 0; i < 5; i++) {
+    const foliage = new THREE.Mesh(new THREE.IcosahedronGeometry(0.36, 1), mat(0x638b57, { flatShading: true }));
+    foliage.position.set((i - 2) * width / 5, 0.67, 0);
+    foliage.scale.y = 0.8;
+    g.add(foliage);
+    const flower = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0), mat(i % 2 ? 0xe9b969 : 0xc38aa1));
+    flower.position.set((i - 2) * width / 5, 0.95, 0.06);
+    g.add(flower);
+  }
+  scene.add(g);
+}
+
+function buildPlazaDetails() {
+  // Seating is off the service routes; the three queues retain their space.
+  const wood = mat(0xb68a60);
+  const teal = mat(0x286b66);
+  for (const [x, z] of [[-10, 3.4], [1.5, 3.3]]) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const top = cylinder(0.75, 0.75, 0.12, wood, 16);
+    top.position.y = 0.88;
+    const stem = cylinder(0.08, 0.12, 0.82, teal, 8);
+    stem.position.y = 0.41;
+    g.add(top, stem);
+    for (const side of [-1, 1]) {
+      const seat = cylinder(0.32, 0.32, 0.12, teal, 12);
+      seat.position.set(side * 1.1, 0.48, 0);
+      g.add(seat, box(0.1, 0.45, 0.1, teal, side * 1.1, 0.22, 0));
+    }
+    const cup = productMesh("coffee");
+    cup.position.set(0.25, 0.96, 0.1);
+    g.add(cup);
+    scene.add(g);
+  }
+  for (const [x, z, width] of [[-8.6, -2.8, 2.4], [0.5, -2.8, 2.4], [-13, 0, 2], [13.4, 1.4, 2.6], [-3, -10, 2], [3, -10, 2]]) planter(x, z, width);
+  // Low stone edges and timber slats give the plaza a landscaped boundary.
+  const stone = mat(0xd8cdb8);
+  for (const x of [-13.5, 14.5]) {
+    scene.add(box(0.45, 0.32, 4, stone, x, 0.16, 3));
+    scene.add(box(0.65, 0.1, 2.2, wood, x, 0.37, 3));
+  }
+  // A decorative surfboard connects the snack stand to the beach.
+  const board = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1.7, 4, 12), mat(0xf0b768));
+  board.scale.z = 0.18;
+  board.position.set(KIOSK.x - 3.45, 1.1, 1.6);
+  board.rotation.z = -0.18;
+  board.castShadow = true;
+  scene.add(board);
+}
+
 function buildGround() {
   // the campus ends at the beach: grass only up to the promenade
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(240, 112), mat(0x8cc870));
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(400, 200), mat(0xa4bb83));
   grass.rotation.x = -Math.PI / 2;
-  grass.position.z = -40;
+  grass.position.z = -84;
   grass.receiveShadow = true;
   scene.add(grass);
 
   for (const [x, z, r] of [[-20, 2, 5], [20, 2, 4], [0, -2, 4], [-34, -4, 6], [34, -2, 5]]) {
-    const patch = new THREE.Mesh(new THREE.CircleGeometry(r, 24), mat(0x80bd65));
+    const patch = new THREE.Mesh(new THREE.CircleGeometry(r, 24), mat(0x94af75));
     patch.rotation.x = -Math.PI / 2;
     patch.position.set(x, 0.005, z);
     patch.receiveShadow = true;
@@ -301,7 +373,8 @@ function buildGround() {
   }
 
   // footpaths from the buildings to the plaza and to the beach tunnel, and the plaza
-  const pathMat = mat(0xeadfc4, { side: THREE.DoubleSide });
+  const pathMat = pavingMaterial();
+  pathMat.side = THREE.DoubleSide;
   for (const pts of FOOTPATHS) scene.add(ribbon(new THREE.CatmullRomCurve3(pts), 2.2, pathMat));
   scene.add(ribbon(new THREE.CatmullRomCurve3([
     new THREE.Vector3(-11, 0, 6.6), new THREE.Vector3(-14.5, 0, 7.2), new THREE.Vector3(TUNNEL.x, 0, TUNNEL.campusZ - 0.6),
@@ -316,7 +389,7 @@ function buildGround() {
   // driveway, sidewalk, coastal road with lane markings, promenade
   scene.add(box(3.2, 0.06, 6.6, mat(0xc9c5ba), SHED.x, 0.03, 5.3));
   scene.add(box(240, 0.14, 1.0, mat(0xdcd7ca), 0, 0.07, 9.0));
-  const road = box(240, 0.06, 6.2, mat(0x5d6168), 0, 0.03, 12.6);
+  const road = box(240, 0.06, 6.2, mat(0x697576), 0, 0.03, 12.6);
   road.castShadow = false;
   scene.add(road);
   const dash = mat(0xf5f2e8);
@@ -326,6 +399,10 @@ function buildGround() {
     scene.add(d);
   }
   scene.add(box(240, 0.22, 1.1, mat(0xd8d1bf), 0, 0.11, 16.25));
+  // Continuous edge lines and a zebra crossing at the tunnel.
+  const paint = mat(0xeee9d8);
+  for (const z of [9.75, 15.45]) scene.add(box(240, 0.015, 0.09, paint, 0, 0.072, z));
+  for (let z = 10; z < 15.4; z += 0.85) scene.add(box(3.2, 0.015, 0.42, paint, -22, 0.075, z));
 }
 
 function buildCoast() {
@@ -339,7 +416,7 @@ function buildCoast() {
   // the Atlantic, with gentle waves (moved in the render loop)
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(320, 160, 96, 48),
-    new THREE.MeshStandardMaterial({ color: 0x2f8fc4, roughness: 0.35, metalness: 0.05, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0x379fa9, roughness: 0.28, metalness: 0.12, flatShading: true }),
   );
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, -0.25, SHORE_Z + 80);
@@ -351,6 +428,18 @@ function buildCoast() {
   foam.position.set(0, 0.04, SHORE_Z + 0.2);
   scene.add(foam);
   world.foam = foam;
+  // Shallow turquoise water and broken foam avoid a ruler-straight shoreline.
+  const shallows = new THREE.Mesh(new THREE.PlaneGeometry(240, 4), mat(0x69c5bc, { transparent: true, opacity: 0.6, depthWrite: false }));
+  shallows.rotation.x = -Math.PI / 2;
+  shallows.position.set(0, -0.08, SHORE_Z + 2);
+  scene.add(shallows);
+  const foamMat = new THREE.MeshBasicMaterial({ color: 0xe2f4e7, transparent: true, opacity: 0.5, depthWrite: false });
+  for (let i = 0; i < 28; i++) {
+    const ripple = new THREE.Mesh(new THREE.PlaneGeometry(1.8 + (i % 4), 0.12), foamMat);
+    ripple.rotation.x = -Math.PI / 2;
+    ripple.position.set(-58 + i * 4.4, 0.05, SHORE_Z + 1.8 + Math.sin(i * 1.7) * 0.7);
+    scene.add(ripple);
+  }
 
   // beach umbrellas and towels
   const colours = [0xe34948, 0xffd25a, 0x2a78d6, 0x1baf7a, 0xe87ba4, 0xeb6834];
@@ -444,6 +533,24 @@ function finger(x, front, length, floors, width = 9) {
     g.add(box(0.16, 1.7, length - 1.6, world.windows, width / 2 + 0.04, y, 0));
     g.add(box(0.16, 1.7, length - 1.6, world.windows, -width / 2 - 0.04, y, 0));
     g.add(box(width - 1.6, 1.7, 0.16, world.windows, 0, y, length / 2 + 0.04));
+    const frame = mat(0xc3d0cb);
+    for (let dx = -width / 2 + 1.1; dx < width / 2 - 0.6; dx += 1.35) {
+      g.add(box(0.07, 1.7, 0.18, frame, dx, y, length / 2 + 0.14));
+    }
+    for (let dz = -length / 2 + 1.2; dz < length / 2 - 0.6; dz += 2.1) {
+      for (const side of [-1, 1]) g.add(box(0.18, 1.7, 0.07, frame, side * (width / 2 + 0.13), y, dz));
+    }
+    g.add(box(width + 0.4, 0.12, 0.7, mat(0xe8e4d8), 0, y + 1, length / 2 + 0.22));
+  }
+  // Parapet and rooftop solar panels break up the large blank roofs.
+  const trim = mat(0xdedfd3);
+  for (const side of [-1, 1]) g.add(box(0.14, 0.38, length, trim, side * width / 2, h + 0.55, 0));
+  const solar = mat(0x3b6070, { roughness: 0.3, metalness: 0.25 });
+  for (let dz = -length / 2 + 4; dz < length / 2 - 4; dz += 5) {
+    const panel = box(width * 0.55, 0.12, 2.5, solar, 0, h + 0.55, dz);
+    panel.rotation.x = -0.15;
+    g.add(panel);
+    for (let dx = -2; dx <= 2; dx++) g.add(box(0.025, 0.04, 2.4, trim, dx, h + 0.77, dz));
   }
   g.add(box(3.2, 2.7, 0.3, mat(0x2d3a48, { roughness: 0.3 }), 0, 1.35, length / 2 + 0.12)); // entrance
   g.add(box(4.6, 0.25, 2.4, mat(0xffffff), 0, 3.0, length / 2 + 1.2));                   // entrance canopy
@@ -452,7 +559,7 @@ function finger(x, front, length, floors, width = 9) {
 }
 
 function buildNovaCampus() {
-  world.windows = mat(0x5f87a6, { roughness: 0.15, metalness: 0.3, emissive: 0x000000 });
+  world.windows = mat(0x72a7ae, { roughness: 0.25, metalness: 0.12, emissive: 0x000000 });
 
   // four fingers behind the plaza, joined at the back by the learning street
   finger(-24, -8, 28, 2);
@@ -606,22 +713,28 @@ function buildKiosk() {
   g.userData.hotspot = "prices";
 
   g.add(box(6, 2.7, 4, mat(0xf6e6cb), 0, 1.35, 0));
+  const timber = mat(0xcba77b);
+  for (let x = -2.85; x < 3; x += 0.3) g.add(box(0.025, 1.25, 0.14, timber, x, 0.67, 2.7));
+  for (const side of [-1, 1]) {
+    g.add(box(0.14, 2.7, 0.14, mat(0x286b66), side * 3, 1.35, 2));
+    g.add(box(0.16, 0.12, 3.8, timber, side * 3.02, 0.8, 0));
+  }
   g.add(box(5.4, 1.05, 0.1, mat(0x3b2b2b), 0, 2.0, 2.0));                 // window opening
   g.add(box(6.4, 0.16, 1.1, mat(0xb98455), 0, 1.42, 2.3));                // counter top
   g.add(box(6.0, 1.34, 0.12, mat(0xd8a46f), 0, 0.67, 2.78));              // counter front
-  g.add(box(6.6, 0.25, 4.6, mat(0x2b2d42), 0, 2.82, 0));                  // roof
+  g.add(box(6.6, 0.25, 4.6, mat(0x245b57), 0, 2.82, 0));                  // roof
 
   // sign on the roof
   const sign = canvasTexture(512, 96, (c, w, h) => {
-    c.fillStyle = "#2b2d42";
+    c.fillStyle = "#245b57";
     c.fillRect(0, 0, w, h);
-    c.fillStyle = "#ffd25a";
+    c.fillStyle = "#fff0cc";
     c.font = "800 52px system-ui, sans-serif";
     c.textAlign = "center";
     c.textBaseline = "middle";
     c.fillText("CAMPUS SNACKS", w / 2, h / 2 + 3);
   });
-  const navy = mat(0x2b2d42);
+  const navy = mat(0x245b57);
   const signMesh = new THREE.Mesh(new THREE.BoxGeometry(5.8, 1.0, 0.25), [navy, navy, navy, navy, mat(0xffffff, { map: sign }), navy]);
   signMesh.position.set(0, 3.5, 1.7);
   signMesh.castShadow = true;
@@ -631,7 +744,7 @@ function buildKiosk() {
   const awningTex = canvasTexture(512, 160, (c, w) => {
     const stripe = w / 16;
     for (let i = 0; i < 16; i++) {
-      c.fillStyle = i % 2 ? "#fff6e8" : "#e34948";
+      c.fillStyle = i % 2 ? "#fff6e8" : "#cc795d";
       c.fillRect(i * stripe, 0, stripe, 120);
       c.beginPath();
       c.arc(i * stripe + stripe / 2, 120, stripe / 2, 0, Math.PI);
@@ -646,6 +759,13 @@ function buildKiosk() {
   awning.rotation.x = -1.05;
   awning.castShadow = true;
   g.add(awning);
+  // Warm bulbs tucked under the canopy.
+  const bulbMat = mat(0xffe7ae, { emissive: 0xffbf64, emissiveIntensity: 0.5 });
+  for (let x = -2.8; x <= 2.8; x += 0.7) {
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), bulbMat);
+    bulb.position.set(x, 2.44, 3.15);
+    g.add(bulb);
+  }
 
   // menu board on the counter front: price and demand per product
   const menuCanvas = document.createElement("canvas");
@@ -692,7 +812,7 @@ function buildShed() {
   g.add(box(0.2, 3.4, 5.2, wood, -3.6, 1.7, 0));                          // sides
   g.add(box(0.2, 3.4, 5.2, wood, 3.6, 1.7, 0));
   g.add(box(7.4, 0.5, 0.2, wood, 0, 3.15, 2.5));                          // lintel
-  const roof = prism(8.2, 1.8, 5.8, mat(0x7a4a35));
+  const roof = prism(8.2, 1.8, 5.8, mat(0x557d71));
   roof.position.set(0, 3.4, 0);
   g.add(roof);
   const sign = canvasTexture(256, 64, (c, w, h) => {
@@ -794,7 +914,7 @@ function initScene() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.15;
   stage.append(renderer.domElement);
 
   labels = new CSS2DRenderer();
@@ -803,7 +923,15 @@ function initScene() {
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xbfe3fb);
-  scene.fog = new THREE.Fog(0xbfe3fb, 70, 160);
+  scene.fog = new THREE.Fog(0xd8e8df, 75, 170);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(195, 24, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { zenith: { value: new THREE.Color(0x80bacb) }, horizon: { value: new THREE.Color(0xf4e9cf) } },
+    vertexShader: "varying vec3 direction; void main(){ direction = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: "uniform vec3 zenith; uniform vec3 horizon; varying vec3 direction; void main(){ float h = smoothstep(-0.05, 0.65, normalize(direction).y); gl_FragColor = vec4(mix(horizon, zenith, h), 1.0);\n #include <tonemapping_fragment>\n #include <colorspace_fragment>\n }",
+  }));
+  scene.add(sky);
+  world.sky = sky.material.uniforms;
 
   camera = new THREE.PerspectiveCamera(40, 1, 0.5, 400);
   controls = new OrbitControls(camera, renderer.domElement);
@@ -818,13 +946,15 @@ function initScene() {
     t.y = 0;
   });
 
-  world.hemi = new THREE.HemisphereLight(0xdff1ff, 0x6a8f4e, 1.1);
+  world.hemi = new THREE.HemisphereLight(0xe9f5ff, 0xc6b998, 1.45);
   scene.add(world.hemi);
   const sun = new THREE.DirectionalLight(0xfff4e0, 2.4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 60, bottom: -60, near: 1, far: 200 });
+  Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 50, bottom: -50, near: 1, far: 150 });
   sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.035;
+  sun.shadow.radius = 3;
   scene.add(sun, sun.target);
   world.sun = sun;
 
@@ -834,6 +964,7 @@ function initScene() {
   buildFort();
   buildKiosk();
   buildShed();
+  buildPlazaDetails();
   buildClouds();
   // the pine and juniper woodland around the campus
   for (const [x, z, s] of [[-17, -2, 1.1], [-30, 4, 1.2], [-36, -2, 1], [-52, -8, 1.3], [-56, -24, 1.2], [-50, 4, 1.1],
@@ -855,6 +986,7 @@ function initScene() {
     controls.update();
     waves(now / 1000);
     world.clouds.forEach((c, i) => {
+      if (calm.matches) return;
       c.position.x += 0.004 * (i + 1);
       if (c.position.x > 60) c.position.x = -60;
     });
@@ -878,10 +1010,10 @@ function waves(t) {
 }
 
 function defaultView() {
-  if (mode === "preview") return { position: new THREE.Vector3(-9, 21, 29), target: new THREE.Vector3(2, 0, -1) };
+  if (mode === "preview") return { position: new THREE.Vector3(-18, 23, 31), target: new THREE.Vector3(0, 0, -3) };
   const aspect = window.innerWidth / window.innerHeight;
   const k = aspect < 0.8 ? 1.9 : aspect < 1.3 ? 1.35 : 1;
-  return { position: new THREE.Vector3(-8 * k, 30 * k, 56 * k), target: new THREE.Vector3(1, 0, -4) };
+  return { position: new THREE.Vector3(-26 * k, 35 * k, 53 * k), target: new THREE.Vector3(0, 0, -6) };
 }
 
 function resetCamera(animate = true) {
@@ -928,13 +1060,16 @@ function setSky(k) {
   }
   scene.background.copy(color);
   scene.fog.color.copy(color);
+  world.sky.zenith.value.set(0x80bacb).lerp(color, THREE.MathUtils.smoothstep(k, 0.65, 1));
+  world.sky.horizon.value.set(0xd8e8df).lerp(color, THREE.MathUtils.smoothstep(k, 0.5, 1));
+  scene.fog.color.copy(world.sky.horizon.value);
 
   const angle = Math.PI * (0.12 + 0.76 * k);
   world.sun.position.set(-Math.cos(angle) * 40, Math.sin(angle) * 38 + 4, 18);
   const dusk = THREE.MathUtils.smoothstep(k, 0.65, 1);
   world.sun.intensity = 2.4 - dusk * 1.5;
   world.sun.color.set(0xfff4e0).lerp(new THREE.Color(0xff9a5a), dusk);
-  world.hemi.intensity = 1.1 - dusk * 0.45;
+  world.hemi.intensity = 1.45 - dusk * 0.7;
   const night = THREE.MathUtils.smoothstep(k, 0.8, 1);
   for (const l of world.lamps) {
     l.bulbMat.emissiveIntensity = night * 2.2;
@@ -1122,6 +1257,7 @@ function openPanel(mode) {
 function closePanel() {
   panelMode = null;
   $("#panel").hidden = true;
+  tellDashboard({ type: "panel-closed" });
 }
 
 function renderPanel() {
@@ -1344,7 +1480,7 @@ function setMode(next) {
   const preview = mode === "preview";
   document.body.classList.toggle("preview", preview);
   controls.enabled = !preview;
-  controls.autoRotate = preview;
+  controls.autoRotate = preview && !calm.matches;
   controls.autoRotateSpeed = 0.5;
   if (preview) closePanel();
   resetCamera(!calm.matches);
@@ -1448,6 +1584,11 @@ function queueSpot(pid, place) {
 async function walkAlong(person, points) {
   const curve = new THREE.CatmullRomCurve3(points);
   const length = curve.getLength();
+  if (length < 0.0001) {
+    person.position.copy(points[points.length - 1]);
+    person.legs.forEach((leg) => { leg.rotation.x = 0; });
+    return;
+  }
   await tween((length / WALK_SPEED) * 1000, (k) => {
     person.position.copy(curve.getPointAt(k));
     const tan = curve.getTangentAt(k);

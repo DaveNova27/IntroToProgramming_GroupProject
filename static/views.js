@@ -27,7 +27,11 @@ window.addEventListener("message", (e) => {
   if (msg.type === "ready") tellMap({ type: "mode", mode: view === "map" ? "main" : "preview" });
   if (msg.type === "action") applyExternalState(msg.after);
   if (msg.type === "open-dashboard") openDrawer();
-  if (msg.type === "panel-open") closeDrawer();
+  if (msg.type === "panel-open") {
+    closeDrawer();
+    handle.hidden = true; // keep the map panel's close button unobstructed
+  }
+  if (msg.type === "panel-closed" && view === "map" && !dash.classList.contains("open")) handle.hidden = false;
 });
 
 // ---- the live window on the dashboard ------------------------------------------------
