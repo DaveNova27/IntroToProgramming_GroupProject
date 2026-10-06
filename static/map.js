@@ -39,6 +39,22 @@ let panelMode = null;
 let orderProduct = "sandwich";
 const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+// Inside the dashboard page the map runs embedded: as a small live window
+// ("preview") or as the main view. Opened on its own it is always the main view.
+const embedded = new URLSearchParams(location.search).has("embed");
+let mode = embedded ? "preview" : "main";
+
+// Animations play one after another, in the order the actions happened,
+// whether the action came from the map or from the dashboard.
+let chain = Promise.resolve();
+function enqueue(job) {
+  chain = chain.then(job).catch((err) => console.error(err));
+  return chain;
+}
+function tellDashboard(message) {
+  if (embedded) window.parent.postMessage(message, location.origin);
+}
+
 // scene objects that change with the run
 let scene, camera, renderer, labels, controls;
 const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null };
@@ -692,6 +708,7 @@ function initScene() {
 }
 
 function defaultView() {
+  if (mode === "preview") return { position: new THREE.Vector3(-9, 21, 29), target: new THREE.Vector3(2, 0, -1) };
   const aspect = window.innerWidth / window.innerHeight;
   const k = aspect < 0.8 ? 1.9 : aspect < 1.3 ? 1.35 : 1;
   return { position: new THREE.Vector3(-4 * k, 33 * k, 42 * k), target: new THREE.Vector3(1.5, 0, -4.5) };
@@ -932,6 +949,7 @@ function openPanel(mode) {
   if (animating || state.finished) return;
   panelMode = mode;
   $("#panel").hidden = false;
+  tellDashboard({ type: "panel-open" }); // the map's panel and the dashboard panel share the right side
   renderPanel();
 }
 function closePanel() {
@@ -1069,16 +1087,20 @@ async function order(pid, quantityText) {
   const before = state;
   const data = await send("/api/buy", { product: pid, quantity: quantityText });
   if (!data) return;
-  state = data.state;
   if (data.error) {
     // nothing changed; keep the panel and what was typed, show why
+    state = data.state;
     renderHud();
     renderToolbar();
     $("#order-error").textContent = data.error;
     return toast(data.error, "error");
   }
   closePanel();
-  await run(() => playDelivery(pid, before));
+  tellDashboard({ type: "action", after: data.state });
+  await enqueue(async () => {
+    state = data.state;
+    await run(() => playDelivery(pid, before));
+  });
   toast(data.message);
 }
 
@@ -1097,6 +1119,7 @@ async function savePrice(form) {
   form.querySelector("[data-demand]").innerHTML = `Sells up to <b>${p.demand}</b> a day`;
   renderKiosk(stockOf(state));
   renderStockRows(stockOf(state));
+  tellDashboard({ type: "action", after: data.state });
   toast(data.message);
 }
 
@@ -1106,15 +1129,58 @@ async function openDay() {
   const before = state;
   const data = await send("/api/open", { day: state.day });
   if (!data) return;
-  state = data.state;
   if (data.error) {
+    state = data.state;
     renderAll();
     return toast(data.error, "error");
   }
-  const result = state.history[state.history.length - 1];
-  dayRunning = result.day;
-  await run(() => playDay(before, result));
-  showDaySummary(result);
+  tellDashboard({ type: "action", after: data.state });
+  await enqueue(async () => {
+    state = data.state;
+    const result = state.history[state.history.length - 1];
+    dayRunning = result.day;
+    await run(() => playDay(before, result));
+    showDaySummary(result);
+  });
+}
+
+// The dashboard did something: show it on the campus. Its own screen already
+// shows the numbers, so a trading day ends without the summary card here.
+function syncFromDashboard(msg) {
+  enqueue(async () => {
+    const before = msg.before;
+    state = msg.after;
+    if (msg.kind === "buy") {
+      closePanel();
+      await run(() => playDelivery(msg.product, before));
+    } else if (msg.kind === "open") {
+      closePanel();
+      hideOverlay();
+      const result = state.history[state.history.length - 1];
+      dayRunning = result.day;
+      await run(() => playDay(before, result));
+      await wait(1200);
+      await tween(900, (k) => setSky(1 - k), linear);
+    } else {
+      if (msg.kind === "new-run") {
+        hideOverlay();
+        $("#ticker").hidden = true;
+        setSky(0);
+      }
+      renderAll();
+    }
+  });
+}
+
+function setMode(next) {
+  mode = next;
+  const preview = mode === "preview";
+  document.body.classList.toggle("preview", preview);
+  controls.enabled = !preview;
+  controls.autoRotate = preview;
+  controls.autoRotateSpeed = 0.5;
+  if (preview) closePanel();
+  resetCamera(!calm.matches);
 }
 
 // ---- animation helpers ---------------------------------------------------------------
@@ -1414,6 +1480,7 @@ function wireOverlay() {
     $("#ticker").hidden = true;
     setSky(0);
     renderAll();
+    tellDashboard({ type: "action", after: data.state });
     toast(data.message);
   });
 }
@@ -1426,12 +1493,25 @@ function wireUi() {
   $("#btn-open").addEventListener("click", openDay);
   $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-camera").addEventListener("click", () => resetCamera(true));
+  // embedded: the "Dashboard" link slides the dashboard panel in instead of leaving
+  $(".views a").addEventListener("click", (e) => {
+    if (!embedded) return;
+    e.preventDefault();
+    tellDashboard({ type: "open-dashboard" });
+  });
+  window.addEventListener("message", (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    const msg = e.data || {};
+    if (msg.type === "mode") setMode(msg.mode);
+    if (msg.type === "action") syncFromDashboard(msg);
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && panelMode) closePanel();
   });
 }
 
 async function boot() {
+  document.body.classList.toggle("preview", mode === "preview");
   initScene();
   wirePicking();
   wireUi();
@@ -1445,6 +1525,8 @@ async function boot() {
   renderAll();
   $("#loading").hidden = true;
   if (state.finished) showFinal();
+  if (mode === "preview") setMode("preview");
+  tellDashboard({ type: "ready" });
 }
 
-boot();
+chain = boot();

@@ -35,10 +35,17 @@ async function send(path, body) {
     // only an accepted price replaces the typed price with the saved one
     const kept = path === "/api/new-run" ? {} : captureInputs();
     if (!data.error && path === "/api/price") delete kept[body.product]?.price;
+    const before = state;
     state = data.state;
     render(kept);
     if (data.error) toast(data.error, "error");
-    else toast(data.message);
+    else {
+      toast(data.message);
+      // tell the campus map (views.js), so it can animate what just happened
+      window.dispatchEvent(new CustomEvent("run-changed", {
+        detail: { kind: path.split("/").pop(), product: body.product, before, after: data.state },
+      }));
+    }
     return data;
   } catch (err) {
     toast("Could not reach the server. Is app.py still running?", "error");
@@ -637,6 +644,17 @@ function wireNewRun() {
   $("#new-run-dialog").addEventListener("close", (e) => {
     if (e.target.returnValue === "confirm") send("/api/new-run", { confirm: true });
   });
+}
+
+// The campus map changed the run: show its new state, keeping what was typed.
+function applyExternalState(next) {
+  if (!state) {
+    state = next;
+    return render();
+  }
+  const kept = captureInputs();
+  state = next;
+  render(kept);
 }
 
 // ---- boot --------------------------------------------------------------------

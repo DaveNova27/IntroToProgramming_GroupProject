@@ -10,12 +10,15 @@ Run it with:  uv run python app.py   (then open http://127.0.0.1:8000)
 
 import threading
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory
 
 import db
 import logic
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+# Let the browser re-check the page files on every load (a cheap "not modified"
+# answer), so an updated dashboard or map is never served from an old cache.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 _lock = threading.Lock()  # one change at a time: load -> rule -> save
 
 
@@ -89,6 +92,10 @@ def index():
 
 @app.get("/map")
 def campus_map():
+    # The map lives inside the dashboard page (as its live window or main view);
+    # only the embedded copy is served here directly.
+    if "embed" not in request.args:
+        return redirect("/#map")
     return send_from_directory(app.static_folder, "map.html")
 
 

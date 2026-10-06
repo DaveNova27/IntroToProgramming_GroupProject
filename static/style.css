@@ -136,7 +136,9 @@ button, input { font: inherit; color: inherit; }
 .products { grid-column: span 8; }
 .open-panel { grid-column: span 4; align-self: start; }
 .chart-card { grid-column: span 6; }
-.result-card, .history-card, .final-banner, .stock-card { grid-column: 1 / -1; }
+.result-card, .history-card, .final-banner { grid-column: 1 / -1; }
+.campus-card { grid-column: span 5; }
+.stock-card { grid-column: span 7; }
 
 .card {
   background: var(--surface);
@@ -474,6 +476,106 @@ body.busy .btn { cursor: progress; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* ---- dashboard and campus map views ----------------------------------- */
+.dash { container: dash / inline-size; }
+.drawer-bar { display: none; }
+
+.campus-card { display: flex; flex-direction: column; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-2); }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: #e34948; animation: live 1.6s ease-in-out infinite; }
+@keyframes live { 50% { opacity: 0.3; } }
+.campus-slot {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 220px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(#bfe3fb, #a9d98f);
+  cursor: zoom-in;
+}
+.campus-slot .enlarge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(11, 11, 11, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  transition: transform 0.15s;
+}
+.campus-slot:hover .enlarge { transform: scale(1.06); }
+
+/* the map frame sits over the slot (dashboard view) or fills the screen (map view) */
+.campus-frame {
+  position: absolute;
+  z-index: 2;
+  border: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  background: #bfe3fb;
+}
+.campus-frame.main { position: fixed; z-index: 20; pointer-events: auto; }
+.campus-frame.moving { transition: top 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), border-radius 0.5s; }
+body.map-main { overflow: hidden; }
+
+/* while the map is the main view the dashboard becomes a panel on the right */
+.dash.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: min(480px, 100vw);
+  overflow-y: auto;
+  background: var(--page);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  transform: translateX(105%);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dash.drawer.open { transform: none; }
+.dash.drawer .drawer-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.dash.drawer .drawer-bar strong { margin-right: auto; }
+.dash.drawer .campus-card, .dash.drawer #show-map { display: none; }
+.btn.small.icon { width: 32px; padding: 0; justify-content: center; }
+.drawer-handle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 0;
+  border-radius: 14px 0 0 14px;
+  background: var(--ink);
+  color: var(--page);
+  font: 600 13px var(--font);
+  cursor: pointer;
+  transform: translateY(-50%);
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.2);
+}
+.drawer-handle span { writing-mode: vertical-rl; transform: rotate(180deg); }
+.drawer-handle[hidden] { display: none; }
+
 /* ---- toasts ----------------------------------------------------------- */
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
 .toast {
@@ -492,18 +594,19 @@ body.busy .btn { cursor: progress; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* ---- responsive ------------------------------------------------------- */
-@media (max-width: 1180px) {
+@container dash (max-width: 1180px) {
   .products { grid-column: 1 / -1; }
   .open-panel { grid-column: 1 / -1; }
 }
-@media (max-width: 900px) {
+@container dash (max-width: 900px) {
+  .campus-card, .stock-card { grid-column: 1 / -1; }
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .kpi-hero { grid-column: 1 / -1; }
   .product-grid { grid-template-columns: 1fr; }
   .stock-grid { grid-template-columns: 1fr; gap: 20px; }
   .chart-card { grid-column: 1 / -1; }
 }
-@media (max-width: 560px) {
+@container dash (max-width: 560px) {
   .topbar, .layout { padding-left: 16px; padding-right: 16px; }
   .kpis { grid-template-columns: 1fr 1fr; }
   .kpis .kpi:last-child { grid-column: 1 / -1; }

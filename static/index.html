@@ -8,6 +8,13 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- the dashboard: main view, or a slide-in panel while the map is the main view -->
+  <div id="dash" class="dash">
+  <div class="drawer-bar">
+    <strong>📊 Dashboard</strong>
+    <button class="btn small" type="button" data-dash-main>⤢ Make main view</button>
+    <button class="btn secondary small icon" type="button" data-dash-close aria-label="Close the dashboard panel">✕</button>
+  </div>
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">🥪</span>
@@ -19,7 +26,7 @@
     <div class="day-track" aria-label="Progress">
       <ol id="day-pips" class="day-pips"></ol>
       <span id="day-label" class="day-label"></span>
-      <a class="btn secondary small" href="/map">🗺️ Campus map</a>
+      <button id="show-map" class="btn secondary small" type="button">🗺️ Campus map</button>
       <button id="new-run-btn" class="btn secondary small" type="button">New run</button>
     </div>
   </header>
@@ -50,6 +57,20 @@
         <span id="kpi-gain" class="kpi-value">—</span>
         <span class="kpi-sub">Cash + stock at cost − €100 start</span>
       </article>
+    </section>
+
+    <!-- Live window on the 3D campus; click to make the map the main view -->
+    <section class="card campus-card" aria-labelledby="campus-title">
+      <div class="chart-head">
+        <div>
+          <h2 id="campus-title">Campus live</h2>
+          <p class="chart-sub">Your kiosk in 3D · click to enlarge</p>
+        </div>
+        <span class="live"><i></i>LIVE</span>
+      </div>
+      <button id="campus-slot" class="campus-slot" type="button" aria-label="Open the 3D campus map as the main view">
+        <span class="enlarge">⤢ Enlarge</span>
+      </button>
     </section>
 
     <!-- Stock overview: what is available per product -->
@@ -114,6 +135,11 @@
       <div id="history-table" class="table-wrap"></div>
     </section>
   </main>
+  </div>
+
+  <!-- the 3D campus: one live page, moved between the window above and full screen -->
+  <iframe id="campus-frame" class="campus-frame" src="/map?embed=1" title="3D campus map" tabindex="-1"></iframe>
+  <button id="drawer-handle" class="drawer-handle" type="button" hidden>📊 <span>Dashboard</span></button>
 
   <!-- New run confirmation (CT01) -->
   <dialog id="new-run-dialog" class="dialog" aria-labelledby="dialog-title">
@@ -132,5 +158,6 @@
 
   <script src="/static/common.js"></script>
   <script src="/static/app.js"></script>
+  <script src="/static/views.js"></script>
 </body>
 </html>

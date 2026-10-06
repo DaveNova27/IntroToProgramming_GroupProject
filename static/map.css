@@ -397,6 +397,17 @@ p { margin: 0; }
   .toasts { bottom: 150px; }
 }
 
+/* ---- live window on the dashboard (embedded preview) ------------------- */
+body.preview .hud-top, body.preview .hud-stock, body.preview .ticker, body.preview .toolbar,
+body.preview .hint-camera, body.preview .panel, body.preview .overlay, body.preview .toasts,
+body.preview .lbl-building, body.preview .lbl-pallet { display: none !important; }
+body.preview .lbl-storage { min-width: 0; padding: 5px 7px; font-size: 10.5px; }
+body.preview .lbl-storage h4 { font-size: 9px; }
+body.preview .lbl-storage .row b { font-size: 12px; }
+body.preview .lbl-bubble { padding: 3px 7px; font-size: 10.5px; }
+body.preview .lbl-coin, body.preview .lbl-cost { font-size: 13px; }
+body.preview .loading { font-size: 13px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
