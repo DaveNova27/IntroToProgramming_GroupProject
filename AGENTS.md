@@ -8,8 +8,14 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 
 ## Structure
 - `app.py` + `static/`: screen (what the user sees and clicks)
+  - `app.py`: Flask server and JSON API; it calls the rules, the browser never decides them
+  - `static/index.html`, `style.css`, `app.js`: dashboard
+  - `static/map.html`, `map.css`, `map.js`: 3D campus map (three.js from CDN)
+  - `static/views.js`: switching between dashboard and map, keeps both in sync
+  - `static/common.js`: helpers shared by dashboard and map
 - `logic.py`: rules (what is valid, how results are calculated)
 - `db.py`: stored state (what is saved and loaded)
+- `README.md`: how everything fits together, list of specs, known issues
 
 ## Rules
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
