@@ -19,10 +19,14 @@
     <div class="day-track" aria-label="Progress">
       <ol id="day-pips" class="day-pips"></ol>
       <span id="day-label" class="day-label"></span>
+      <button id="new-run-btn" class="btn secondary small" type="button">New run</button>
     </div>
   </header>
 
   <main class="layout">
+    <!-- Final result, only after day 5 (CT05) -->
+    <section id="final-banner" class="final-banner" aria-live="polite" hidden></section>
+
     <!-- KPI row -->
     <section class="kpis" aria-label="Key figures">
       <article class="card kpi kpi-hero">
@@ -83,7 +87,29 @@
       </div>
       <div id="result-table" class="table-wrap"></div>
     </section>
+
+
+    <!-- Run history (review of earlier days) -->
+    <section class="card history-card" aria-labelledby="history-title">
+      <div class="chart-head">
+        <h2 id="history-title">Run history</h2>
+        <p class="chart-sub">Every completed day of this run</p>
+      </div>
+      <div id="history-table" class="table-wrap"></div>
+    </section>
   </main>
+
+  <!-- New run confirmation (CT01) -->
+  <dialog id="new-run-dialog" class="dialog" aria-labelledby="dialog-title">
+    <form method="dialog">
+      <h2 id="dialog-title">Start a new run?</h2>
+      <p id="dialog-text" class="dialog-text"></p>
+      <div class="dialog-actions">
+        <button class="btn secondary" value="cancel" autofocus>Cancel</button>
+        <button class="btn danger" value="confirm">Start new run</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="tooltip" class="tooltip" role="status" hidden></div>
   <div id="toasts" class="toasts" aria-live="assertive"></div>

@@ -61,7 +61,7 @@ async function send(path, body) {
     }
     // what the player typed but has not sent yet survives the re-render;
     // only an accepted price replaces the typed price with the saved one
-    const kept = captureInputs();
+    const kept = path === "/api/new-run" ? {} : captureInputs();
     if (!data.error && path === "/api/price") delete kept[body.product]?.price;
     state = data.state;
     render(kept);
@@ -339,7 +339,8 @@ function renderOpenPanel() {
         <div><dt>Remaining stock at cost</dt><dd>${fmt(state.stock_value)}</dd></div>
         <div><dt>Starting cash</dt><dd>−${fmt(state.starting_cash)}</dd></div>
         <div class="total"><dt>Overall result</dt><dd>${fmtSigned(gain)}</dd></div>
-      </dl>`;
+      </dl>
+      <button class="btn open-btn" type="button" data-new-run>Start a new run</button>`;
     return;
   }
 
@@ -575,6 +576,66 @@ function renderResult() {
     </table>`;
 }
 
+// ---- final result, history, new run ------------------------------------------
+
+function renderFinalBanner() {
+  const banner = $("#final-banner");
+  banner.hidden = !state.finished;
+  if (!state.finished) return;
+  const profit = state.history.reduce((sum, day) => sum + day.gross_profit, 0);
+  banner.innerHTML = `
+    <div>
+      <p class="eyebrow">✓ Run complete · ${state.history.length} days traded</p>
+      <p class="headline">Overall result ${fmtSigned(state.overall_gain)}</p>
+      <p class="breakdown">Final cash ${fmt(state.cash)} + stock at cost ${fmt(state.stock_value)} − ${fmt(state.starting_cash)} start · gross profit ${fmt(profit)}</p>
+    </div>
+    <button class="btn" type="button" data-new-run>Start a new run</button>`;
+}
+
+function renderHistory() {
+  const box = $("#history-table");
+  const days = state.history;
+  if (!days.length) {
+    box.innerHTML = `<div class="empty" style="min-height:96px">Completed days show up here.</div>`;
+    return;
+  }
+  const sum = (key) => days.reduce((total, day) => total + day[key], 0);
+  const soldOf = (day) => day.lines.reduce((total, line) => total + line.sold, 0);
+  const money = (c) => `<span class="${c < 0 ? "neg" : ""}">${fmt(c)}</span>`;
+  const rows = days.map((day) => `<tr>
+      <td>Day ${day.day}</td><td>${soldOf(day)}</td><td>${fmt(day.revenue)}</td>
+      <td>${fmt(day.cogs)}</td><td>${money(day.gross_profit)}</td><td>${fmt(day.cash_after)}</td>
+    </tr>`).join("");
+  box.innerHTML = `
+    <table>
+      <thead><tr><th>Day</th><th>Sold</th><th>Revenue</th><th>Cost of goods sold</th><th>Gross profit</th><th>Cash after</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td>Total</td><td>${days.reduce((t, d) => t + soldOf(d), 0)}</td>
+        <td>${fmt(sum("revenue"))}</td><td>${fmt(sum("cogs"))}</td><td>${money(sum("gross_profit"))}</td>
+        <td>${fmt(days[days.length - 1].cash_after)}</td></tr></tfoot>
+    </table>`;
+}
+
+// CT01: ask first; only "Start new run" sends confirm=true to the server.
+function askNewRun() {
+  const days = state.history.length;
+  $("#dialog-text").textContent = state.finished
+    ? `Your completed run (overall result ${fmtSigned(state.overall_gain)}) is replaced by a fresh one: day 1, ${fmt(state.starting_cash)}, no stock. This cannot be undone.`
+    : `This ends your current run on day ${state.day} with ${fmt(state.cash)} cash and ${days} traded day${days === 1 ? "" : "s"}. You start again on day 1 with ${fmt(state.starting_cash)} and no stock. This cannot be undone.`;
+  const dialog = $("#new-run-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+}
+
+function wireNewRun() {
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#new-run-btn, [data-new-run]") && state) askNewRun();
+  });
+  $("#new-run-dialog").addEventListener("close", (e) => {
+    if (e.target.returnValue === "confirm") send("/api/new-run", { confirm: true });
+  });
+}
+
 // ---- boot --------------------------------------------------------------------
 
 function render(kept) {
@@ -583,11 +644,13 @@ function render(kept) {
   shownDays = state.history.length;
 
   renderHeader();
+  renderFinalBanner();
   renderKpis();
   renderProducts(kept);
   renderOpenPanel();
   renderCharts(!calm.matches && (firstLoad || dayAdded));
   renderResult();
+  renderHistory();
 
   if (dayAdded && !calm.matches) {
     const card = $(".result-card");
@@ -599,6 +662,7 @@ function render(kept) {
 
 async function boot() {
   wireProducts();
+  wireNewRun();
   try {
     state = await (await fetch("/api/state")).json();
     render();

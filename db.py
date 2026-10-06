@@ -62,23 +62,44 @@ def save(state, path=DEFAULT_PATH):
     conn = connect(path)
     try:
         with conn:  # commits on success, rolls back on any error
-            conn.execute(
-                "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
-                "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
-                (state["day"], state["cash"]),
-            )
-            for pid in state["stock"]:
-                conn.execute(
-                    "INSERT INTO products (product, stock, price) VALUES (?, ?, ?) "
-                    "ON CONFLICT(product) DO UPDATE SET stock = excluded.stock, "
-                    "price = excluded.price",
-                    (pid, state["stock"][pid], state["prices"][pid]),
-                )
-            for result in state["history"]:
-                # INSERT OR IGNORE: an already stored day is never written twice
-                conn.execute(
-                    "INSERT OR IGNORE INTO history (day, result) VALUES (?, ?)",
-                    (result["day"], json.dumps(result)),
-                )
+            _write(conn, state)
     finally:
         conn.close()
+
+
+def save_new_run(state, path=DEFAULT_PATH):
+    """Replace the saved run with a new one (CT01).
+
+    save() never removes a stored day, so the old history is deleted here,
+    in the same transaction: either the new run is saved completely, or the
+    old run stays exactly as it was.
+    """
+    conn = connect(path)
+    try:
+        with conn:
+            conn.execute("DELETE FROM history")
+            _write(conn, state)
+    finally:
+        conn.close()
+
+
+def _write(conn, state):
+    """Write day, cash, stock, prices and new history records (inside a transaction)."""
+    conn.execute(
+        "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
+        (state["day"], state["cash"]),
+    )
+    for pid in state["stock"]:
+        conn.execute(
+            "INSERT INTO products (product, stock, price) VALUES (?, ?, ?) "
+            "ON CONFLICT(product) DO UPDATE SET stock = excluded.stock, "
+            "price = excluded.price",
+            (pid, state["stock"][pid], state["prices"][pid]),
+        )
+    for result in state["history"]:
+        # INSERT OR IGNORE: an already stored day is never written twice
+        conn.execute(
+            "INSERT OR IGNORE INTO history (day, result) VALUES (?, ?)",
+            (result["day"], json.dumps(result)),
+        )

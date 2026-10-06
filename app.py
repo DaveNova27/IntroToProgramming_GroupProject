@@ -140,5 +140,24 @@ def open_day():
     return apply(action)
 
 
+@app.post("/api/new-run")
+def new_run():
+    body = request.get_json(silent=True) or {}
+    with _lock:
+        state = load_run()
+        # CT01: the page asks the player first and only then sends confirm=true
+        if body.get("confirm") is not True:
+            return jsonify({
+                "error": "A new run starts only after you confirm it.",
+                "state": view(state),
+            }), 400
+        fresh = logic.new_state()
+        db.save_new_run(fresh)
+        return jsonify({
+            "message": f"New run started: day 1, {logic.fmt(logic.STARTING_CASH)}, no stock.",
+            "state": view(fresh),
+        })
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8000, debug=False)
