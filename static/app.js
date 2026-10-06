@@ -8,6 +8,8 @@ const ACCENT = { sandwich: "var(--sandwich)", coffee: "var(--coffee)", cookie: "
 
 let state = null;
 let busy = false;
+let shownDays = null; // history length on screen, to animate only when a day was added
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -50,9 +52,19 @@ async function send(path, body) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      toast("The server hit an error. Nothing was saved.", "error");
+      return null;
+    }
+    // what the player typed but has not sent yet survives the re-render;
+    // only an accepted price replaces the typed price with the saved one
+    const kept = captureInputs();
+    if (!data.error && path === "/api/price") delete kept[body.product]?.price;
     state = data.state;
-    render();
+    render(kept);
     if (data.error) toast(data.error, "error");
     else toast(data.message);
     return data;
@@ -66,6 +78,28 @@ async function send(path, body) {
 }
 
 // ---- header and KPIs ---------------------------------------------------------
+
+// Show a money value; when it changed, count up to it and flash once.
+function setMoney(el, cents, format = fmt) {
+  const from = el.dataset.value === undefined ? null : Number(el.dataset.value);
+  el.dataset.value = cents;
+  if (from === null || from === cents || calm.matches) {
+    el.textContent = format(cents);
+    return;
+  }
+  const start = performance.now();
+  const duration = 500;
+  const step = (now) => {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = format(Math.round(from + (cents - from) * eased));
+    if (t < 1 && Number(el.dataset.value) === cents) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  el.classList.remove("changed");
+  void el.offsetWidth; // restart the flash animation
+  el.classList.add("changed");
+}
 
 function renderHeader() {
   const pips = [];
@@ -82,25 +116,25 @@ function renderHeader() {
 
 function renderKpis() {
   const delta = state.cash - state.starting_cash;
-  $("#kpi-cash").textContent = fmt(state.cash);
+  setMoney($("#kpi-cash"), state.cash);
   const deltaEl = $("#kpi-cash-delta");
   deltaEl.innerHTML = delta === 0
     ? "Same as the €100 start"
     : `<span class="${delta > 0 ? "delta-up" : "delta-down"}">${delta > 0 ? "▲" : "▼"} ${fmtSigned(delta)}</span> vs start`;
 
   const units = state.products.reduce((sum, p) => sum + p.stock, 0);
-  $("#kpi-stock").textContent = fmt(state.stock_value);
+  setMoney($("#kpi-stock"), state.stock_value);
   $("#kpi-stock-units").textContent = `${units} unit${units === 1 ? "" : "s"} on the shelf`;
 
   const profit = state.history.reduce((sum, day) => sum + day.gross_profit, 0);
   const days = state.history.length;
-  $("#kpi-profit").textContent = fmt(profit);
+  setMoney($("#kpi-profit"), profit);
   $("#kpi-profit-sub").textContent = days
     ? `over ${days} trading day${days === 1 ? "" : "s"}`
     : "No day traded yet";
 
   const gain = $("#kpi-gain");
-  gain.textContent = fmtSigned(state.overall_gain);
+  setMoney(gain, state.overall_gain, fmtSigned);
   gain.className = `kpi-value ${state.overall_gain > 0 ? "delta-up" : state.overall_gain < 0 ? "delta-down" : ""}`;
 }
 
@@ -134,7 +168,7 @@ function productCard(p) {
     </div>
 
     <div>
-      <div class="block-label"><span>Selling price</span><span class="demand-text">${p.demand} sold/day max</span></div>
+      <div class="block-label"><span>Selling price</span><span class="demand-text">sells up to ${p.demand}/day</span></div>
       <form class="field-row" data-form="price">
         <label class="input-wrap">
           <span class="prefix">€</span>
@@ -210,13 +244,39 @@ function previewPrice(card) {
   const units = { z10: state.demand_levels.at_or_below_ref, z5: state.demand_levels.up_to_double_ref, z0: 0 }[zone];
   const label = card.querySelector(".demand-text");
   const unsaved = cents !== p.price;
-  label.innerHTML = `${units} sold/day max${unsaved ? ' · <span class="unsaved">not saved</span>' : ""}`;
+  label.innerHTML = unsaved
+    ? `<span class="unsaved">unsaved</span> · ${units}/day`
+    : `sells up to ${units}/day`;
 }
 
-function renderProducts() {
+// Typed values per product: the quantity always, the price only if it was
+// edited but not saved (otherwise the saved price is shown).
+function captureInputs() {
+  const kept = {};
+  document.querySelectorAll(".product").forEach((card) => {
+    const p = state.products.find((x) => x.id === card.dataset.product);
+    const quantity = card.querySelector('[name="quantity"]').value;
+    const price = card.querySelector('[name="price"]').value;
+    kept[p.id] = { quantity };
+    if (price !== (p.price / 100).toFixed(2)) kept[p.id].price = price;
+  });
+  return kept;
+}
+
+function renderProducts(kept = {}) {
   const grid = $("#product-grid");
   grid.innerHTML = state.products.map(productCard).join("");
-  grid.querySelectorAll(".product").forEach(updateBuyTotal);
+  grid.querySelectorAll(".product").forEach((card) => {
+    const typed = kept[card.dataset.product];
+    if (typed && !state.finished) {
+      card.querySelector('[name="quantity"]').value = typed.quantity;
+      if (typed.price !== undefined) {
+        card.querySelector('[name="price"]').value = typed.price;
+        previewPrice(card);
+      }
+    }
+    updateBuyTotal(card);
+  });
 }
 
 // one set of listeners for all cards (cards are re-rendered after each action)
@@ -364,7 +424,7 @@ const hideTooltip = () => { $("#tooltip").hidden = true; };
 
 // categories: x labels; series: [{color, values: [cents|null]}];
 // tooltip(i) -> html; label(i, s) -> text or null (selective direct labels)
-function columnChart(container, { categories, series, tooltip, label }) {
+function columnChart(container, { categories, series, tooltip, label, animate }) {
   container.innerHTML = "";
   const width = Math.max(container.clientWidth, 280);
   const height = 240;
@@ -403,7 +463,8 @@ function columnChart(container, { categories, series, tooltip, label }) {
       const v = s.values[i];
       if (v === null || v === 0) return;
       const x = bandX + (band - groupW) / 2 + j * (barW + gap);
-      g.append(el("path", { d: barPath(x, barW, y(0), y(v)), fill: s.color }));
+      const cls = animate ? `bar grow ${v >= 0 ? "pos" : "neg"}` : "bar";
+      g.append(el("path", { d: barPath(x, barW, y(0), y(v)), fill: s.color, class: cls, style: `animation-delay:${i * 50}ms` }));
       const text = label?.(i, j);
       if (text) {
         const ty = v >= 0 ? y(v) - 7 : y(v) + 15;
@@ -425,7 +486,7 @@ function columnChart(container, { categories, series, tooltip, label }) {
   container.append(svg);
 }
 
-function renderCharts() {
+function renderCharts(animate = false) {
   const days = state.history;
   const cashBox = $("#cash-chart");
   const profitBox = $("#profit-chart");
@@ -449,6 +510,7 @@ function renderCharts() {
   columnChart(cashBox, {
     categories: ["Start", ...Array.from({ length: state.last_day }, (_, i) => `Day ${i + 1}`)],
     series: [{ color: "var(--cash)", values: cashValues }],
+    animate,
     label: (i) => (i === lastIndex ? fmt(cashValues[i]) : null),
     tooltip: (i) => {
       if (i === 0) return `<strong>Start</strong><div class="row"><span>Cash</span><span>${fmt(state.starting_cash)}</span></div>`;
@@ -462,6 +524,7 @@ function renderCharts() {
 
   // Gross profit per product and day (grouped, so a loss can dip below zero).
   columnChart(profitBox, {
+    animate,
     categories: Array.from({ length: state.last_day }, (_, i) => `Day ${i + 1}`),
     series: state.products.map((p) => ({
       color: ACCENT[p.id],
@@ -514,13 +577,24 @@ function renderResult() {
 
 // ---- boot --------------------------------------------------------------------
 
-function render() {
+function render(kept) {
+  const dayAdded = shownDays !== null && state.history.length > shownDays;
+  const firstLoad = shownDays === null;
+  shownDays = state.history.length;
+
   renderHeader();
   renderKpis();
-  renderProducts();
+  renderProducts(kept);
   renderOpenPanel();
-  renderCharts();
+  renderCharts(!calm.matches && (firstLoad || dayAdded));
   renderResult();
+
+  if (dayAdded && !calm.matches) {
+    const card = $(".result-card");
+    card.classList.remove("pulse");
+    void card.offsetWidth;
+    card.classList.add("pulse");
+  }
 }
 
 async function boot() {

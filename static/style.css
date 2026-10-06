@@ -187,7 +187,8 @@ button, input { font: inherit; color: inherit; }
 .stock-badge span { font-size: 12px; color: var(--muted); }
 
 .block-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
-.block-label span:last-child { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); }
+.block-label span:first-child { white-space: nowrap; }
+.block-label span:last-child { text-align: right; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); }
 
 .field-row { display: flex; gap: 8px; }
 .input-wrap {
@@ -296,7 +297,8 @@ button, input { font: inherit; color: inherit; }
 .meter-scale { position: relative; height: 16px; margin-top: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .meter-scale span { position: absolute; transform: translateX(-50%); }
 .meter-scale span:first-child { transform: none; }
-.unsaved { color: var(--warning); }
+.unsaved { color: var(--ink); font-weight: 600; }
+.unsaved::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--warning); vertical-align: 1px; }
 
 /* ---- open the stand --------------------------------------------------- */
 .open-panel h2 { font-size: 18px; }
@@ -396,6 +398,26 @@ td .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px;
 .neg { color: var(--critical-text); }
 
 body.busy .btn { cursor: progress; }
+
+/* ---- motion ----------------------------------------------------------- */
+.kpi-value.changed { animation: flash 0.9s ease-out; }
+@keyframes flash {
+  0% { background: color-mix(in srgb, var(--focus) 18%, transparent); }
+  100% { background: transparent; }
+}
+.kpi-value { border-radius: 6px; margin-left: -4px; padding-left: 4px; }
+.chart .bar.grow { transform-box: fill-box; animation: grow 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.chart .bar.grow.pos { transform-origin: bottom; }
+.chart .bar.grow.neg { transform-origin: top; }
+@keyframes grow { from { transform: scaleY(0); } }
+.result-card.pulse { animation: pulse 1.2s ease-out; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus) 40%, transparent), var(--shadow); }
+  100% { box-shadow: 0 0 0 12px transparent, var(--shadow); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
 
 /* ---- toasts ----------------------------------------------------------- */
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
