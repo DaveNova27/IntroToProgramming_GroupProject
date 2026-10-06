@@ -47,6 +47,7 @@ def view(state):
         "starting_cash": logic.STARTING_CASH,
         "cash": state["cash"],
         "stock_value": logic.stock_value(state),
+        "stock_overview": logic.stock_overview(state),
         "overall_gain": logic.overall_gain(state),
         "products": products,
         # trade_day returns a new state and leaves the saved one alone,

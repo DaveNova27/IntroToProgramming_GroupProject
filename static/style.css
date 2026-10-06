@@ -136,7 +136,7 @@ button, input { font: inherit; color: inherit; }
 .products { grid-column: span 8; }
 .open-panel { grid-column: span 4; align-self: start; }
 .chart-card { grid-column: span 6; }
-.result-card, .history-card, .final-banner { grid-column: 1 / -1; }
+.result-card, .history-card, .final-banner, .stock-card { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface);
@@ -299,6 +299,23 @@ button, input { font: inherit; color: inherit; }
 .meter-scale span:first-child { transform: none; }
 .unsaved { color: var(--ink); font-weight: 600; }
 .unsaved::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--warning); vertical-align: 1px; }
+
+/* ---- stock overview --------------------------------------------------- */
+.stock-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 32px; }
+.stock-item { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stock-top { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.stock-top .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+.stock-top .name { font-weight: 600; }
+.stock-top .value { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.stock-units { font-size: 13px; color: var(--ink-2); }
+.stock-units strong { font-size: 28px; font-weight: 650; color: var(--ink); letter-spacing: -0.02em; margin-right: 4px; }
+.stock-bar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.stock-bar .seg { height: 100%; transition: width 0.35s ease; }
+.stock-bar .seg.sell { background: var(--accent); }
+.stock-bar .seg.left { background: color-mix(in srgb, var(--accent) 35%, var(--surface)); }
+.stock-caption { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend i.key-sell { background: var(--ink-2); }
+.legend i.key-left { background: color-mix(in srgb, var(--ink-2) 35%, var(--surface)); }
 
 /* ---- open the stand --------------------------------------------------- */
 .open-panel h2 { font-size: 18px; }
@@ -483,6 +500,7 @@ body.busy .btn { cursor: progress; }
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .kpi-hero { grid-column: 1 / -1; }
   .product-grid { grid-template-columns: 1fr; }
+  .stock-grid { grid-template-columns: 1fr; gap: 20px; }
   .chart-card { grid-column: 1 / -1; }
 }
 @media (max-width: 560px) {

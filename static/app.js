@@ -138,6 +138,37 @@ function renderKpis() {
   gain.className = `kpi-value ${state.overall_gain > 0 ? "delta-up" : state.overall_gain < 0 ? "delta-down" : ""}`;
 }
 
+// ---- stock overview -------------------------------------------------------------
+
+function renderStockOverview() {
+  const overview = state.stock_overview;
+  $("#stock-sub").textContent = `${overview.units} unit${overview.units === 1 ? "" : "s"} available · ${fmt(overview.value)} at cost`;
+  // one scale for all products so the bars compare; at least one day of full demand
+  const scale = Math.max(state.demand_levels.at_or_below_ref, ...overview.lines.map((l) => l.units));
+  $("#stock-overview").innerHTML = overview.lines.map((line) => {
+    const p = state.products.find((x) => x.id === line.product);
+    const caption = line.units === 0
+      ? "No stock"
+      : state.finished
+        ? `${line.units} left · trading is closed`
+        : `sells ${line.sells_today} today · ${line.left_after_today} left after today`;
+    return `
+      <div class="stock-item" style="--accent: ${ACCENT[line.product]}">
+        <div class="stock-top">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="name">${esc(p.name)}</span>
+          <span class="value">${fmt(line.value)} at cost</span>
+        </div>
+        <div class="stock-units"><strong>${line.units}</strong>unit${line.units === 1 ? "" : "s"} available</div>
+        <div class="stock-bar" role="img" aria-label="${esc(p.name)}: ${caption}">
+          ${line.sells_today ? `<span class="seg sell" style="width:${(line.sells_today / scale) * 100}%"></span>` : ""}
+          ${line.left_after_today ? `<span class="seg left" style="width:${(line.left_after_today / scale) * 100}%"></span>` : ""}
+        </div>
+        <p class="stock-caption">${caption}</p>
+      </div>`;
+  }).join("");
+}
+
 // ---- product cards ---------------------------------------------------------
 
 // Where a price sits on the demand meter: the scale runs from €0 to 2.5x the
@@ -646,6 +677,7 @@ function render(kept) {
   renderHeader();
   renderFinalBanner();
   renderKpis();
+  renderStockOverview();
   renderProducts(kept);
   renderOpenPanel();
   renderCharts(!calm.matches && (firstLoad || dayAdded));

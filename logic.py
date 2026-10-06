@@ -149,6 +149,31 @@ def stock_value(state):
     return sum(qty * CATALOGUE[pid]["cost"] for pid, qty in state["stock"].items())
 
 
+def stock_overview(state):
+    """Per product: units, value at cost, and what today's price would sell.
+
+    Only reads the run. Sells today follows the trading rules (CT R1, CT R2);
+    after day 5 nothing sells any more, so everything counts as left.
+    """
+    lines = []
+    for pid, item in CATALOGUE.items():
+        units = state["stock"][pid]
+        wanted = 0 if is_finished(state) else demand(state["prices"][pid], item["ref_price"])
+        sells = min(wanted, units)
+        lines.append({
+            "product": pid,
+            "units": units,
+            "value": units * item["cost"],
+            "sells_today": sells,
+            "left_after_today": units - sells,
+        })
+    return {
+        "lines": lines,
+        "units": sum(line["units"] for line in lines),
+        "value": sum(line["value"] for line in lines),
+    }
+
+
 def overall_gain(state):
     """CT R4: final cash + stock at cost - initial 100 euro."""
     return state["cash"] + stock_value(state) - STARTING_CASH

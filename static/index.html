@@ -51,6 +51,21 @@
       </article>
     </section>
 
+    <!-- Stock overview: what is available per product -->
+    <section class="card stock-card" aria-labelledby="stock-title">
+      <div class="chart-head">
+        <div>
+          <h2 id="stock-title">Stock overview</h2>
+          <p id="stock-sub" class="chart-sub"></p>
+        </div>
+        <ul class="legend">
+          <li><i class="key-sell"></i>Sells today at your price</li>
+          <li><i class="key-left"></i>Left after today</li>
+        </ul>
+      </div>
+      <div id="stock-overview" class="stock-grid"></div>
+    </section>
+
     <!-- Products -->
     <section class="products" aria-labelledby="products-title">
       <div class="section-head">
