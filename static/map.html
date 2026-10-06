@@ -3,143 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Campus Tycoon · Map</title>
+  <title>Campus Tycoon · 3D Map</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
   <link rel="stylesheet" href="/static/map.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="shell">
-    <!-- ================= the campus scene ================= -->
-    <svg id="scene" viewBox="0 0 1200 680" preserveAspectRatio="xMidYMid slice"
-         role="img" aria-label="Campus map with your snack kiosk, storage shed and the road">
-      <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-          <stop id="sky-top" offset="0" stop-color="#6fb8ef"/>
-          <stop id="sky-bottom" offset="1" stop-color="#cfeaff"/>
-        </linearGradient>
-        <pattern id="awning" width="28" height="40" patternUnits="userSpaceOnUse">
-          <rect width="14" height="40" fill="#e34948"/>
-          <rect x="14" width="14" height="40" fill="#fff6e8"/>
-        </pattern>
-        <pattern id="bricks" width="24" height="12" patternUnits="userSpaceOnUse">
-          <rect width="24" height="12" fill="#c8704c"/>
-          <path d="M0 11.5H24M12 0V6M0 6H24M6 6V12M18 6V12" stroke="#b05f3e" stroke-width="1"/>
-        </pattern>
-        <pattern id="planks" width="160" height="16" patternUnits="userSpaceOnUse">
-          <rect width="160" height="16" fill="#a8694a"/>
-          <path d="M0 15.5H160" stroke="#8e563b" stroke-width="1"/>
-        </pattern>
-      </defs>
-
-      <!-- sky, sun, clouds -->
-      <rect width="1200" height="320" fill="url(#sky)"/>
-      <circle id="sun" cx="140" cy="86" r="34" fill="#ffd25a"/>
-      <g class="clouds">
-        <g class="cloud c1"><ellipse cx="340" cy="80" rx="46" ry="18"/><ellipse cx="370" cy="68" rx="30" ry="20"/><ellipse cx="310" cy="72" rx="24" ry="14"/></g>
-        <g class="cloud c2"><ellipse cx="760" cy="56" rx="52" ry="18"/><ellipse cx="790" cy="44" rx="30" ry="18"/><ellipse cx="730" cy="48" rx="22" ry="12"/></g>
-        <g class="cloud c3"><ellipse cx="1040" cy="110" rx="40" ry="14"/><ellipse cx="1064" cy="100" rx="24" ry="14"/></g>
-      </g>
-      <rect id="night" width="1200" height="680" fill="#0b1d3a" opacity="0" pointer-events="none"/>
-
-      <!-- hills and lawn -->
-      <path d="M0 262 Q180 214 380 254 T780 246 T1200 240 V330 H0Z" fill="#a5d68f"/>
-      <rect y="300" width="1200" height="250" fill="#8dc879"/>
-      <g fill="#7fbd6b" opacity=".7">
-        <ellipse cx="120" cy="420" rx="70" ry="10"/><ellipse cx="380" cy="380" rx="60" ry="8"/>
-        <ellipse cx="1000" cy="430" rx="80" ry="10"/><ellipse cx="300" cy="520" rx="90" ry="9"/>
-        <ellipse cx="1080" cy="520" rx="70" ry="8"/>
-      </g>
-
-      <!-- library (left) -->
-      <g class="building">
-        <rect x="64" y="186" width="236" height="134" fill="#efe4d2"/>
-        <path d="M52 190 L182 138 L312 190 Z" fill="#d9c8ab"/>
-        <rect x="52" y="186" width="260" height="10" fill="#cdb995"/>
-        <g fill="#fbf7ef">
-          <rect x="86" y="200" width="14" height="112"/><rect x="128" y="200" width="14" height="112"/>
-          <rect x="222" y="200" width="14" height="112"/><rect x="264" y="200" width="14" height="112"/>
-        </g>
-        <rect x="160" y="250" width="44" height="70" rx="22" fill="#6b4f3a"/>
-        <rect x="52" y="314" width="260" height="8" fill="#cdb995"/>
-        <text x="182" y="178" class="bld-label">LIBRARY</text>
-      </g>
-
-      <!-- lecture hall (right) -->
-      <g class="building">
-        <rect x="898" y="170" width="250" height="150" fill="url(#bricks)"/>
-        <rect x="888" y="160" width="270" height="16" fill="#8e4a32"/>
-        <g fill="#cfe7f7" stroke="#f3efe6" stroke-width="3">
-          <rect x="918" y="192" width="34" height="34"/><rect x="968" y="192" width="34" height="34"/>
-          <rect x="1044" y="192" width="34" height="34"/><rect x="1094" y="192" width="34" height="34"/>
-          <rect x="918" y="246" width="34" height="34"/><rect x="1094" y="246" width="34" height="34"/>
-        </g>
-        <rect x="1000" y="250" width="46" height="70" fill="#5a3426"/>
-        <rect x="992" y="240" width="62" height="10" fill="#8e4a32"/>
-        <text x="1023" y="152" class="bld-label">HALL A</text>
-      </g>
-
-      <!-- walkways from the buildings to the kiosk -->
-      <g fill="none" stroke="#eadfc4" stroke-width="26" stroke-linecap="round">
-        <path d="M182 322 C 200 420, 420 470, 540 505"/>
-        <path d="M1023 322 C 1000 430, 760 520, 610 508"/>
-      </g>
-      <ellipse cx="575" cy="508" rx="150" ry="26" fill="#eadfc4"/>
-
-      <!-- trees -->
-      <g class="trees">
-        <g transform="translate(372 318)"><rect x="-5" y="-6" width="10" height="26" fill="#7a5236"/><circle cy="-26" r="28" fill="#4f9e4a"/><circle cx="-14" cy="-14" r="18" fill="#5cae55"/></g>
-        <g transform="translate(436 338)"><rect x="-4" y="-4" width="8" height="20" fill="#7a5236"/><circle cy="-20" r="21" fill="#5cae55"/></g>
-        <g transform="translate(850 318)"><rect x="-5" y="-6" width="10" height="26" fill="#7a5236"/><circle cy="-26" r="27" fill="#4f9e4a"/><circle cx="12" cy="-12" r="17" fill="#5cae55"/></g>
-        <g transform="translate(1176 350)"><rect x="-5" y="-6" width="10" height="26" fill="#7a5236"/><circle cy="-26" r="26" fill="#4f9e4a"/></g>
-        <g transform="translate(26 352)"><rect x="-5" y="-6" width="10" height="26" fill="#7a5236"/><circle cy="-26" r="26" fill="#5cae55"/></g>
-        <g transform="translate(160 470)"><rect x="-4" y="-4" width="8" height="20" fill="#7a5236"/><circle cy="-20" r="20" fill="#4f9e4a"/></g>
-        <g transform="translate(1110 470)"><rect x="-4" y="-4" width="8" height="20" fill="#7a5236"/><circle cy="-20" r="22" fill="#5cae55"/></g>
-      </g>
-
-      <!-- storage shed: crates per product -->
-      <g id="shed" class="hotspot" tabindex="0" role="button" aria-label="Storage shed: order stock">
-        <ellipse cx="785" cy="492" rx="96" ry="10" fill="#000" opacity=".12"/>
-        <rect x="705" y="362" width="160" height="128" fill="url(#planks)"/>
-        <path d="M693 368 L785 318 L877 368 Z" fill="#7a4a35"/>
-        <rect x="746" y="334" width="78" height="20" rx="4" fill="#f3e3c3"/>
-        <text x="785" y="349" class="sign-small">STORAGE</text>
-        <rect x="718" y="382" width="134" height="104" fill="#3d2a20"/>
-        <g id="crates"></g>
-      </g>
-      <rect x="745" y="490" width="80" height="62" fill="#c9c5ba"/>
-
-      <!-- the kiosk -->
-      <g id="kiosk" class="hotspot" tabindex="0" role="button" aria-label="Your kiosk: set prices">
-        <ellipse cx="570" cy="488" rx="142" ry="12" fill="#000" opacity=".14"/>
-        <rect x="472" y="336" width="196" height="146" fill="#f6e6cb"/>
-        <rect x="452" y="298" width="236" height="38" rx="8" fill="#2b2d42"/>
-        <text x="570" y="324" class="sign-big">CAMPUS SNACKS</text>
-        <path d="M448 336 H692 L682 372 H458 Z" fill="url(#awning)"/>
-        <g id="scallops"></g>
-        <rect x="490" y="384" width="160" height="50" rx="4" fill="#3b2b2b"/>
-        <g id="window-goods" class="window-goods"></g>
-        <rect x="462" y="432" width="216" height="16" rx="4" fill="#b98455"/>
-        <rect x="470" y="448" width="200" height="36" fill="#d8a46f"/>
-        <g id="menu"></g>
-      </g>
-
-      <!-- sidewalk and road -->
-      <rect y="548" width="1200" height="14" fill="#dcd7ca"/>
-      <rect y="562" width="1200" height="118" fill="#62666e"/>
-      <line x1="0" y1="622" x2="1200" y2="622" stroke="#f5f2e8" stroke-width="5" stroke-dasharray="34 26"/>
-
-      <!-- invisible routes the students walk along -->
-      <g fill="none" stroke="none">
-        <path id="route-a" d="M182 322 C 200 420, 420 470, 545 506"/>
-        <path id="route-b" d="M1023 322 C 1000 430, 760 520, 600 508"/>
-        <path id="exit-a" d="M545 506 C 500 535, 300 552, -40 556"/>
-        <path id="exit-b" d="M600 508 C 650 540, 900 552, 1240 556"/>
-      </g>
-
-      <!-- everything that moves -->
-      <g id="actors"></g>
-      <g id="effects"></g>
-    </svg>
+    <!-- the 3D campus is drawn here (WebGL canvas + labels) -->
+    <div id="stage" aria-label="3D campus with your kiosk, storage shed and the road"></div>
+    <div id="loading" class="loading">Building the campus…</div>
 
     <!-- ================= head-up display ================= -->
     <header class="hud-top">
@@ -148,7 +28,7 @@
         <div>
           <strong>Campus Tycoon</strong>
           <nav class="views" aria-label="Views">
-            <span aria-current="page">Map</span>
+            <span aria-current="page">3D Map</span>
             <a href="/">Dashboard</a>
           </nav>
         </div>
@@ -164,14 +44,22 @@
       </div>
     </header>
 
-    <div id="hud-stock" class="hud-stock" aria-label="Stock per product"></div>
+    <!-- storage overview (left) and live sales ticker (right) -->
+    <section id="hud-stock" class="hud-card hud-stock" aria-label="Stock per product"></section>
+    <section id="ticker" class="hud-card ticker" aria-live="polite" hidden>
+      <h3>Live sales · <span id="ticker-day"></span></h3>
+      <div id="ticker-totals" class="ticker-totals"></div>
+      <ol id="ticker-list" class="ticker-list"></ol>
+    </section>
 
     <nav class="toolbar" aria-label="Actions">
       <button id="btn-order" class="tool" type="button"><span aria-hidden="true">🚚</span> <span class="txt">Order stock</span></button>
       <button id="btn-prices" class="tool" type="button"><span aria-hidden="true">🏷️</span> <span class="txt">Prices</span></button>
       <button id="btn-open" class="tool primary" type="button"><span aria-hidden="true">🏪</span> <span id="open-label">Open</span></button>
       <button id="btn-fast" class="tool fast" type="button" hidden title="Finish the animation now"><span aria-hidden="true">⏩</span> <span class="txt">Skip</span></button>
+      <button id="btn-camera" class="tool icon" type="button" title="Reset the camera" aria-label="Reset the camera">🎥</button>
     </nav>
+    <p class="hint-camera">Drag to rotate · scroll or pinch to zoom · click the kiosk or the shed</p>
 
     <!-- side panel: order stock / prices -->
     <aside id="panel" class="panel" hidden aria-labelledby="panel-title">
@@ -184,7 +72,7 @@
 
     <!-- end of day / end of run -->
     <div id="overlay" class="overlay" hidden>
-      <div class="card-pop" role="dialog" aria-modal="true" aria-labelledby="overlay-title" id="overlay-card"></div>
+      <div class="card-pop" role="dialog" aria-modal="true" id="overlay-card"></div>
     </div>
   </div>
 
@@ -202,6 +90,13 @@
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
   <script src="/static/common.js"></script>
-  <script src="/static/map.js"></script>
+  <script type="module" src="/static/map.js"></script>
+  <script>
+    // the 3D library comes from a CDN: say so if it never arrives
+    setTimeout(() => {
+      const loading = document.getElementById("loading");
+      if (!loading.hidden) loading.innerHTML = 'The 3D view needs an internet connection to load. <a href="/">Open the dashboard</a>';
+    }, 10000);
+  </script>
 </body>
 </html>
