@@ -710,11 +710,6 @@ function buildShed() {
   scene.add(g);
   world.hotspots.push(g);
 
-  // the storage board above the shed names every product and its stock
-  world.storageBoard = label("lbl-storage", "");
-  world.storageBoard.position.set(SHED.x, 6.6, SHED.z);
-  scene.add(world.storageBoard);
-
   // one pallet per product, with a small sign at its front
   for (const pid of Object.keys(PALLET_X)) {
     scene.add(box(1.6, 0.18, 1.6, mat(0xc39a6b), PALLET_X[pid], 0.21, PALLET_Z));
@@ -990,10 +985,6 @@ function renderPallets(stock) {
     sign.element.title = p.name;
     sign.element.innerHTML = `<span class="em">${EMOJI[p.id]}</span><b>${stock[p.id]}</b>`;
   }
-  world.storageBoard.element.innerHTML = `<h4>📦 Storage</h4>` + state.products.map((p) => `
-    <div class="row ${stock[p.id] ? "" : "empty"}" style="--accent:${COLOR[p.id]}">
-      <span class="em">${EMOJI[p.id]}</span><span class="nm">${esc(p.name)}</span><b>${stock[p.id]}</b>
-    </div>`).join("");
 }
 
 function renderKiosk(stock) {

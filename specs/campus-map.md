@@ -18,7 +18,7 @@ Running the stand should feel like a tycoon game: the player sees their kiosk in
 ## What
 
 - A 3D campus the player can rotate and zoom: the kiosk with its menu board (prices), a storage shed, campus buildings, paths, trees and a road. (presentation only)
-- The storage shed shows one pallet per product, each with a sign naming the product and its units in stock; crates carry the product's symbol.
+- The storage shed shows one pallet per product, each with a sign showing the product's symbol and its units in stock; crates carry the product's symbol.
 - A head-up display with day, cash, overall result and stock per product.
 - Order stock: choose product and quantity, see the total cost, order. Accepted: a truck drives in, unloads crates onto the product's pallet, cash goes down. (CT02, CT R3)
 - Set prices on the menu board, with the expected demand per day. (CT03, CT R1)
