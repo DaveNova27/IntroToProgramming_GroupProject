@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Tycoon</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🥪</span>
+      <div>
+        <h1>Campus Tycoon</h1>
+        <p class="tagline">Your snack stand · five trading days</p>
+      </div>
+    </div>
+    <div class="day-track" aria-label="Progress">
+      <ol id="day-pips" class="day-pips"></ol>
+      <span id="day-label" class="day-label"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- KPI row -->
+    <section class="kpis" aria-label="Key figures">
+      <article class="card kpi kpi-hero">
+        <span class="kpi-label">Cash</span>
+        <span id="kpi-cash" class="kpi-value hero"></span>
+        <span id="kpi-cash-delta" class="kpi-delta"></span>
+      </article>
+      <article class="card kpi">
+        <span class="kpi-label">Stock at cost</span>
+        <span id="kpi-stock" class="kpi-value"></span>
+        <span id="kpi-stock-units" class="kpi-sub"></span>
+      </article>
+      <article class="card kpi">
+        <span class="kpi-label">Gross profit so far</span>
+        <span id="kpi-profit" class="kpi-value"></span>
+        <span id="kpi-profit-sub" class="kpi-sub"></span>
+      </article>
+      <article class="card kpi">
+        <span class="kpi-label">Overall result</span>
+        <span id="kpi-gain" class="kpi-value"></span>
+        <span class="kpi-sub">Cash + stock at cost − €100 start</span>
+      </article>
+    </section>
+
+    <!-- Products -->
+    <section class="products" aria-labelledby="products-title">
+      <div class="section-head">
+        <h2 id="products-title">Your stand</h2>
+        <p class="hint">Demand per day: 10 at or below the reference price, 5 up to twice it, 0 above.</p>
+      </div>
+      <div id="product-grid" class="product-grid"></div>
+    </section>
+
+    <!-- Open the stand / final result -->
+    <aside class="open-panel card" id="open-panel" aria-live="polite"></aside>
+
+    <!-- Charts -->
+    <section class="card chart-card" aria-labelledby="cash-chart-title">
+      <div class="chart-head">
+        <h2 id="cash-chart-title">Cash at close</h2>
+        <p class="chart-sub">Start balance, then cash after each trading day</p>
+      </div>
+      <div id="cash-chart" class="chart"></div>
+    </section>
+    <section class="card chart-card" aria-labelledby="profit-chart-title">
+      <div class="chart-head">
+        <h2 id="profit-chart-title">Gross profit per day</h2>
+        <ul id="profit-legend" class="legend"></ul>
+      </div>
+      <div id="profit-chart" class="chart"></div>
+    </section>
+
+    <!-- Last day's result -->
+    <section class="card result-card" aria-labelledby="result-title">
+      <div class="chart-head">
+        <h2 id="result-title">Last day's result</h2>
+        <p id="result-sub" class="chart-sub"></p>
+      </div>
+      <div id="result-table" class="table-wrap"></div>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip" role="status" hidden></div>
+  <div id="toasts" class="toasts" aria-live="assertive"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
