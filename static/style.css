@@ -133,10 +133,14 @@ button, input { font: inherit; color: inherit; }
   padding: 16px 24px 48px;
 }
 .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 16px; }
-.products { grid-column: span 8; }
+.products {
+  grid-column: span 8;
+  display: flex;
+  flex-direction: column;
+}
 .open-panel {
   grid-column: span 4;
-  margin-top: 40px;
+  margin-top: 39px;
 }
 .chart-card { grid-column: span 6; }
 .result-card, .history-card, .final-banner { grid-column: 1 / -1; }
@@ -171,7 +175,7 @@ button, input { font: inherit; color: inherit; }
 /* ---- products --------------------------------------------------------- */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 2px 12px; }
 .hint { color: var(--muted); font-size: 13px; }
-.product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex: 1; }
 
 .product { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; }
 .product::before {
