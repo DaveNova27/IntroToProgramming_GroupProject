@@ -281,7 +281,8 @@ const FOOTPATHS = [
   [new THREE.Vector3(-10.5, 0, -7.6), new THREE.Vector3(-10.2, 0, -3), new THREE.Vector3(-9, 0, 2.5), new THREE.Vector3(-7, 0, 6)],
   [new THREE.Vector3(10.5, 0, -7.6), new THREE.Vector3(12.8, 0, -4), new THREE.Vector3(13, 0, 3), new THREE.Vector3(8, 0, 5.8), new THREE.Vector3(0, 0, 6.6)],
 ];
-const TUNNEL = { x: -17, campusZ: 7.4, beachZ: 17.9 };   // under the coastal road to the beach
+// Entrances sit clear of the carriageway; the passage itself runs below it.
+const TUNNEL = { x: -17, campusZ: 8.45, beachZ: 16.75 };
 const SHORE_Z = 24.5;                                    // where the sand meets the water
 
 const WHITE = 0xf4f2ec;
@@ -453,7 +454,9 @@ function buildCoast() {
     const towel = box(0.9, 0.03, 1.8, mat(colours[(i + 2) % colours.length]), x + 1.1, 0.02, z + 0.4);
     towel.castShadow = false;
     scene.add(pole, top, towel);
-    world.beachSpots.push(new THREE.Vector3(x + 1.1, 0.3, z + 0.4));
+    // A lying person's origin is at their feet. Aim it at the towel's lower
+    // edge so rotating the standing model places the whole body on the towel.
+    world.beachSpots.push(new THREE.Vector3(x + 1.1, 0.29, z + 1.2));
   });
 
   // the tunnel under the road: one portal on campus, one on the beach
@@ -472,27 +475,29 @@ function portal(x, z, rot) {
   const g = new THREE.Group();
   const concrete = mat(0xd5d0c5);
   const trim = mat(0xeee9dc);
-  g.add(box(0.52, 2.15, 2.8, concrete, -1.75, 1.08, 0), box(0.52, 2.15, 2.8, concrete, 1.75, 1.08, 0));
+  // Everything visible extends away from the road (local -z). The buried
+  // continuation is implied beneath the road instead of covering a traffic lane.
+  g.add(box(0.52, 2.15, 2.4, concrete, -1.75, 1.08, -1.2), box(0.52, 2.15, 2.4, concrete, 1.75, 1.08, -1.2));
   const arch = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.3, 8, 24, Math.PI), concrete);
-  arch.position.set(0, 2.12, 1.15);
+  arch.position.set(0, 2.12, -0.12);
   arch.castShadow = true;
   g.add(arch);
-  g.add(box(4.1, 0.22, 2.9, trim, 0, 3.78, 0));
-  const dark = box(3, 2.2, 0.12, mat(0x203331), 0, 1.1, -1.35);
+  g.add(box(4.1, 0.22, 0.7, trim, 0, 3.78, -0.2));
+  const dark = box(3, 2.2, 0.12, mat(0x203331), 0, 1.1, 0.18);
   dark.castShadow = false;
   g.add(dark);
-  const ramp = box(2.8, 0.08, 4.6, mat(0xb9b5a9), 0, 0.05, 0.85);
+  const ramp = box(2.8, 0.08, 3.6, mat(0xb9b5a9), 0, 0.05, -1.8);
   ramp.castShadow = false;
   g.add(ramp);
-  g.add(box(0.1, 0.04, 4.2, mat(0xe5b75f), 0, 0.11, 0.85));
+  g.add(box(0.1, 0.04, 3.35, mat(0xe5b75f), 0, 0.11, -1.8));
   for (const sx of [-1.55, 1.55]) {
-    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, 1.65));
-    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, 0.1));
-    g.add(box(0.08, 0.08, 1.7, trim, sx, 1.0, 0.85));
+    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, -3.35));
+    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, -0.25));
+    g.add(box(0.08, 0.08, 3.1, trim, sx, 1.0, -1.8));
   }
   for (const sx of [-0.9, 0.9]) {
     const light = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(0xffe4a0, { emissive: 0xffc85c, emissiveIntensity: 1.5 }));
-    light.position.set(sx, 1.8, -1.25);
+    light.position.set(sx, 1.8, 0.1);
     g.add(light);
   }
   g.position.set(x, 0, z);
@@ -1768,11 +1773,11 @@ async function visit(customer, ledger, lanes) {
   await myTurn;
 }
 
-// The sun follows the sales: midday when half the students are served,
-// late afternoon when the last one is; dusk comes after closing.
+// The sun follows the sales but stays in the afternoon until everyone who is
+// heading for the beach has arrived. Dusk only starts once movement winds down.
 function moveSun(ledger) {
   const from = ledger.sky;
-  const to = 0.72 * (ledger.served / Math.max(ledger.total, 1));
+  const to = 0.58 * (ledger.served / Math.max(ledger.total, 1));
   ledger.sky = to;
   tween(500, (k) => setSky(from + (to - from) * k), linear);
 }
@@ -1788,7 +1793,7 @@ async function playDay(before, result) {
   const spacing = Math.max(320, SERVICE_MS / lanesUsed + 120);
 
   setSky(0);
-  if (!customers.length) await tween(1200, (k) => setSky(0.72 * k), linear);
+  if (!customers.length) await tween(1200, (k) => setSky(0.58 * k), linear);
   const surfers = [surferFromBeach(700, 0), surferFromBeach(3600, 1)];
   const visits = [];
   for (const c of customers) {
@@ -1796,14 +1801,12 @@ async function playDay(before, result) {
     await wait(spacing);
   }
   await Promise.all(visits);
-  // Closing starts as soon as the last sale is served. Departing customers and
-  // arriving surfers keep moving while dusk accelerates, avoiding a dead gap.
-  await Promise.all([
-    tween(900, (k) => setSky(0.72 + 0.28 * k), linear),
-    ...ledger.departures,
-    ...surfers,
-  ]);
-  await wait(120);
+  // Keep daylight while customers walk to the beach and settle on their towels.
+  // Their movement fills the period after the final sale; only then does dusk fall.
+  await Promise.all([...ledger.departures, ...surfers]);
+  // Finish at warm sunset rather than jumping all the way to night.
+  await tween(2800, (k) => setSky(0.58 + 0.30 * k), linear);
+  await wait(200);
 }
 
 // ---- overlays: end of day, end of run, new run --------------------------------------
