@@ -134,7 +134,10 @@ button, input { font: inherit; color: inherit; }
 }
 .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 16px; }
 .products { grid-column: span 8; }
-.open-panel { grid-column: span 4; align-self: start; }
+.open-panel {
+  grid-column: span 4;
+  margin-top: 40px;
+}
 .chart-card { grid-column: span 6; }
 .result-card, .history-card, .final-banner { grid-column: 1 / -1; }
 .campus-card { grid-column: span 5; }
@@ -604,7 +607,7 @@ body.map-main { overflow: hidden; }
 /* ---- responsive ------------------------------------------------------- */
 @container dash (max-width: 1180px) {
   .products { grid-column: 1 / -1; }
-  .open-panel { grid-column: 1 / -1; }
+  .open-panel { grid-column: 1 / -1; margin-top: 0; }
 }
 @container dash (max-width: 900px) {
   .campus-card, .stock-card { grid-column: 1 / -1; }
