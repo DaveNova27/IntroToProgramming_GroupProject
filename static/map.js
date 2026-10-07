@@ -57,7 +57,7 @@ function tellDashboard(message) {
 
 // scene objects that change with the run
 let scene, camera, renderer, labels, controls;
-const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null, sea: null, foam: null, lighthouse: null, sky: null };
+const world = { pallets: {}, displays: {}, menu: null, lamps: [], sun: null, hemi: null, clouds: [], hotspots: [], windows: null, sea: null, foam: null, lighthouse: null, sky: null, beachSpots: [], beachGuests: [] };
 
 // ---- small helpers -----------------------------------------------------------
 
@@ -340,7 +340,8 @@ function buildPlazaDetails() {
     g.add(cup);
     scene.add(g);
   }
-  for (const [x, z, width] of [[-8.6, -2.8, 2.4], [0.5, -2.8, 2.4], [-13, 0, 2], [13.4, 1.4, 2.6], [-3, -10, 2], [3, -10, 2]]) planter(x, z, width);
+  // Planters frame the paths instead of sitting in the students' route.
+  for (const [x, z, width] of [[-14, -3.5, 2.4], [0.5, -2.8, 2.4], [-14.5, 0, 2], [17, 1.2, 2.6], [-3, -10, 2], [3, -10, 2]]) planter(x, z, width);
   // Low stone edges and timber slats give the plaza a landscaped boundary.
   const stone = mat(0xd8cdb8);
   for (const x of [-13.5, 14.5]) {
@@ -452,6 +453,7 @@ function buildCoast() {
     const towel = box(0.9, 0.03, 1.8, mat(colours[(i + 2) % colours.length]), x + 1.1, 0.02, z + 0.4);
     towel.castShadow = false;
     scene.add(pole, top, towel);
+    world.beachSpots.push(new THREE.Vector3(x + 1.1, 0.3, z + 0.4));
   });
 
   // the tunnel under the road: one portal on campus, one on the beach
@@ -465,15 +467,34 @@ function buildCoast() {
   scene.add(beach);
 }
 
-// a concrete tunnel mouth facing +z (rotated for the beach side)
+// A lit arched tunnel mouth with a visible ramp under the coastal road.
 function portal(x, z, rot) {
   const g = new THREE.Group();
-  const concrete = mat(0xd9d6cf);
-  g.add(box(0.5, 2.6, 2.2, concrete, -1.75, 1.3, 0), box(0.5, 2.6, 2.2, concrete, 1.75, 1.3, 0));
-  g.add(box(4, 0.5, 2.2, concrete, 0, 2.85, 0));
-  const dark = box(3, 2.6, 0.1, mat(0x1d1f24), 0, 1.3, -0.9);
+  const concrete = mat(0xd5d0c5);
+  const trim = mat(0xeee9dc);
+  g.add(box(0.52, 2.15, 2.8, concrete, -1.75, 1.08, 0), box(0.52, 2.15, 2.8, concrete, 1.75, 1.08, 0));
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.3, 8, 24, Math.PI), concrete);
+  arch.position.set(0, 2.12, 1.15);
+  arch.castShadow = true;
+  g.add(arch);
+  g.add(box(4.1, 0.22, 2.9, trim, 0, 3.78, 0));
+  const dark = box(3, 2.2, 0.12, mat(0x203331), 0, 1.1, -1.35);
   dark.castShadow = false;
   g.add(dark);
+  const ramp = box(2.8, 0.08, 4.6, mat(0xb9b5a9), 0, 0.05, 0.85);
+  ramp.castShadow = false;
+  g.add(ramp);
+  g.add(box(0.1, 0.04, 4.2, mat(0xe5b75f), 0, 0.11, 0.85));
+  for (const sx of [-1.55, 1.55]) {
+    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, 1.65));
+    g.add(box(0.08, 1.0, 0.08, trim, sx, 0.5, 0.1));
+    g.add(box(0.08, 0.08, 1.7, trim, sx, 1.0, 0.85));
+  }
+  for (const sx of [-0.9, 0.9]) {
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(0xffe4a0, { emissive: 0xffc85c, emissiveIntensity: 1.5 }));
+    light.position.set(sx, 1.8, -1.25);
+    g.add(light);
+  }
   g.position.set(x, 0, z);
   g.rotation.y = rot;
   return g;
@@ -619,23 +640,12 @@ function buildNovaCampus() {
   water.position.set(0, 0.47, -15);
   scene.add(water);
 
-  // student residences to the east, a sports field to the west
+  // student residences to the east
   const res = finger(42, -6, 22, 3, 8);
   for (let f = 1; f < 3; f++) res.add(box(8.6, 0.15, 1.2, mat(0xffffff), 0, f * 3.4, 11.6));
-  const field = new THREE.Mesh(new THREE.PlaneGeometry(14, 22), mat(0x5fae4f));
-  field.rotation.x = -Math.PI / 2;
-  field.position.set(-42, 0.01, -18);
-  field.receiveShadow = true;
-  scene.add(field);
-  const line = mat(0xffffff);
-  for (const [w, d, x, z] of [[14, 0.15, -42, -7.1], [14, 0.15, -42, -28.9], [0.15, 22, -48.9, -18], [0.15, 22, -35.1, -18], [14, 0.15, -42, -18]]) {
-    const l = box(w, 0.02, d, line, x, 0.03, z);
-    l.castShadow = false;
-    scene.add(l);
-  }
 
   for (const [text, x, y, z] of [["LIBRARY", -24, 8.6, -8], ["ATRIUM", 0, 8, -25],
-    ["LEARNING STREET", 0, 9.5, -40], ["RESIDENCES", 42, 12.4, -6], ["SPORTS FIELD", -42, 1.5, -18]]) {
+    ["LEARNING STREET", 0, 9.5, -40], ["RESIDENCES", 42, 12.4, -6]]) {
     const tag = label("lbl-building", text);
     tag.position.set(x, y, z);
     scene.add(tag);
@@ -905,6 +915,17 @@ function buildPerson() {
   return g;
 }
 
+function giveSurfboard(person, color) {
+  const board = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.45, 4, 10), mat(color));
+  board.scale.z = 0.18;
+  board.position.set(0.48, 0.9, 0);
+  board.rotation.z = -0.12;
+  board.castShadow = true;
+  const stripe = box(0.47, 0.06, 0.04, mat(0xfff1ca), 0, 0, 0.18);
+  board.add(stripe);
+  person.add(board);
+}
+
 // ---- scene setup -----------------------------------------------------------------
 
 function initScene() {
@@ -970,7 +991,7 @@ function initScene() {
   for (const [x, z, s] of [[-17, -2, 1.1], [-30, 4, 1.2], [-36, -2, 1], [-52, -8, 1.3], [-56, -24, 1.2], [-50, 4, 1.1],
     [18, -2, 1], [31, 3, 1.2], [52, -8, 1.2], [56, -26, 1.3], [-31, -26, 1.1], [31, -27, 1], [-6, -46, 1.2],
     [14, -50, 1.3], [-24, -50, 1.1], [36, -44, 1.2], [-44, -40, 1.3]]) stonePine(x, z, s);
-  for (const [x, z] of [[-14, 3], [-20, 5], [17, 4.5], [22, 5], [-5, -12], [5, -12], [-29, -6], [29, -6]]) juniper(x, z, 0.8 + Math.random() * 0.4);
+  for (const [x, z] of [[-19, 1], [-24, 4], [18, -1], [24, 3], [-5, -12], [5, -12], [-29, -6], [29, -6]]) juniper(x, z, 0.8 + Math.random() * 0.4);
   lamp(-11.5, 6.4);
   lamp(3.4, 6.6);
   lamp(-4, 8.3);
@@ -1617,9 +1638,9 @@ function routeOut(from) {
 }
 
 // After buying, some students head back along the road, others take the tunnel to the beach.
-async function leaveCampus(person) {
+async function leaveCampus(person, goBeach) {
   const from = person.position.clone();
-  if (Math.random() < 0.45) {
+  if (goBeach) {
     await walkAlong(person, [
       from,
       new THREE.Vector3(from.x - 1.5, 0, Math.max(from.z + 1.5, 6.8)),
@@ -1630,12 +1651,53 @@ async function leaveCampus(person) {
     person.position.set(TUNNEL.x, -1.9, TUNNEL.beachZ - 0.4);
     person.rotation.y = 0;
     await tween(450, (k) => { person.position.y = -1.9 * (1 - k); }, linear); // up on the beach
-    const spot = new THREE.Vector3(TUNNEL.x - 8 + Math.random() * 30, 0, 19.5 + Math.random() * 3.5);
-    await walkAlong(person, [person.position.clone(), new THREE.Vector3(TUNNEL.x, 0, TUNNEL.beachZ + 1.2), spot]);
-    await wait(500);
+    const spot = world.beachSpots[world.beachGuests.length % world.beachSpots.length].clone();
+    await walkAlong(person, [person.position.clone(), new THREE.Vector3(TUNNEL.x, 0, TUNNEL.beachZ + 1.2), new THREE.Vector3(spot.x - 0.8, 0, spot.z), spot]);
+    // Settle visibly on a towel instead of vanishing at the beach.
+    const startY = person.position.y;
+    person.rotation.y = 0;
+    await tween(450, (k) => {
+      person.rotation.x = -Math.PI / 2 * k;
+      person.position.y = startY + (spot.y - startY) * k;
+    }, easeOut);
+    person.scale.setScalar(1.12);
+    world.beachGuests.push(person);
+    return;
   } else {
     await walkAlong(person, routeOut(from));
   }
+  scene.remove(person);
+}
+
+// A little reverse flow keeps the beach connected to campus: surfers arrive
+// through the same underpass while customers are walking to the kiosk.
+async function surferFromBeach(delay, index) {
+  await wait(delay);
+  const person = buildPerson();
+  giveSurfboard(person, [0xe8a85b, 0x4e9ba7, 0xd56f62][index % 3]);
+  const badge = label("lbl-bubble", "🏄 From the beach");
+  badge.position.set(0, 2.25, 0);
+  person.add(badge);
+  person.position.set(TUNNEL.x + 8 + index * 4, 0, 20 + index * 1.2);
+  scene.add(person);
+  await walkAlong(person, [
+    person.position.clone(),
+    new THREE.Vector3(TUNNEL.x + 1.8, 0, TUNNEL.beachZ + 1.2),
+    new THREE.Vector3(TUNNEL.x, 0, TUNNEL.beachZ + 0.3),
+  ]);
+  await tween(420, (k) => { person.position.y = -1.9 * k; }, linear);
+  person.position.set(TUNNEL.x, -1.9, TUNNEL.campusZ + 0.3);
+  await tween(420, (k) => { person.position.y = -1.9 * (1 - k); }, linear);
+  await walkAlong(person, [
+    person.position.clone(),
+    new THREE.Vector3(-14.5, 0, 7.2),
+    new THREE.Vector3(-11, 0, 6.6),
+    new THREE.Vector3(-9, 0, 2.5),
+    new THREE.Vector3(-10.2, 0, -3),
+    DOORS.west.clone(),
+  ]);
+  person.remove(badge);
+  badge.element.remove();
   scene.remove(person);
 }
 
@@ -1654,7 +1716,6 @@ async function visit(customer, ledger, lanes) {
   await walkAlong(person, routeIn(door, queueSpot(customer.pid, lane.queue.length - 1)));
   person.arrived = true;
 
-  let leave = Promise.resolve();
   const myTurn = lane.turn.then(async () => {
     // step up to the window
     const from = person.position.clone();
@@ -1699,11 +1760,12 @@ async function visit(customer, ledger, lanes) {
       const start = other.position.clone();
       tween(350, (k) => other.position.lerpVectors(start, target, k));
     });
-    leave = leaveCampus(person);
+    const departureNumber = ledger.departures.length;
+    const goBeach = departureNumber % 3 === 0 || Math.random() < 0.25;
+    ledger.departures.push(leaveCampus(person, goBeach));
   });
   lane.turn = myTurn;
   await myTurn;
-  await leave;
 }
 
 // The sun follows the sales: midday when half the students are served,
@@ -1716,24 +1778,32 @@ function moveSun(ledger) {
 }
 
 async function playDay(before, result) {
+  world.beachGuests.forEach((person) => scene.remove(person));
+  world.beachGuests = [];
   resetTicker(result.day);
   const customers = customersFor(before, result);
-  const ledger = { cash: before.cash, stock: stockOf(before), served: 0, total: customers.length, sky: 0 };
+  const ledger = { cash: before.cash, stock: stockOf(before), served: 0, total: customers.length, sky: 0, departures: [] };
   const lanes = makeLanes();
   const lanesUsed = new Set(customers.map((c) => c.pid)).size || 1;
   const spacing = Math.max(320, SERVICE_MS / lanesUsed + 120);
 
   setSky(0);
-  if (!customers.length) await tween(2500, (k) => setSky(0.72 * k), linear);
+  if (!customers.length) await tween(1200, (k) => setSky(0.72 * k), linear);
+  const surfers = [surferFromBeach(700, 0), surferFromBeach(3600, 1)];
   const visits = [];
   for (const c of customers) {
     visits.push(visit(c, ledger, lanes));
     await wait(spacing);
   }
   await Promise.all(visits);
-  // closing time: dusk falls and the lamps come on
-  await tween(1800, (k) => setSky(0.72 + 0.28 * k), linear);
-  await wait(300);
+  // Closing starts as soon as the last sale is served. Departing customers and
+  // arriving surfers keep moving while dusk accelerates, avoiding a dead gap.
+  await Promise.all([
+    tween(900, (k) => setSky(0.72 + 0.28 * k), linear),
+    ...ledger.departures,
+    ...surfers,
+  ]);
+  await wait(120);
 }
 
 // ---- overlays: end of day, end of run, new run --------------------------------------

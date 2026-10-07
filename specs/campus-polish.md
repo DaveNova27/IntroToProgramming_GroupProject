@@ -10,6 +10,10 @@ dashboard. Existing ordering, prices, trading animations, view switching and
 reduced-motion support remain usable on desktop and narrow screens.
 Animation progress stays within 0..1 and zero-length walks finish directly,
 so frame timing and Skip cannot generate invalid curve coordinates.
+Remove the sports field, keep plants clear of walking routes, make the beach
+tunnel read as a lit underpass, and keep beach-bound customers visible as they
+settle on towels. Surfers walk from the beach through the tunnel to campus.
+After the final sale, dusk accelerates while the remaining people keep moving.
 
 ## Out of scope
 
