@@ -36,7 +36,7 @@ let animating = false;
 let dayRunning = null;
 let fast = false;
 let panelMode = null;
-let orderProduct = "sandwich";
+const orderQuantities = { sandwich: 10, coffee: 10, cookie: 10 };
 const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 // Inside the dashboard page the map runs embedded: as a small live window
@@ -1290,31 +1290,28 @@ function renderPanel() {
   const body = $("#panel-body");
   if (panelMode === "order") {
     $("#panel-title").textContent = "🚚 Order stock";
-    const p = product(orderProduct);
-    const max = Math.floor(state.cash / p.cost);
     body.innerHTML = `
-      <div class="pick" role="group" aria-label="Product">
-        ${state.products.map((x) => `
-          <button type="button" data-pick="${x.id}" aria-pressed="${x.id === orderProduct}" style="--accent:${COLOR[x.id]}">
-            <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
-            <span class="nm">${esc(x.name)}</span>
-            <small>${fmt(x.cost)} each · ${x.stock} in shed</small>
-          </button>`).join("")}
-      </div>
       <form id="order-form">
-        <div class="field-label"><span>Quantity</span><span>up to ${max} affordable</span></div>
-        <div class="stepper">
-          <button type="button" data-step="-1" aria-label="One less">−</button>
-          <input name="quantity" inputmode="numeric" autocomplete="off" value="10" aria-label="Quantity">
-          <button type="button" data-step="1" aria-label="One more">+</button>
-        </div>
-        <div class="chips">
-          ${[5, 10, 25].map((n) => `<button type="button" class="chip" data-set="${n}">${n}</button>`).join("")}
-          <button type="button" class="chip" data-set="${max}">Max (${max})</button>
+        <p class="note">Set all quantities now. Selected trucks arrive one after another.</p>
+        <div class="order-lines" aria-label="Products to order">
+        ${state.products.map((x) => `
+          <div class="order-row" data-order-row="${x.id}" style="--accent:${COLOR[x.id]}">
+            <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
+            <span class="nm">${esc(x.name)}<small>${fmt(x.cost)} each · ${x.stock} in shed</small></span>
+            <div class="stepper compact">
+              <button type="button" data-step="-1" aria-label="One less ${esc(x.name)}">−</button>
+              <input name="${x.id}" data-order-quantity inputmode="numeric" autocomplete="off"
+                value="${orderQuantities[x.id]}" aria-label="${esc(x.name)} quantity">
+              <button type="button" data-step="1" aria-label="One more ${esc(x.name)}">+</button>
+            </div>
+            <div class="chips">
+              ${[0, 5, 10].map((n) => `<button type="button" class="chip" data-set="${n}">${n}</button>`).join("")}
+            </div>
+          </div>`).join("")}
         </div>
         <div class="total" id="order-total" style="margin-top:14px"></div>
         <p class="error" id="order-error"></p>
-        <button class="btn wide" type="submit" style="margin-top:12px">Order delivery 🚚</button>
+        <button class="btn wide" type="submit" style="margin-top:12px">Order all deliveries 🚚</button>
       </form>`;
     updateOrderTotal();
   } else if (panelMode === "prices") {
@@ -1337,36 +1334,31 @@ function renderPanel() {
 function updateOrderTotal() {
   const out = $("#order-total");
   if (!out) return;
-  const text = $("#order-form").quantity.value.trim();
-  if (!/^\d+$/.test(text)) {
+  const inputs = [...document.querySelectorAll("[data-order-quantity]")];
+  if (inputs.some((input) => !/^\d+$/.test(input.value.trim()))) {
     out.className = "total";
-    out.innerHTML = `<span>Enter a whole number</span><strong>—</strong>`;
+    out.innerHTML = `<span>Enter whole numbers</span><strong>—</strong>`;
     return;
   }
-  const total = Number(text) * product(orderProduct).cost;
+  const quantities = Object.fromEntries(inputs.map((input) => [input.name, Number(input.value)]));
+  Object.assign(orderQuantities, quantities);
+  const total = state.products.reduce((sum, item) => sum + quantities[item.id] * item.cost, 0);
+  const trucks = Object.values(quantities).filter((quantity) => quantity > 0).length;
   const tooMuch = total > state.cash;
   out.className = `total ${tooMuch ? "too-much" : ""}`;
-  out.innerHTML = `<span>${tooMuch ? "More than your cash" : "Total cost"}</span><strong>${fmt(total)}</strong>`;
+  out.innerHTML = `<span>${tooMuch ? "More than your cash" : `${trucks} ${trucks === 1 ? "delivery" : "deliveries"} · total`}</span><strong>${fmt(total)}</strong>`;
 }
 
 function wirePanel() {
   const panel = $("#panel");
   panel.addEventListener("click", (e) => {
     if (e.target.closest("[data-close]")) return closePanel();
-    const pickBtn = e.target.closest("[data-pick]");
-    if (pickBtn) {
-      const typed = $("#order-form")?.quantity.value;
-      orderProduct = pickBtn.dataset.pick;
-      renderPanel();
-      if (typed) $("#order-form").quantity.value = typed;
-      return updateOrderTotal();
-    }
-    const input = $("#order-form")?.quantity;
     const step = e.target.closest("[data-step]");
     const set = e.target.closest("[data-set]");
+    const input = e.target.closest("[data-order-row]")?.querySelector("[data-order-quantity]");
     if (input && step) {
       const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
-      input.value = Math.max(1, current + Number(step.dataset.step));
+      input.value = Math.max(0, current + Number(step.dataset.step));
       updateOrderTotal();
     } else if (input && set) {
       input.value = set.dataset.set;
@@ -1375,7 +1367,7 @@ function wirePanel() {
   });
 
   panel.addEventListener("input", (e) => {
-    if (e.target.name === "quantity") return updateOrderTotal();
+    if (e.target.matches("[data-order-quantity]")) return updateOrderTotal();
     const form = e.target.closest("[data-price-form]");
     if (!form) return;
     const p = product(form.dataset.priceForm);
@@ -1390,7 +1382,10 @@ function wirePanel() {
 
   panel.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (e.target.id === "order-form") return order(orderProduct, e.target.quantity.value);
+    if (e.target.id === "order-form") {
+      const quantities = Object.fromEntries(state.products.map((item) => [item.id, e.target.elements[item.id].value]));
+      return orderAll(quantities);
+    }
     const form = e.target.closest("[data-price-form]");
     if (form) savePrice(form);
   });
@@ -1411,10 +1406,10 @@ async function run(sequence) {
   }
 }
 
-async function order(pid, quantityText) {
+async function orderAll(quantities) {
   if (animating) return;
   const before = state;
-  const data = await send("/api/buy", { product: pid, quantity: quantityText });
+  const data = await send("/api/buy-batch", { quantities });
   if (!data) return;
   if (data.error) {
     // nothing changed; keep the panel and what was typed, show why
@@ -1427,8 +1422,22 @@ async function order(pid, quantityText) {
   closePanel();
   tellDashboard({ type: "action", after: data.state });
   await enqueue(async () => {
-    state = data.state;
-    await run(() => playDelivery(pid, before));
+    const finalState = data.state;
+    const deliveries = before.products
+      .map((item) => ({ id: item.id, quantity: Number(quantities[item.id]), cost: item.cost }))
+      .filter((delivery) => delivery.quantity > 0);
+    await run(async () => {
+      let stageBefore = before;
+      for (const delivery of deliveries) {
+        const stageAfter = structuredClone(stageBefore);
+        stageAfter.cash -= delivery.quantity * delivery.cost;
+        stageAfter.products.find((item) => item.id === delivery.id).stock += delivery.quantity;
+        state = stageAfter;
+        await playDelivery(delivery.id, stageBefore, stageAfter);
+        stageBefore = stageAfter;
+      }
+      state = finalState;
+    });
   });
   toast(data.message);
 }
@@ -1547,19 +1556,19 @@ async function flyCrate(pid, from, to) {
   scene.remove(c);
 }
 
-async function playDelivery(pid, before) {
+async function playDelivery(pid, before, after = state) {
   const truck = buildTruck(pid);
   scene.add(truck);
   await drive(truck, -70, SHED.x, 2000, easeOut);
 
   // pay on delivery: cash goes down by what the server charged
-  const cost = before.cash - state.cash;
+  const cost = before.cash - after.cash;
   floatLabel("lbl-cost", `−${fmt(cost)}`, new THREE.Vector3(SHED.x, 3.6, LANE_Z));
-  setCash(state.cash, true);
+  setCash(after.cash, true);
 
   // unload onto the product's pallet: one flying crate per 5 units (1 to 8)
   const startStock = stockOf(before);
-  const quantity = stockOf(state)[pid] - startStock[pid];
+  const quantity = stockOf(after)[pid] - startStock[pid];
   const flights = Math.max(1, Math.min(Math.ceil(quantity / UNITS_PER_CRATE), 8));
   const shown = { ...startStock };
   for (let i = 0; i < flights; i++) {
@@ -1570,7 +1579,7 @@ async function playDelivery(pid, before) {
     renderPallets(shown);
     renderStockRows(shown);
   }
-  renderKiosk(stockOf(state));
+  renderKiosk(stockOf(after));
   await wait(300);
   await drive(truck, SHED.x, 80, 1600, easeIn);
   scene.remove(truck);

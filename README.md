@@ -20,9 +20,9 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 
 | Layer | Files | Job |
 |---|---|---|
-| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`. A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
+| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `buy_many`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`. A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
 | Storage | `db.py` | SQLite, one run. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
-| Server | `app.py` | Flask. `GET /api/state`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`). Each request loads the run, applies one rule and saves only if it was accepted. `/map` redirects to `/#map`; `/map?embed=1` serves the map page for the iframe. |
+| Server | `app.py` | Flask. `GET /api/state`, `POST /api/buy`, `/api/buy-batch`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`). Each request loads the run, applies one rule and saves only if it was accepted. `/map` redirects to `/#map`; `/map?embed=1` serves the map page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
 | View switch | `static/views.js` | One map iframe that is never reloaded: over the "Campus live" window on the dashboard, or full screen (`#map`). Dashboard as a slide-in panel over the map. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
 | 3D map | `static/map.html`, `map.css`, `map.js` | three.js 0.170 from the jsDelivr CDN (needs internet). Stylised Nova SBE campus in Carcavelos: kiosk, storage shed, truck deliveries, students queueing per product, live sales ticker, day/night. Modes `preview` (small window, auto-rotate, no HUD) and `main`. Animations run one after another in a queue (`enqueue`). |
@@ -44,6 +44,7 @@ animate that answer.
 | `nova-campus.md` | `nova-campus` | Scene styled after Nova SBE Carcavelos (beach, tunnel, fort, pines) |
 | `finite-prices.md` | `finite-prices` | Refuse non-finite prices without changing the saved run; regression checks in `checks/` |
 | `campus-polish.md` | `campus-polish` | Coastal Tycoon visual polish: facade detail, landscaped plaza, warm light, sea and coordinated UI |
+| `combined-stock-order.md` | `combined-stock-order` | One order for all products, saved atomically and delivered by sequential trucks |
 
 The tag `v1.0` is the dashboard-only version before the map.
 

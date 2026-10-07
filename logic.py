@@ -88,6 +88,41 @@ def buy(state, product, quantity):
     return new
 
 
+def buy_many(state, quantities):
+    """Buy several products as one all-or-nothing stock order."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Buying is closed.")
+    if not isinstance(quantities, dict):
+        raise RejectedAction("Quantities must be provided for the stock order.")
+
+    unknown = set(quantities) - set(CATALOGUE)
+    if unknown:
+        raise RejectedAction(f"Unknown product '{sorted(unknown)[0]}'.")
+
+    total = 0
+    units = 0
+    for product, item in CATALOGUE.items():
+        quantity = quantities.get(product, 0)
+        if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 0:
+            raise RejectedAction("Quantities must be positive whole numbers or zero.")
+        units += quantity
+        total += quantity * item["cost"]
+
+    if units == 0:
+        raise RejectedAction("Choose at least one item to order.")
+    if total > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: the combined order costs {fmt(total)}, "
+            f"you have {fmt(state['cash'])}."
+        )
+
+    new = copy.deepcopy(state)
+    new["cash"] -= total
+    for product, quantity in quantities.items():
+        new["stock"][product] += quantity
+    return new
+
+
 def set_price(state, product, price_cents):
     """CT03: set a positive selling price."""
     _check_product(product)

@@ -72,6 +72,14 @@ def parse_quantity(value):
     return int(text)
 
 
+def parse_order_quantity(value):
+    """Parse one line of a combined order; zero means no truck for that item."""
+    text = str(value).strip()
+    if not text.isdigit():
+        raise logic.RejectedAction("Quantities must be positive whole numbers or zero.")
+    return int(text)
+
+
 def apply(action):
     """Run a rule on the saved run. Save only if it was accepted."""
     with _lock:
@@ -116,6 +124,30 @@ def buy():
         cost = state["cash"] - new_state["cash"]
         name = logic.CATALOGUE[product]["name"]
         return new_state, f"Bought {quantity} × {name} for {logic.fmt(cost)}."
+
+    return apply(action)
+
+
+@app.post("/api/buy-batch")
+def buy_batch():
+    body = request.get_json(silent=True) or {}
+
+    def action(state):
+        raw = body.get("quantities")
+        if not isinstance(raw, dict):
+            raise logic.RejectedAction("Quantities must be provided for the stock order.")
+        unknown = set(raw) - set(logic.CATALOGUE)
+        if unknown:
+            raise logic.RejectedAction(f"Unknown product '{sorted(unknown)[0]}'.")
+        quantities = {
+            product: parse_order_quantity(raw.get(product, "0"))
+            for product in logic.CATALOGUE
+        }
+        new_state = logic.buy_many(state, quantities)
+        cost = state["cash"] - new_state["cash"]
+        trucks = sum(quantity > 0 for quantity in quantities.values())
+        delivery_word = "delivery" if trucks == 1 else "deliveries"
+        return new_state, f"Ordered {sum(quantities.values())} items in {trucks} {delivery_word} for {logic.fmt(cost)}."
 
     return apply(action)
 

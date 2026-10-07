@@ -285,6 +285,26 @@ p { margin: 0; }
 .pick button small { color: var(--muted); font-size: 11.5px; }
 .pick button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, #fff); }
 
+.order-lines { display: flex; flex-direction: column; gap: 9px; margin-top: 10px; }
+.order-row {
+  display: grid;
+  grid-template-columns: 32px minmax(76px, 1fr) 126px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border-left: 4px solid var(--accent);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.order-row .em { font-size: 24px; text-align: center; }
+.order-row .nm { font-size: 13px; font-weight: 700; }
+.order-row .nm small { display: block; margin-top: 2px; color: var(--muted); font-size: 10.5px; font-weight: 500; }
+.order-row .chips { grid-column: 2 / -1; margin-top: 0; }
+.stepper.compact { height: 40px; padding: 0 4px; }
+.stepper.compact button { width: 29px; height: 29px; }
+.stepper.compact input { font-size: 16px; }
+
 .field-label { font-size: 12px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: flex; justify-content: space-between; }
 .field-label span:last-child { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); }
 .stepper { display: flex; align-items: center; height: 46px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); padding: 0 6px; }
