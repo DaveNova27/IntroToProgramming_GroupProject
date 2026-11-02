@@ -27,3 +27,15 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 
 ## How to report
 - Paste the final test output and list every file you changed.
+
+## Group workflow
+
+This is now the Nova SBE group project (2477-2627_S1, 3-4 members). Everyone must
+contribute code to this repository.
+
+- One GitHub Issue per spec, using the "Spec" issue template. Assign yourself before
+  starting.
+- Open a pull request from your spec branch into `main`. `main` is protected: a PR
+  needs at least one approving review from another member and a passing `Tests`
+  check (GitHub Actions runs `uv run pytest` on every PR) before it can be merged.
+- Keep PRs scoped to one spec, same as the solo rules above.
