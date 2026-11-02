@@ -6,6 +6,19 @@ best overall result. The rules come from the BRD (CT01–CT05, CT R1–R5); each
 feature is described by a spec in `specs/`. Working rules for coding agents are
 in `AGENTS.md`.
 
+Built individually for the Solo Project, now extended as the Group Project for
+2477-2627_S1 Introduction to Programming.
+
+## Group
+
+| Name | Student number |
+|---|---|
+| David Ben Morsey | 79133 |
+| _TODO_ | _TODO_ |
+| _TODO_ | _TODO_ |
+
+**Deployed app:** _TODO: add the deployed URL once the project is deployed_
+
 ## Run
 
 ```
