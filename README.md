@@ -14,8 +14,8 @@ Built individually for the Solo Project, now extended as the Group Project for
 | Name | Student number |
 |---|---|
 | David Ben Morsey | 79133 |
-| _TODO_ | _TODO_ |
-| _TODO_ | _TODO_ |
+| Christopher Bryce Tiedke | 79960 |
+| Gregor Maximilian Rosenberger | 78878 |
 
 **Deployed app:** _TODO: add the deployed URL once the project is deployed_
 
