@@ -12,7 +12,7 @@ import copy
 from decimal import Decimal, InvalidOperation
 
 STARTING_CASH = 10_000  # cents = 100.00 euro
-LAST_DAY = 5
+LAST_DAY = 30  # length of a season in days (specs/longer-run.md)
 DEMAND_AT_OR_BELOW_REF = 10
 DEMAND_UP_TO_DOUBLE_REF = 5
 
@@ -60,7 +60,7 @@ def fmt(cents):
 
 
 def is_finished(state):
-    """After day 5 the run is complete (CT05)."""
+    """After the last day of the season the run is complete (CT05)."""
     return state["day"] > LAST_DAY
 
 
@@ -156,7 +156,7 @@ def stock_overview(state):
     """Per product: units, value at cost, and what today's price would sell.
 
     Only reads the run. Sells today follows the trading rules (CT R1, CT R2);
-    after day 5 nothing sells any more, so everything counts as left.
+    after the last day nothing sells any more, so everything counts as left.
     """
     lines = []
     for pid, item in CATALOGUE.items():

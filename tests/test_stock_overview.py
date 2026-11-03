@@ -58,10 +58,12 @@ def test_stock_limits_todays_sales():
 # ---- Check 4: nothing sells after day 5 -----------------------------------
 
 def test_nothing_sells_on_a_complete_run():
-    # 60 Cookies at the reference price sell 10 a day: 10 are left after day 5,
-    # and at this price they would sell on an open run.
-    state = logic.buy(logic.new_state(), "cookie", 60)
-    for _ in range(logic.LAST_DAY):
+    # Cookies at the reference price sell 10 a day. Buy 10 before every day and
+    # 20 before the last one: 10 are left after the last day, and at this price
+    # they would sell on an open run.
+    state = logic.new_state()
+    for day in range(1, logic.LAST_DAY + 1):
+        state = logic.buy(state, "cookie", 20 if day == logic.LAST_DAY else 10)
         state, _ = logic.trade_day(state)
     assert logic.is_finished(state)
 

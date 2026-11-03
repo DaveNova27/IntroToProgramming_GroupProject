@@ -12,12 +12,12 @@ def db_path(tmp_path):
 
 
 def complete_run():
-    """The scenario from the spec: 15 Sandwiches, day 1 at €4, days 2-5 at €9."""
+    """The scenario from the spec: 15 Sandwiches, day 1 at €4, all later days at €9."""
     state = logic.buy(logic.new_state(), "sandwich", 15)
     state = logic.set_price(state, "sandwich", 400)
     state, _ = logic.trade_day(state)
     state = logic.set_price(state, "sandwich", 900)  # above 2x reference: demand 0
-    for _ in range(4):
+    for _ in range(logic.LAST_DAY - 1):
         state, _ = logic.trade_day(state)
     return state
 
@@ -31,7 +31,7 @@ def test_full_run_gives_the_final_result():
     assert state["stock"]["sandwich"] == 5
     assert logic.stock_value(state) == 1_000
     assert logic.overall_gain(state) == 2_000
-    assert [day["day"] for day in state["history"]] == [1, 2, 3, 4, 5]
+    assert [day["day"] for day in state["history"]] == list(range(1, logic.LAST_DAY + 1))
 
 
 # ---- Check 2: everything is locked after day 5 (A6) ----------------------
@@ -82,4 +82,4 @@ def test_complete_run_survives_a_restart(db_path):
     reopened = db.load(db_path)
     assert logic.is_finished(reopened)
     assert logic.overall_gain(reopened) == 2_000
-    assert len(reopened["history"]) == 5
+    assert len(reopened["history"]) == logic.LAST_DAY
