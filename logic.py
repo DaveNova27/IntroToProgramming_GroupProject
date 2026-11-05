@@ -11,10 +11,13 @@ leave existing data unchanged).
 import copy
 from decimal import Decimal, InvalidOperation
 
+import world
+
 STARTING_CASH = 10_000  # cents = 100.00 euro
 LAST_DAY = 30  # length of a season in days (specs/longer-run.md)
 DEMAND_AT_OR_BELOW_REF = 10
 DEMAND_UP_TO_DOUBLE_REF = 5
+MAX_PRICE = 100_000_000  # cents = 1,000,000 euro, far above any useful price
 
 # The fixed catalogue: unit purchase cost and reference selling price, in cents.
 CATALOGUE = {
@@ -36,6 +39,7 @@ def new_state():
         "stock": {pid: 0 for pid in CATALOGUE},
         "prices": {pid: item["ref_price"] for pid, item in CATALOGUE.items()},
         "history": [],
+        "player": world.start_player(),
     }
 
 
@@ -65,7 +69,7 @@ def is_finished(state):
 
 
 def _check_product(product):
-    if product not in CATALOGUE:
+    if not isinstance(product, str) or product not in CATALOGUE:
         raise RejectedAction(f"Unknown product '{product}'.")
 
 
@@ -95,6 +99,8 @@ def set_price(state, product, price_cents):
         raise RejectedAction("The run is complete. Prices are locked.")
     if price_cents <= 0:
         raise RejectedAction("The selling price must be more than €0.")
+    if price_cents > MAX_PRICE:
+        raise RejectedAction(f"The selling price can be at most {fmt(MAX_PRICE)}.")
     new = copy.deepcopy(state)
     new["prices"][product] = price_cents
     return new
@@ -145,6 +151,22 @@ def trade_day(state):
     new["history"].append(result)
     new["day"] += 1  # CT R5: exactly one day per trade action
     return new, result
+
+
+def move_player(state, zone, x, y):
+    """Save where the player stands. Only for showing the world: no rule depends on it."""
+    if not isinstance(zone, str) or zone not in world.ZONES:
+        raise RejectedAction(f"Unknown zone '{zone}'.")
+    bounds = world.ZONES[zone]
+    for value in (x, y):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise RejectedAction("A position needs two numbers.")
+    # this also refuses NaN and infinity: every comparison with them fails or is out of range
+    if not (bounds["minX"] <= x <= bounds["maxX"] and bounds["minY"] <= y <= bounds["maxY"]):
+        raise RejectedAction(f"That position is outside {bounds['name']}.")
+    new = copy.deepcopy(state)
+    new["player"] = {"zone": zone, "x": round(float(x), 2), "y": round(float(y), 2)}
+    return new
 
 
 def stock_value(state):
