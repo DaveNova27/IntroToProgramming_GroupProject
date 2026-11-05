@@ -45,8 +45,10 @@ def shops_view(state):
             else:
                 name = f"Employee place {offer['place']}"
                 bought = mine["staff_places"] >= offer["place"]
+            # employee places are bought in order: place 2 waits for place 1
+            ready = offer["kind"] == "product" or mine["staff_places"] >= offer["place"] - 1
             offers.append({"id": item_id, "kind": offer["kind"], "name": name,
-                           "price": offer["price"], "bought": bought})
+                           "price": offer["price"], "bought": bought, "available": ready})
         out.append({
             "id": sid,
             "name": shop["name"],

@@ -202,7 +202,8 @@ function renderPanel() {
                 ${o.bought
                   ? `<span class="owned">Owned</span>`
                   : `<button class="btn" type="button" data-upgrade-shop="${esc(s.id)}" data-upgrade-item="${esc(o.id)}"
-                      ${o.price > state.cash ? "disabled" : ""}>${fmt(o.price)}</button>`}
+                      ${o.price > state.cash || !o.available ? "disabled" : ""}
+                      ${o.available ? "" : 'title="Buy the first employee place first"'}>${fmt(o.price)}</button>`}
               </div>`).join("")}`
           : `<div class="shop-offer">
               <span class="nm">Start with ${esc(s.start_product_name)}</span>
