@@ -91,17 +91,14 @@ def load(path=DEFAULT_PATH):
 
 def _shops(rows, shop_products, saved_products):
     """The shops of the run. A save from before shops existed (no rows) becomes a run
-    where every shop that fits the products that save already had is open with them."""
+    with the first shop open, holding the products of that save that belong to it.
+    No other shop is opened for free; stock of other products stays stored, unused."""
     shops = {sid: logic._new_shop(sid) for sid in logic.SHOPS}
     if not rows:
-        # Every shop that can hold a product the old save had is opened with those
-        # products; the first shop is always open. Products that no longer exist are dropped.
-        for sid in logic.SHOPS:
-            have = [p for p in logic.CATALOGUE
-                    if p in saved_products and p in logic.shop_product_ids(sid)]
-            if have:
-                shops[sid] = {"unlocked": True, "level": len(have),
-                              "products": have, "staff_places": 0}
+        have = [p for p in logic.CATALOGUE
+                if p in saved_products and p in logic.shop_product_ids(logic.FIRST_SHOP)]
+        shops[logic.FIRST_SHOP]["products"] = have or shops[logic.FIRST_SHOP]["products"]
+        shops[logic.FIRST_SHOP]["level"] = max(1, len(have))
         return shops
     for sid, unlocked, level, staff in rows:
         if sid in shops:

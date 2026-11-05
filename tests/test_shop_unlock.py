@@ -185,16 +185,18 @@ def test_a_save_from_before_this_spec_still_loads(db_path):
 
     state = db.load(db_path)
     assert state["cash"] == 5_000 and state["day"] == 4
-    # the old sandwich and coffee find their shops; the cookie no longer exists
-    assert state["shops"]["cafe"]["unlocked"] is True
-    assert state["shops"]["cafe"]["products"] == ["coffee"]
-    assert state["shops"]["beach_cafe"]["unlocked"] is True
-    assert state["shops"]["beach_cafe"]["products"] == ["sandwich"]
-    assert state["shops"]["surf_shop"]["unlocked"] is False
+    # only the Cafe is open (with the old coffee); no other shop is opened for free
+    assert state["shops"]["cafe"] == {
+        "unlocked": True, "level": 1, "products": ["coffee"], "staff_places": 0,
+    }
+    for shop in ("beach_cafe", "merchandise", "surf_shop"):
+        assert state["shops"][shop]["unlocked"] is False
     assert "cookie" not in state["stock"]
+    # the sandwich stock stays stored, but it is not counted until the Beach Cafe has it
     assert state["stock"]["sandwich"] == 7 and state["prices"]["coffee"] == 250
     assert state["stock"]["beer"] == 0  # a new product starts with no stock
-    assert logic.owned_products(state) == ["coffee", "sandwich"]
+    assert logic.owned_products(state) == ["coffee"]
+    assert logic.stock_value(state) == 2 * 80
     db.save(state, db_path)  # and it can be saved and loaded again
     assert db.load(db_path) == state
 
