@@ -28,7 +28,7 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.
 - All randomness comes from the seed stored in the state. No `random` call without it. The same holds for anything drawn: no `Math.random` in `static/world/`.
-- The browser decides no rule. The world in `static/world/` only draws and walks; money, stock, days and later building always go through the API.
+- The browser decides no rule. The world in `static/world/` only draws and walks; money, stock, days and later unlocking shops always go through the API.
 - Nothing is loaded from outside this app: no CDN, no web fonts.
 - The whole game state must stay complete and settable (day, cash, shops, stock, popularity, staff, player position), and the day context (weather, events) must accept an override. The demo mode depends on both.
 

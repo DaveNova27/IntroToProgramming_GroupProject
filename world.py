@@ -2,7 +2,7 @@
 
 No rules, no database and no drawing in this file. The browser reads all of it
 from GET /api/world and only draws it. logic.py uses the zones to check where the
-player may stand; a later build mode can use the same colliders as protected ground.
+player may stand.
 
 Units are map tiles, not money, so plain numbers are fine here.
 The layout comes from Felix Antes' project Nova Beach Ventures

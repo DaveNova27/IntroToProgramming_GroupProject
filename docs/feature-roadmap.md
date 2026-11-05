@@ -13,11 +13,12 @@ overridable day context, no randomness without the seed).
 | Topic | Decision |
 |---|---|
 | Our solo project | Only a starting point. Shops, rules and map are decided fresh by the group. |
-| What we take from Felix | Character control, the people (look and animation), the design, the smooth camera, the build mode. |
+| What we take from Felix | Character control, the people (look and animation), the design, the smooth camera. |
 | Map | Decided: Felix' 2.5D world instead of the three.js map. Walk 2D inside the Nova, click to go outside, see the Nova from outside, walk to the Beach Cafe. Map size and Nova design are redone. |
 | Backend | Rules are rewritten in our own backend (Python + Flask + SQLite). Felix' `core.js` is only a reference. The browser decides no rule. |
 | Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
-| Shops | A shop is built at a chosen place with the build mode and opens. Upgrades unlock more products. Which shops and which build items: decided later. |
+| Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Which shops, prices and steps: decided in `shop-unlock`. |
+| Build mode | Dropped for now: fixed shop places replace it. Issues #29 and #30 are closed. |
 | Guests | Own feature, decided later. |
 | Review | An AI reviews every pull request. Merging needs the passing `Tests` check (rule change is PR #25). |
 | Security | Every spec follows the rules in section 3a and the per spec list in 3b. |
@@ -32,8 +33,7 @@ overridable day context, no randomness without the seed).
 | Zones and doors | `ZONES`, `changeZone`, door hotspots in `dist/app.js` | small | Rewrite cleanly as data. Doors switch zone and spawn point. |
 | Camera | `camera` object, smooth follow and zoom in `app.js` | small | Keep the smooth follow. Indoors the whole room fits on screen. |
 | Characters | `drawPersonFigure`, `characterView`, pose functions | medium | Done in `world-art`: six-frame walk, facing from movement, activity poses. Drawn in code; Felix' image files in `dist/assets` are not used by his game either. |
-| Build mode rules | `facilityFootprint`, `placeFacility`, `moveFacility`, `demolishFacility` in `core.js`, test `tests/building-mode.test.mjs` | small | Port to Python. Rules: rectangular footprints, quarter-turn rotation, no overlap, moving is free, demolition refunds 40 % (value to confirm), cash never negative, a rejected action changes nothing. |
-| Build mode UI | `drawBuildGhost`, `snappedBuildPoint`, `validateBuildPoint`, `openBuildPanel` | medium | Port. The browser may preview validity, the server always re-checks. |
+| Shop data | `STORES`, `STORE_UNLOCKS`, tier-gated products in `core.js` | small | Reference for `shop-unlock`: Felix also opens shops at fixed places with money. Port only what fits our levels. |
 | Weather and calendar data | `districtWeather` (4 states), `CAMPUS_CALENDAR` (7 day types) | tiny | Use as data for `day-context` and `events-and-disruptions`. |
 
 Not taken (too much for us): 25 district businesses, DJ events, maintenance and
@@ -45,11 +45,11 @@ console errors, walking, build placement (cash 100.00 to 99.00) and interior exi
 16 of its 28 test files read source files, so write behaviour tests for everything we port.
 
 The baseline (`longer-run`, `world-api`, `world-core`, `world-art`) already took the world, the
-characters and the camera. Still to come from this table: build mode, weather and calendar data.
+characters and the camera. Still to come from this table: shop data, weather and calendar data.
 
 ## 3. New spec list
 
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `build-rules` #29, `build-mode-ui` #30, `shop-building` #17, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways` is closed. Season: #2 `longer-run`.
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
 
 Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
 L = logic. Effort: S small, M medium, L large.
@@ -71,25 +71,23 @@ L = logic. Effort: S small, M medium, L large.
 | `nova-zones` | V | M | world-core, world-api | Three zones: Nova inside (2D, rooms, doors), Nova outside, beach with the Beach Cafe spot. Clicking a door or marker changes zone. Smaller map size. | Final art, shops, weather |
 | `nova-design` | V | L | nova-zones | Look of the Nova (inside and outside) and the beach: tiles, walls, colours, details. Replaces #11 `campus-look`. | Rules, new mechanics |
 
-### Phase 3: build mode and shops
+### Phase 3: shops
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `build-rules` | L | M | world-api | Port `place`, `move`, `demolish`, rotate to Python with endpoints. Integer cents, rejected action changes nothing, protected geometry from the zone data. New test file ported from Felix' building tests. | UI, shops, guests |
-| `build-mode-ui` | V | M | build-rules, world-core | Build panel, ghost preview, rotate, confirm and cancel, demolish. Calls the API. | Catalogue effects |
-| `shop-building` | L | L | build-rules, day-context | A shop is built at a place and opens. Upgrades unlock more products. Replaces #17 `multi-shop`. The shop list is decided in this spec. | Staff, guests, shop art |
-| `shop-art` | V | M | shop-building | Look of the shops on the map. Replaces #18 `shop-buildings`. | Rules |
+| `shop-unlock` | L | L | none | Fixed shop places as data, unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. | Staff itself, guests, shop art |
+| `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
 
 ### Phase 4: depth (parallel, after the shops)
 
 | Spec | Track | Effort | Depends on | Note |
 |---|---|---|---|---|
 | `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
-| `popularity` (#13) | L | M | day-context, shop-building | Per shop, 0 to 100 as an integer. Felix' `momentum` is the model. |
+| `popularity` (#13) | L | M | day-context, shop-unlock | Per shop, 0 to 100 as an integer. Felix' `momentum` is the model. |
 | `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
 | `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. |
-| `staff` (#20) | L | M | shop-building | Unchanged in goal. Simple: wage in cents, capacity per shop. |
-| `outfits` (#21) | L | S | shop-building | Optional. The look is an option of `drawPersonFigure`. |
+| `staff` (#20) | L | M | shop-unlock | Wage in cents, capacity per shop. The shop's level limits how many people it can have. |
+| `outfits` (#21) | L | S | shop-unlock | Optional. The look is an option of `drawPersonFigure`. |
 
 ### Phase 5 and last
 
@@ -103,7 +101,7 @@ L = logic. Effort: S small, M medium, L large.
 
 Add these to every spec's "Done when" and to the AI review. Detailed list per spec in 3b.
 
-1. The server decides every rule. The browser only shows and previews. Money, stock, building, unlocking, hiring: always re-checked on the server.
+1. The server decides every rule. The browser only shows and previews. Money, stock, unlocking, levelling up, hiring: always re-checked on the server.
 2. Every endpoint takes JSON and validates all fields: type, whole numbers, finite, in range, ids from a fixed list (whitelist). Anything else is a `RejectedAction` and changes nothing.
 3. Money stays integer cents. A rejected action changes no saved data. One lock per change (load, rule, save).
 4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
@@ -124,9 +122,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
 | `nova-zones` | A zone change that affects the state is validated on the server (known door, allowed target). |
 | `nova-design` | Assets only. Names and labels shown through `textContent`. |
-| `build-rules` | Validate type (from the catalogue), rotation (0 to 3), coordinates (finite, in bounds), overlap, cash. Price and refund are computed on the server only. Check and write inside one transaction. Test: a refused place, move or demolish leaves the state identical. |
-| `build-mode-ui` | The preview is only a hint, the server decides. Send only ids and whole numbers. Disable the button while a request runs (no double build). |
-| `shop-building` | Server checks cash, level and place. A product that is not unlocked cannot be bought by a crafted request. Test the locked case. |
+| `shop-unlock` | Server checks cash, shop id and level. A shop that is locked, or a product or staff place not yet reached, cannot be used by a crafted request. Prices come from the server only. Test the locked case. |
 | `shop-art` | Assets only. |
 | `outlook` | The forecast is created on the server. Never expose the seed or the true result of tomorrow. |
 | `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
@@ -146,20 +142,21 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | #9 `split-map` | Rewrite as `world-core`. |
 | #10 `day-context`, #12 `outlook`, #14 `events-and-disruptions`, #15 `badges`, #20 `staff`, #21 `outfits`, #23 `demo-scenarios`, #24 `final-polish` | Keep. Update "Depends on" and add Felix references. |
 | #11 `campus-look` | Rewrite as `nova-design`. |
-| #13 `popularity` | Keep. Depends on `shop-building` once shops exist. |
+| #13 `popularity` | Keep. Depends on `shop-unlock` once shops exist. |
 | #16 `weather-visuals` | Rewrite for the 2.5D renderer. |
-| #17 `multi-shop` | Rewrite as `shop-building`. |
+| #17 `multi-shop` | Rewritten as `shop-unlock`. |
 | #18 `shop-buildings` | Rewrite as `shop-art`. |
 | #19 `walkways` | Close. Zones and collision replace it. Waypoint routes come back inside `guests`. |
 | #22 `ai-customers` | Postpone, merge into `guests`. |
-| New | `world-art`, `world-api`, `nova-zones`, `build-rules`, `build-mode-ui` |
+| #29 `build-rules`, #30 `build-mode-ui` | Closed: fixed shop places replace the build mode. |
+| New | `world-art`, `world-api`, `nova-zones` |
 
 ## 5. Suggested start (proposal)
 
 | Person | First spec | Why |
 |---|---|---|
-| Felix | `nova-zones`, then `build-mode-ui` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
-| David | `build-rules` | Python rules and API, close to the current `logic.py` and `app.py`. |
+| Felix | `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
+| David | `shop-unlock` | Python rules and API, close to the current `logic.py` and `app.py`. |
 | Christopher | `day-context` | Independent of the map. |
 | Gregor | `badges` | Independent and small. |
 
@@ -168,8 +165,8 @@ Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own
 ## 6. Open decisions
 
 1. Old three.js map files: removed inside `world-core` or in a clearly named follow-up.
-2. Build catalogue: which items, which prices, any effect on play, and the demolition refund (Felix uses 40 %). Decided later.
-3. Shops: how many, which ones, how upgrades unlock products. Decided later, inside `shop-building`.
+2. Level-up: does the player choose between an employee place and a product at each level, or does a level bring both?
+3. Shops: how many, which ones, their prices and level steps. Is the first shop already open? Which product does it start with? Starting with one product conflicts with existing files in `tests/`, which buy all three products in a new run: the team has to accept an exception for those files, as with PR #7.
 4. (Decided) Season is 30 days.
 5. Forecast error rate (about 20 %) and the weather and event factors per shop.
 6. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
