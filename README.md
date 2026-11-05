@@ -1,7 +1,7 @@
 # Campus Tycoon
 
-A five-day snack-stand simulation (Nova SBE, Introduction to Programming).
-Start with €100, buy stock, set prices, open the stand five times, end with the
+A 30-day snack-stand simulation (Nova SBE, Introduction to Programming).
+Start with €100, buy stock, set prices, open the stand once per day, end with the
 best overall result. The rules come from the BRD (CT01–CT05, CT R1–R5); each
 feature is described by a spec in `specs/`. Working rules for coding agents are
 in `AGENTS.md`. The plan for the group project (features, build order, demo
@@ -70,6 +70,7 @@ animate that answer.
 | `nova-campus.md` | `nova-campus` | Scene styled after Nova SBE Carcavelos (beach, tunnel, fort, pines) |
 | `finite-prices.md` | `finite-prices` | Refuse non-finite prices without changing the saved run; regression checks in `checks/` |
 | `campus-polish.md` | `campus-polish` | Coastal Tycoon visual polish: facade detail, landscaped plaza, warm light, sea and coordinated UI |
+| `longer-run.md` | `longer-run` | 30-day season instead of five days (`LAST_DAY` in `logic.py`) |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -83,8 +84,7 @@ the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadma
 `outfits`, `guests`, `demo-scenarios` and `final-polish`. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
 AI, credit: https://github.com/felix-anthes-png/nova-beach-ventures). Progress is
-tracked in the GitHub Issues (label `spec`). The 30-day season (`longer-run`) is
-in review as a pull request.
+tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 

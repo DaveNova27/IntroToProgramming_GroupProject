@@ -1,7 +1,7 @@
 [project]
 name = "campus-tycoon"
 version = "0.1.0"
-description = "A five-day campus snack-stand simulation (Nova SBE, Introduction to Programming)"
+description = "A 30-day campus snack-stand simulation (Nova SBE, Introduction to Programming)"
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.3",
