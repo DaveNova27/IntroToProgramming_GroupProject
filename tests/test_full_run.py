@@ -12,11 +12,11 @@ def db_path(tmp_path):
 
 
 def complete_run():
-    """The scenario from the spec: 15 Sandwiches, day 1 at €4, all later days at €9."""
-    state = logic.buy(logic.new_state(), "sandwich", 15)
-    state = logic.set_price(state, "sandwich", 400)
+    """The scenario from the spec: 15 Coffees, day 1 at €2, all later days at €5."""
+    state = logic.buy(logic.new_state(), "coffee", 15)
+    state = logic.set_price(state, "coffee", 200)
     state, _ = logic.trade_day(state)
-    state = logic.set_price(state, "sandwich", 900)  # above 2x reference: demand 0
+    state = logic.set_price(state, "coffee", 500)  # above 2x reference: demand 0
     for _ in range(logic.LAST_DAY - 1):
         state, _ = logic.trade_day(state)
     return state
@@ -27,18 +27,18 @@ def complete_run():
 def test_full_run_gives_the_final_result():
     state = complete_run()
     assert logic.is_finished(state)
-    assert state["cash"] == 11_000
-    assert state["stock"]["sandwich"] == 5
-    assert logic.stock_value(state) == 1_000
-    assert logic.overall_gain(state) == 2_000
+    assert state["cash"] == 10_800
+    assert state["stock"]["coffee"] == 5
+    assert logic.stock_value(state) == 400
+    assert logic.overall_gain(state) == 1_200
     assert [day["day"] for day in state["history"]] == list(range(1, logic.LAST_DAY + 1))
 
 
 # ---- Check 2: everything is locked after day 5 (A6) ----------------------
 
 @pytest.mark.parametrize("action", [
-    lambda s: logic.buy(s, "sandwich", 1),
-    lambda s: logic.set_price(s, "sandwich", 400),
+    lambda s: logic.buy(s, "coffee", 1),
+    lambda s: logic.set_price(s, "coffee", 200),
     lambda s: logic.trade_day(s),
 ])
 def test_actions_after_day_five_are_rejected_and_nothing_changes(db_path, action):
@@ -70,7 +70,7 @@ def test_first_day_of_a_new_run_is_stored_fresh(db_path):
     db.save(state, db_path)
 
     history = db.load(db_path)["history"]
-    assert history == [result]  # the old day 1 (Sandwiches) is gone
+    assert history == [result]  # the old day 1 (Coffees) is gone
 
 
 # ---- Check 4: a complete run survives a restart --------------------------
@@ -81,5 +81,5 @@ def test_complete_run_survives_a_restart(db_path):
 
     reopened = db.load(db_path)
     assert logic.is_finished(reopened)
-    assert logic.overall_gain(reopened) == 2_000
+    assert logic.overall_gain(reopened) == 1_200
     assert len(reopened["history"]) == logic.LAST_DAY

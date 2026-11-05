@@ -46,14 +46,14 @@ Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`
 
 | Layer | Files | Job |
 |---|---|---|
-| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`. A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
-| Storage | `db.py` | SQLite, one run. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
+| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`, `unlock_shop`, `buy_upgrade`. The shops and products are data tables (`SHOPS`, `CATALOGUE`). A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
+| Storage | `db.py` | SQLite, one run (day, cash, products, shops, player, history). An old save without shops still loads. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
 | World data | `world.py` | The campus as data: zones, doors, desks, solid objects, room layouts. No rules and no drawing. |
-| Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`. Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
+| Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`, `/api/shop/unlock`, `/api/shop/upgrade`. Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
 | View switch | `static/views.js` | One campus iframe that is never reloaded: full screen (the default), or over the "Campus live" window of the dashboard page (`#dashboard`). Dashboard as a slide-in panel over the campus. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
 | Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, doors between the zones, light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
-| Shared | `static/common.js` | `$`, `esc`, `fmt`, `fmtSigned`, `toast`, product emoji. |
+| Shared | `static/common.js` | `$`, `esc`, `fmt`, `fmtSigned`, `toast`, product emoji and colours. |
 
 The browser never decides a rule: it sends the action, the server answers with
 the new state (or the reason for a refusal), and the screens only show and
@@ -75,6 +75,7 @@ animate that answer.
 | `world-api.md` | `world-api` | The campus as data in `world.py`, player position in the state |
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
+| `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -92,6 +93,8 @@ tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 
+- The shop prices, unlock prices and levels are placeholders to balance. Storeroom and counter space are only data until `shop-process`. Employee places are only stored until `staff`.
+- Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
 - The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.
 - A trading day only moves the light and then shows its result. The old map's truck, queues and live ticker went with three.js; customers on the map are the spec `guests`.
 - The passers-by are decoration: they cause no sale.

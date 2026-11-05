@@ -4,7 +4,7 @@
 
 import { DAY_END, MORNING, reducedMotion, scene } from "./scene.js";
 
-const COLOR = { sandwich: "#2a78d6", coffee: "#eb6834", cookie: "#1baf7a" };
+const COLOR = ACCENT; // from common.js: one colour per product
 
 // The world runs embedded in the dashboard page (views.js): small or full screen.
 const embedded = new URLSearchParams(location.search).has("embed");
@@ -14,7 +14,7 @@ let animating = false;
 let dayRunning = null;
 let fast = false;
 let panelMode = null;
-let orderProduct = "sandwich";
+let orderProduct = "coffee";
 let placePlayer = () => {};
 
 // What happened plays one after another, wherever the action came from.
@@ -115,6 +115,7 @@ function renderToolbar() {
   const locked = animating || state.finished;
   $("#btn-order").disabled = locked;
   $("#btn-prices").disabled = locked;
+  $("#btn-shops").disabled = locked;
   $("#btn-open").disabled = locked;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
@@ -178,6 +179,33 @@ function renderPanel() {
         <button class="btn wide" type="submit">Order</button>
       </form>`;
     updateOrderTotal();
+  } else if (panelMode === "shops") {
+    $("#panel-title").textContent = "Shops";
+    body.innerHTML = `
+      <p class="note">Unlock shops and buy upgrades with cash. Every purchase raises the shop's level by 1.</p>
+      <p class="error" id="shops-error"></p>
+      ${state.shops.map((s) => `
+        <section class="shop-card">
+          <h3>${esc(s.name)} <small>${s.unlocked ? `Level ${s.level}` : "Locked"}</small></h3>
+          ${s.unlocked ? `
+            <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
+              ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
+              storeroom ${s.storage}, counter ${s.counter}</p>
+            ${s.offers.map((o) => `
+              <div class="shop-offer">
+                <span class="nm">${esc(o.name)}</span>
+                ${o.bought
+                  ? `<span class="owned">Owned</span>`
+                  : `<button class="btn" type="button" data-upgrade-shop="${esc(s.id)}" data-upgrade-item="${esc(o.id)}"
+                      ${!o.affordable || !o.available ? "disabled" : ""}
+                      ${o.available ? "" : 'title="Buy the first employee place first"'}>${fmt(o.price)}</button>`}
+              </div>`).join("")}`
+          : `<div class="shop-offer">
+              <span class="nm">Start with ${esc(s.start_product_name)}</span>
+              <button class="btn" type="button" data-unlock="${esc(s.id)}"
+                ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
+            </div>`}
+        </section>`).join("")}`;
   } else if (panelMode === "prices") {
     $("#panel-title").textContent = "Prices";
     body.innerHTML = `
@@ -214,6 +242,15 @@ function wirePanel() {
   const panel = $("#panel");
   panel.addEventListener("click", (e) => {
     if (e.target.closest("[data-close]")) return closePanel();
+    const unlockBtn = e.target.closest("[data-unlock]");
+    if (unlockBtn) return shopAction("/api/shop/unlock", { shop: unlockBtn.dataset.unlock });
+    const upgradeBtn = e.target.closest("[data-upgrade-item]");
+    if (upgradeBtn) {
+      return shopAction("/api/shop/upgrade", {
+        shop: upgradeBtn.dataset.upgradeShop,
+        item: upgradeBtn.dataset.upgradeItem,
+      });
+    }
     const pickBtn = e.target.closest("[data-pick]");
     if (pickBtn) {
       const typed = $("#order-form")?.quantity.value;
@@ -269,6 +306,22 @@ async function order(pid, quantityText) {
   }
   closePanel();
   renderToolbar();
+  tellDashboard({ type: "action", after: data.state });
+  toast(data.message);
+}
+
+// Unlock a shop or buy from a window. The server decides; the panel stays open.
+async function shopAction(path, body) {
+  if (animating) return;
+  const data = await send(path, body);
+  if (!data) return;
+  state = data.state;
+  renderAll();
+  if (data.error) {
+    const el = $("#shops-error");
+    if (el) el.textContent = data.error;
+    return toast(data.error, "error");
+  }
   tellDashboard({ type: "action", after: data.state });
   toast(data.message);
 }
@@ -456,6 +509,7 @@ export function initUi(firstState, actions) {
   wireOverlay();
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));
+  $("#btn-shops").addEventListener("click", () => openPanel("shops"));
   $("#btn-open").addEventListener("click", openDay);
   $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));

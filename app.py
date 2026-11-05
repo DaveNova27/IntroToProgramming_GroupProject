@@ -32,9 +32,32 @@ def load_run():
     return state
 
 
+def shops_view(state):
+    """Each shop with its level and what its window offers, prices from the rules."""
+    out = []
+    for sid, shop in logic.SHOPS.items():
+        mine = state["shops"][sid]
+        out.append({
+            "id": sid,
+            "name": shop["name"],
+            "start_product_name": logic.CATALOGUE[shop["start_product"]]["name"],
+            "unlocked": mine["unlocked"],
+            "unlock_price": shop["unlock_price"],
+            "affordable": shop["unlock_price"] <= state["cash"],
+            "level": mine["level"],
+            "products": mine["products"],
+            "staff_places": mine["staff_places"],
+            "storage": shop["storage"],
+            "counter": shop["counter"],
+            "offers": logic.shop_offers(state, sid),
+        })
+    return out
+
+
 def view(state):
     """Everything the dashboard shows, calculated by the rules, never by the browser."""
     finished = logic.is_finished(state)
+    owned = logic.owned_products(state)
     products = [{
         "id": pid,
         "name": item["name"],
@@ -43,7 +66,7 @@ def view(state):
         "price": state["prices"][pid],
         "stock": state["stock"][pid],
         "demand": logic.demand(state["prices"][pid], item["ref_price"]),
-    } for pid, item in logic.CATALOGUE.items()]
+    } for pid, item in logic.CATALOGUE.items() if pid in owned]
     return {
         "day": state["day"],
         "last_day": logic.LAST_DAY,
@@ -54,6 +77,7 @@ def view(state):
         "stock_overview": logic.stock_overview(state),
         "overall_gain": logic.overall_gain(state),
         "products": products,
+        "shops": shops_view(state),
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished else logic.trade_day(state)[1],
@@ -156,6 +180,33 @@ def set_price():
         new_state = logic.set_price(state, product, price)
         name = logic.CATALOGUE[product]["name"]
         return new_state, f"{name} now sells for {logic.fmt(price)}."
+
+    return apply(action)
+
+
+@app.post("/api/shop/unlock")
+def unlock_shop():
+    body = json_body()
+
+    def action(state):
+        shop = body.get("shop")
+        new_state = logic.unlock_shop(state, shop)
+        cost = state["cash"] - new_state["cash"]
+        return new_state, f"{logic.SHOPS[shop]['name']} unlocked for {logic.fmt(cost)}."
+
+    return apply(action)
+
+
+@app.post("/api/shop/upgrade")
+def buy_upgrade():
+    body = json_body()
+
+    def action(state):
+        shop, item = body.get("shop"), body.get("item")
+        new_state = logic.buy_upgrade(state, shop, item)
+        cost = state["cash"] - new_state["cash"]
+        name = logic.SHOPS[shop]["name"]
+        return new_state, f"Bought {logic.offer_name(shop, item)} for {name}: {logic.fmt(cost)}."
 
     return apply(action)
 

@@ -17,7 +17,7 @@ overridable day context, no randomness without the seed).
 | Map | Decided: Felix' 2.5D world instead of the three.js map. Walk 2D inside the Nova, click to go outside, see the Nova from outside, walk to the Beach Cafe. Map size and Nova design are redone. |
 | Backend | Rules are rewritten in our own backend (Python + Flask + SQLite). Felix' `core.js` is only a reference. The browser decides no rule. |
 | Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
-| Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Which shops, prices and steps: decided in `shop-unlock`. |
+| Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Decided on 2026-11-05: Cafe (coffee, cake, bagel), Surf Shop (surfboard, wetsuit, surf lesson), Merchandise (hoodie, t-shirt, cap), Beach Cafe (beer, coke zero, sandwich). The Cafe is open from the start. Prices and steps are placeholders in `shop-unlock`. |
 | Build mode | Dropped for now: fixed shop places replace it. Issues #29 and #30 are closed. |
 | Work in a shop | Decided: a day is played inside the shop. The player starts alone, carries stock from the storeroom to the counter and sells there. The counter has limited space, so there are two jobs. Two employees can take them over: one refills, one sells. This can differ per shop. |
 | Guests | Own feature, decided later. |
@@ -76,7 +76,7 @@ L = logic. Effort: S small, M medium, L large.
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `shop-unlock` | L | M | none | The list of shops as data: offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
+| `shop-unlock` | L | M | none | The list of shops as data (the team's four shops): offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
 | `shop-process` | L and V | L | shop-unlock | A day played live in one shop: storeroom to counter, limited counter space, selling at the counter, a simple queue of customers from the existing price demand. One person alone: touches state, API and screen. | Employees, customers with own choices, several shops at once, popularity |
 | `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
 
@@ -168,8 +168,8 @@ Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own
 ## 6. Open decisions
 
 1. Old three.js map files: removed inside `world-core` or in a clearly named follow-up.
-2. Level-up: does the player choose between an employee place and a product at each level, or does a level bring both?
-3. Shops: how many, which ones, their prices and level steps. Is the first shop already open? Which product does it start with? Starting with one product conflicts with existing files in `tests/`, which buy all three products in a new run: the team has to accept an exception for those files, as with PR #7.
+2. (Decided in `shop-unlock`) Level-up: the player chooses. Each purchase in the shop window (a product or an employee place) raises the level by 1; employee places are bought in order.
+3. (Decided 2026-11-05) Shops: Cafe, Surf Shop, Merchandise, Beach Cafe with three products each (see section 1). The Cafe is open from the start with the coffee. Prices, unlock prices and level steps are placeholders in `logic.py`, to balance later. Starting with the coffee only means the old tests that bought the sandwich, coffee or cookie at the start were changed (exception confirmed by David), as with PR #7.
 3a. Who buys at the counter? Proposal: a simple queue, its size from price demand and the seed.
 3b. How long is a day? Proposal: 1 to 2 minutes with a key to skip. 30 days at 2 minutes is one hour of play.
 3c. What happens in a shop where nobody stands? Proposal: without staff it stays closed.
@@ -179,6 +179,7 @@ Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own
 6. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
 7. Licence and credit: confirm with Felix and name the source in the README.
 8. Guests: sales computed per day on the server, or live guests on the map?
+9. Ideas from the team, not yet a spec: Merchandise (customers walking out wear the clothes, a visual feature for `shop-art` or `guests`), beach loungers to rent at the Beach Cafe, and up to three printers on the campus where paper and ink have to be refilled.
 
 ---
 
@@ -204,22 +205,22 @@ Everything is per shop once there are several shops: each shop has its own deman
 
 These factors are examples to discuss, not final numbers. 1.0 means normal demand.
 
-| Weather | Ice stand | Surf shop | Cafe | Snack stand |
+| Weather | Cafe | Surf Shop | Merchandise | Beach Cafe |
 |---|---|---|---|---|
-| Sun | 1.5 | 1.3 | 0.8 | 1.0 |
-| Heat | 2.0 | 1.2 | 0.5 | 0.8 |
-| Rain | 0.4 | 0.5 | 1.4 | 1.1 |
-| Storm | 0.2 | 0.2 | 1.0 | 0.7 |
+| Sun | 0.8 | 1.3 | 1.0 | 1.5 |
+| Heat | 0.6 | 1.2 | 0.8 | 1.8 |
+| Rain | 1.4 | 0.5 | 1.2 | 0.4 |
+| Storm | 1.0 | 0.2 | 1.0 | 0.2 |
 
-| Event | Ice stand | Surf shop | Cafe | Snack stand |
+| Event | Cafe | Surf Shop | Merchandise | Beach Cafe |
 |---|---|---|---|---|
 | No event | 1.0 | 1.0 | 1.0 | 1.0 |
-| Exam period | 0.9 | 0.6 | 1.5 | 1.2 |
-| Party | 1.3 | 1.0 | 0.8 | 1.4 |
-| Career fair | 1.0 | 0.7 | 1.3 | 1.3 |
+| Exam period | 1.5 | 0.6 | 0.9 | 0.7 |
+| Party | 0.8 | 1.0 | 1.1 | 1.5 |
+| Career fair | 1.3 | 0.7 | 1.4 | 0.9 |
 
-The factors are multiplied. Example: heat on a party day gives the ice stand
-2.0 x 1.3 = 2.6, so the player should order much more ice. Above 1.15 the
+The factors are multiplied. Example: heat on a party day gives the Beach Cafe
+1.8 x 1.5 = 2.7, so the player should order much more beer and coke zero. Above 1.15 the
 player should order more, below 0.85 less.
 
 ## B3. Rules for every feature spec
@@ -245,8 +246,8 @@ event for these days, explanation text, goal condition. Functions:
 Example sequence (a suggestion, the final choice comes after the game is complete):
 
 1. Basics: day 1, 100 euro. Buy stock, set a price, play the day.
-2. Weather and outlook: the evening report predicts heat. The player orders more ice and sees the effect.
-3. Second shop: more money, the surf shop is unlocked. Then a storm: the surf shop collapses, the cafe profits.
+2. Weather and outlook: the evening report predicts heat. The player orders more beer and coke zero at the Beach Cafe and sees the effect.
+3. Second shop: more money, the Surf Shop is unlocked. Then a storm: the Surf Shop collapses, the Cafe profits.
 4. Popularity and staff: empty shelves lower popularity. At a party, hiring staff pays off.
 5. Disruption and finish: power cut or strike, then badges and the final settlement.
 

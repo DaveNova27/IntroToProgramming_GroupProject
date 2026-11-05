@@ -11,6 +11,7 @@ import json
 import sqlite3
 from pathlib import Path
 
+import logic
 import world
 
 DEFAULT_PATH = Path(__file__).parent / "data" / "campus_tycoon.db"
@@ -36,6 +37,17 @@ CREATE TABLE IF NOT EXISTS player (
     x    REAL NOT NULL,
     y    REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS shops (
+    shop         TEXT PRIMARY KEY,
+    unlocked     INTEGER NOT NULL CHECK (unlocked IN (0, 1)),
+    level        INTEGER NOT NULL CHECK (level >= 0),
+    staff_places INTEGER NOT NULL CHECK (staff_places >= 0)
+);
+CREATE TABLE IF NOT EXISTS shop_products (    -- the products a shop has, one row each
+    shop    TEXT NOT NULL,
+    product TEXT NOT NULL,
+    PRIMARY KEY (shop, product)
+);
 """
 
 
@@ -57,14 +69,48 @@ def load(path=DEFAULT_PATH):
         products = conn.execute("SELECT product, stock, price FROM products").fetchall()
         history = conn.execute("SELECT result FROM history ORDER BY day").fetchall()
         player = conn.execute("SELECT zone, x, y FROM player WHERE id = 1").fetchone()
+        shop_rows = conn.execute(
+            "SELECT shop, unlocked, level, staff_places FROM shops").fetchall()
+        shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
+    # products added to the catalogue after the save was made start with stock 0
+    stock = {pid: 0 for pid in logic.CATALOGUE}
+    prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}
+    for p, s, pr in products:
+        if p in logic.CATALOGUE:
+            stock[p], prices[p] = s, pr
     return {
         "day": day,
         "cash": cash,
-        "stock": {p: s for p, s, _ in products},
-        "prices": {p: pr for p, _, pr in products},
+        "stock": stock,
+        "prices": prices,
+        "shops": _shops(shop_rows, shop_products, [p for p, _, _ in products]),
         "history": [json.loads(r) for (r,) in history],
         "player": _player(player),
     }
+
+
+def _shops(rows, shop_products, saved_products):
+    """The shops of the run. A save from before shops existed (no rows) becomes a run
+    with the first shop open, holding the products of that save that belong to it.
+    No other shop is opened for free; stock of other products stays stored, unused."""
+    shops = {sid: logic.new_shop(sid) for sid in logic.SHOPS}
+    owned = set(shop_products)
+    if not rows:
+        have = [p for p in logic.CATALOGUE
+                if p in saved_products and p in logic.shop_product_ids(logic.FIRST_SHOP)]
+        shops[logic.FIRST_SHOP]["products"] = have or shops[logic.FIRST_SHOP]["products"]
+        shops[logic.FIRST_SHOP]["level"] = max(1, len(have))
+        return shops
+    for sid, unlocked, level, staff in rows:
+        if sid in shops:
+            shops[sid] = {
+                "unlocked": bool(unlocked),
+                "level": level,
+                "products": [p for p in logic.CATALOGUE
+                             if (sid, p) in owned],
+                "staff_places": staff,
+            }
+    return shops
 
 
 def _player(row):
@@ -102,7 +148,7 @@ def save_new_run(state, path=DEFAULT_PATH):
 
 
 def _write(conn, state):
-    """Write day, cash, stock, prices, player and new history records (inside a transaction)."""
+    """Write day, cash, stock, prices, shops, player and new history records (inside a transaction)."""
     conn.execute(
         "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
         "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
@@ -120,6 +166,17 @@ def _write(conn, state):
             "price = excluded.price",
             (pid, state["stock"][pid], state["prices"][pid]),
         )
+    conn.execute("DELETE FROM shop_products")
+    for sid, shop in state["shops"].items():
+        conn.execute(
+            "INSERT INTO shops (shop, unlocked, level, staff_places) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(shop) DO UPDATE SET unlocked = excluded.unlocked, "
+            "level = excluded.level, staff_places = excluded.staff_places",
+            (sid, int(shop["unlocked"]), shop["level"], shop["staff_places"]),
+        )
+        for pid in shop["products"]:
+            conn.execute(
+                "INSERT INTO shop_products (shop, product) VALUES (?, ?)", (sid, pid))
     for result in state["history"]:
         # INSERT OR IGNORE: an already stored day is never written twice
         conn.execute(

@@ -124,7 +124,7 @@ def test_a_saved_zone_that_no_longer_exists_starts_at_the_spawn(tmp_path):
 
 
 def test_moving_changes_nothing_but_the_position():
-    state = logic.buy(logic.new_state(), "sandwich", 5)
+    state = logic.buy(logic.new_state(), "coffee", 5)
     moved = logic.move_player(state, "mercado", 7.5, 8.8)
     assert {k: v for k, v in moved.items() if k != "player"} == {k: v for k, v in state.items() if k != "player"}
     assert state["player"] == world.start_player()
@@ -183,7 +183,7 @@ def test_a_body_that_is_not_an_object_is_refused(run_on_disk, path, raw):
 @pytest.mark.parametrize("quantity", ["--5", "-", "²", "9" * 5000])
 def test_a_quantity_that_is_no_number_is_refused(run_on_disk, quantity):
     before = db.load(run_on_disk)
-    response = app.app.test_client().post("/api/buy", json={"product": "sandwich", "quantity": quantity})
+    response = app.app.test_client().post("/api/buy", json={"product": "coffee", "quantity": quantity})
     assert response.status_code == 400
     assert db.load(run_on_disk) == before
 
@@ -191,18 +191,18 @@ def test_a_quantity_that_is_no_number_is_refused(run_on_disk, quantity):
 @pytest.mark.parametrize("price", ["1e20", "1000000.01"])
 def test_a_price_too_high_to_store_is_refused(run_on_disk, price):
     before = db.load(run_on_disk)
-    response = app.app.test_client().post("/api/price", json={"product": "sandwich", "price": price})
+    response = app.app.test_client().post("/api/price", json={"product": "coffee", "price": price})
     assert response.status_code == 400
     assert db.load(run_on_disk) == before
 
 
 def test_the_highest_price_is_accepted():
-    assert logic.set_price(logic.new_state(), "sandwich", logic.MAX_PRICE)["prices"]["sandwich"] == logic.MAX_PRICE
+    assert logic.set_price(logic.new_state(), "coffee", logic.MAX_PRICE)["prices"]["coffee"] == logic.MAX_PRICE
 
 
 def test_a_product_that_is_not_text_is_refused(run_on_disk):
     before = db.load(run_on_disk)
     client = app.app.test_client()
-    assert client.post("/api/buy", json={"product": ["sandwich"], "quantity": 1}).status_code == 400
+    assert client.post("/api/buy", json={"product": ["coffee"], "quantity": 1}).status_code == 400
     assert client.post("/api/price", json={"product": {"a": 1}, "price": "4"}).status_code == 400
     assert db.load(run_on_disk) == before
