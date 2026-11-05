@@ -16,6 +16,7 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 - `logic.py`: rules (what is valid, how results are calculated)
 - `db.py`: stored state (what is saved and loaded)
 - `README.md`: how everything fits together, list of specs, known issues
+- `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
 
 ## Rules
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
@@ -24,6 +25,8 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 - One spec per task. Stay inside its "Out of scope" fence.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.
+- All randomness comes from the seed stored in the state. No `random` call without it.
+- The whole game state must stay complete and settable (day, cash, shops, stock, popularity, staff), and the day context (weather, events) must accept an override. The demo mode depends on both.
 
 ## How to report
 - Paste the final test output and list every file you changed.
@@ -36,6 +39,9 @@ contribute code to this repository.
 - One GitHub Issue per spec, using the "Spec" issue template. Assign yourself before
   starting.
 - Open a pull request from your spec branch into `main`. `main` is protected: a PR
-  needs at least one approving review from another member and a passing `Tests`
-  check (GitHub Actions runs `uv run pytest` on every PR) before it can be merged.
+  needs a passing `Tests` check (GitHub Actions runs `uv run pytest` on every PR)
+  before it can be merged. No human approval is required.
+- Every PR gets an AI code review (for example `/code-review` in Claude Code) before
+  it is merged. Fix the findings or answer them in the PR. The AI review replaces the
+  review by another member.
 - Keep PRs scoped to one spec, same as the solo rules above.
