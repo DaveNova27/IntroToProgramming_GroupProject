@@ -131,7 +131,7 @@ function onClick(event) {
   const [id, loc] = hit;
   if (inReach(loc)) return use(id);
   pendingUse = id;
-  walkTo({ x: loc.x, y: loc.y + 1.3 });
+  walkTo(loc); // to the free spot closest to it: the use happens as soon as it is in reach
 }
 
 function onKeyDown(event) {

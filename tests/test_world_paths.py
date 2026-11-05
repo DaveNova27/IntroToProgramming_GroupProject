@@ -24,7 +24,7 @@ needs_node = pytest.mark.skipif(NODE is None, reason="Node is not installed")
 CHECK = """
 import { readFileSync } from "node:fs";
 import { findPath } from "./paths.js";
-import { pointBlocked } from "./physics.js";
+import { nearestFreePoint, pointBlocked } from "./physics.js";
 
 const RADIUS = 0.28;
 const REACH = 1.65;
@@ -43,7 +43,8 @@ for (const [zoneId, zone] of Object.entries(world.zones)) {
   for (const start of starts.filter((p) => !pointBlocked(p, solid, RADIUS))) {
     for (const loc of Object.values(world.locations).filter((l) => l.zone === zoneId)) {
       checked++;
-      const goal = { x: loc.x, y: Math.min(zone.maxY, loc.y + 1.3) };
+      // the same goal as a click on it in main.js
+      const goal = nearestFreePoint({ x: loc.x, y: loc.y }, zone, solid, RADIUS);
       const path = findPath(start, goal, zone, solid, RADIUS);
       if (!path) {
         problems.push(`no way to ${loc.title} in ${zoneId}`);
