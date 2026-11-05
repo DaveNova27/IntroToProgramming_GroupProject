@@ -11,6 +11,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+import world
+
 DEFAULT_PATH = Path(__file__).parent / "data" / "campus_tycoon.db"
 
 SCHEMA = """
@@ -27,6 +29,12 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS history (
     day    INTEGER PRIMARY KEY,                -- a day can only be stored once
     result TEXT NOT NULL                       -- the day's result as JSON
+);
+CREATE TABLE IF NOT EXISTS player (
+    id   INTEGER PRIMARY KEY CHECK (id = 1),   -- one figure, in map tiles
+    zone TEXT NOT NULL,
+    x    REAL NOT NULL,
+    y    REAL NOT NULL
 );
 """
 
@@ -48,13 +56,23 @@ def load(path=DEFAULT_PATH):
         day, cash = row
         products = conn.execute("SELECT product, stock, price FROM products").fetchall()
         history = conn.execute("SELECT result FROM history ORDER BY day").fetchall()
+        player = conn.execute("SELECT zone, x, y FROM player WHERE id = 1").fetchone()
     return {
         "day": day,
         "cash": cash,
         "stock": {p: s for p, s, _ in products},
         "prices": {p: pr for p, _, pr in products},
         "history": [json.loads(r) for (r,) in history],
+        "player": _player(player),
     }
+
+
+def _player(row):
+    """Where the player stands. A save from before the world existed has no position,
+    and a zone may be gone after the map changed: then start at the spawn."""
+    if row is None or row[0] not in world.ZONES:
+        return world.start_player()
+    return {"zone": row[0], "x": row[1], "y": row[2]}
 
 
 def save(state, path=DEFAULT_PATH):
@@ -84,11 +102,16 @@ def save_new_run(state, path=DEFAULT_PATH):
 
 
 def _write(conn, state):
-    """Write day, cash, stock, prices and new history records (inside a transaction)."""
+    """Write day, cash, stock, prices, player and new history records (inside a transaction)."""
     conn.execute(
         "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
         "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
         (state["day"], state["cash"]),
+    )
+    conn.execute(
+        "INSERT INTO player (id, zone, x, y) VALUES (1, ?, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET zone = excluded.zone, x = excluded.x, y = excluded.y",
+        (state["player"]["zone"], state["player"]["x"], state["player"]["y"]),
     )
     for pid in state["stock"]:
         conn.execute(

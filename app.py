@@ -14,6 +14,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory
 
 import db
 import logic
+import world
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Let the browser re-check the page files on every load (a cheap "not modified"
@@ -57,6 +58,7 @@ def view(state):
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished else logic.trade_day(state)[1],
         "history": state["history"],
+        "player": state["player"],
         "demand_levels": {
             "at_or_below_ref": logic.DEMAND_AT_OR_BELOW_REF,
             "up_to_double_ref": logic.DEMAND_UP_TO_DOUBLE_REF,
@@ -64,12 +66,21 @@ def view(state):
     }
 
 
+def json_body():
+    """The request as a dictionary. Anything else counts as empty, so the rules refuse it."""
+    body = request.get_json(silent=True)
+    return body if isinstance(body, dict) else {}
+
+
 def parse_quantity(value):
     """Turn the typed quantity into a whole number, or refuse it (CT02)."""
     text = str(value).strip()
     if not text.lstrip("-").isdigit():
         raise logic.RejectedAction("Quantity must be a positive whole number.")
-    return int(text)
+    try:
+        return int(text)
+    except ValueError:  # "--5", "²" or thousands of digits
+        raise logic.RejectedAction("Quantity must be a positive whole number.")
 
 
 def apply(action):
@@ -105,9 +116,24 @@ def get_state():
         return jsonify(view(load_run()))
 
 
+@app.get("/api/world")
+def get_world():
+    return jsonify(world.world_view())
+
+
+@app.post("/api/player")
+def move_player():
+    body = json_body()
+
+    def action(state):
+        return logic.move_player(state, body.get("zone"), body.get("x"), body.get("y")), ""
+
+    return apply(action)
+
+
 @app.post("/api/buy")
 def buy():
-    body = request.get_json(silent=True) or {}
+    body = json_body()
 
     def action(state):
         product = body.get("product")
@@ -122,7 +148,7 @@ def buy():
 
 @app.post("/api/price")
 def set_price():
-    body = request.get_json(silent=True) or {}
+    body = json_body()
 
     def action(state):
         product = body.get("product")
@@ -136,7 +162,7 @@ def set_price():
 
 @app.post("/api/open")
 def open_day():
-    body = request.get_json(silent=True) or {}
+    body = json_body()
 
     def action(state):
         # The page says which day it meant to open. If that day is already
@@ -155,7 +181,7 @@ def open_day():
 
 @app.post("/api/new-run")
 def new_run():
-    body = request.get_json(silent=True) or {}
+    body = json_body()
     with _lock:
         state = load_run()
         # CT01: the page asks the player first and only then sends confirm=true
