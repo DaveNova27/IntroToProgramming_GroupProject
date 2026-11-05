@@ -6,11 +6,12 @@ const EMOJI = {
   hoodie: "🧥", tshirt: "👕", cap: "🧢",
   beer: "🍺", coke_zero: "🥤", sandwich: "🥪",
 };
+// one colour per product, used by the dashboard (ACCENT) and the campus display (COLOR)
 const ACCENT = {
-  coffee: "var(--coffee)", cake: "#d9487b", bagel: "#c98a3d",
+  coffee: "#eb6834", cake: "#d9487b", bagel: "#c98a3d",
   surfboard: "#3a6fd8", wetsuit: "#2f9e9e", surf_lesson: "#4fb3d9",
   hoodie: "#8e5bd6", tshirt: "#e8573a", cap: "#1baf7a",
-  beer: "#e0a21b", coke_zero: "#444b57", sandwich: "var(--sandwich)",
+  beer: "#e0a21b", coke_zero: "#444b57", sandwich: "#2a78d6",
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);

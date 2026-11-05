@@ -4,12 +4,7 @@
 
 import { DAY_END, MORNING, reducedMotion, scene } from "./scene.js";
 
-const COLOR = {
-  coffee: "#eb6834", cake: "#d9487b", bagel: "#c98a3d",
-  surfboard: "#3a6fd8", wetsuit: "#2f9e9e", surf_lesson: "#4fb3d9",
-  hoodie: "#8e5bd6", tshirt: "#e8573a", cap: "#1baf7a",
-  beer: "#e0a21b", coke_zero: "#444b57", sandwich: "#2a78d6",
-};
+const COLOR = ACCENT; // from common.js: one colour per product
 
 // The world runs embedded in the dashboard page (views.js): small or full screen.
 const embedded = new URLSearchParams(location.search).has("embed");
@@ -202,13 +197,13 @@ function renderPanel() {
                 ${o.bought
                   ? `<span class="owned">Owned</span>`
                   : `<button class="btn" type="button" data-upgrade-shop="${esc(s.id)}" data-upgrade-item="${esc(o.id)}"
-                      ${o.price > state.cash || !o.available ? "disabled" : ""}
+                      ${!o.affordable || !o.available ? "disabled" : ""}
                       ${o.available ? "" : 'title="Buy the first employee place first"'}>${fmt(o.price)}</button>`}
               </div>`).join("")}`
           : `<div class="shop-offer">
               <span class="nm">Start with ${esc(s.start_product_name)}</span>
               <button class="btn" type="button" data-unlock="${esc(s.id)}"
-                ${s.unlock_price > state.cash ? "disabled" : ""}>Unlock ${fmt(s.unlock_price)}</button>
+                ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
             </div>`}
         </section>`).join("")}`;
   } else if (panelMode === "prices") {

@@ -37,30 +37,19 @@ def shops_view(state):
     out = []
     for sid, shop in logic.SHOPS.items():
         mine = state["shops"][sid]
-        offers = []
-        for item_id, offer in shop["window"].items():
-            if offer["kind"] == "product":
-                name = logic.CATALOGUE[offer["product"]]["name"]
-                bought = offer["product"] in mine["products"]
-            else:
-                name = f"Employee place {offer['place']}"
-                bought = mine["staff_places"] >= offer["place"]
-            # employee places are bought in order: place 2 waits for place 1
-            ready = offer["kind"] == "product" or mine["staff_places"] >= offer["place"] - 1
-            offers.append({"id": item_id, "kind": offer["kind"], "name": name,
-                           "price": offer["price"], "bought": bought, "available": ready})
         out.append({
             "id": sid,
             "name": shop["name"],
             "start_product_name": logic.CATALOGUE[shop["start_product"]]["name"],
             "unlocked": mine["unlocked"],
             "unlock_price": shop["unlock_price"],
+            "affordable": shop["unlock_price"] <= state["cash"],
             "level": mine["level"],
             "products": mine["products"],
             "staff_places": mine["staff_places"],
             "storage": shop["storage"],
             "counter": shop["counter"],
-            "offers": offers,
+            "offers": logic.shop_offers(state, sid),
         })
     return out
 
@@ -217,7 +206,7 @@ def buy_upgrade():
         new_state = logic.buy_upgrade(state, shop, item)
         cost = state["cash"] - new_state["cash"]
         name = logic.SHOPS[shop]["name"]
-        return new_state, f"Bought {item.replace('_', ' ')} for {name}: {logic.fmt(cost)}."
+        return new_state, f"Bought {logic.offer_name(shop, item)} for {name}: {logic.fmt(cost)}."
 
     return apply(action)
 

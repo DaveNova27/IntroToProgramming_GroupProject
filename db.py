@@ -93,7 +93,8 @@ def _shops(rows, shop_products, saved_products):
     """The shops of the run. A save from before shops existed (no rows) becomes a run
     with the first shop open, holding the products of that save that belong to it.
     No other shop is opened for free; stock of other products stays stored, unused."""
-    shops = {sid: logic._new_shop(sid) for sid in logic.SHOPS}
+    shops = {sid: logic.new_shop(sid) for sid in logic.SHOPS}
+    owned = set(shop_products)
     if not rows:
         have = [p for p in logic.CATALOGUE
                 if p in saved_products and p in logic.shop_product_ids(logic.FIRST_SHOP)]
@@ -106,7 +107,7 @@ def _shops(rows, shop_products, saved_products):
                 "unlocked": bool(unlocked),
                 "level": level,
                 "products": [p for p in logic.CATALOGUE
-                             if (sid, p) in set(shop_products)],
+                             if (sid, p) in owned],
                 "staff_places": staff,
             }
     return shops

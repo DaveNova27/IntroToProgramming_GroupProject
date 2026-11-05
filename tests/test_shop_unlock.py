@@ -247,3 +247,28 @@ def test_a_crafted_request_is_refused_and_the_saved_run_stays_identical(client, 
     assert r.status_code == 400
     assert "error" in r.get_json()
     assert db.load(db_path) == before
+
+
+# ---- what the window shows comes from the rules ----------------------------
+
+def test_the_window_offers_say_what_is_bought_available_and_affordable():
+    state = rich(3_500)  # €35: the bagel (€30) is affordable, the cake (€40) is not
+    offers = {o["id"]: o for o in logic.shop_offers(state, "cafe")}
+    assert offers["cake"]["affordable"] is False and offers["bagel"]["affordable"] is True
+    assert offers["staff_1"]["available"] is True and offers["staff_2"]["available"] is False
+    assert offers["staff_1"]["name"] == "Employee place 1" and offers["cake"]["name"] == "Cake"
+
+    state = logic.buy_upgrade(state, "cafe", "bagel")
+    state["cash"] = 100_000
+    offers = {o["id"]: o for o in logic.shop_offers(state, "cafe")}
+    assert offers["bagel"]["bought"] is True and offers["cake"]["bought"] is False
+    state = logic.buy_upgrade(state, "cafe", "staff_1")
+    offers = {o["id"]: o for o in logic.shop_offers(state, "cafe")}
+    assert offers["staff_1"]["bought"] is True and offers["staff_2"]["available"] is True
+
+
+def test_the_upgrade_message_uses_the_offer_name(client):
+    c, _ = client
+    r = c.post("/api/shop/upgrade", json={"shop": "cafe", "item": "staff_1"})
+    assert r.status_code == 200
+    assert "Employee place 1" in r.get_json()["message"]

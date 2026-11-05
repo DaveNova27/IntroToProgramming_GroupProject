@@ -98,13 +98,13 @@ def new_state():
         "cash": STARTING_CASH,
         "stock": {pid: 0 for pid in CATALOGUE},
         "prices": {pid: item["ref_price"] for pid, item in CATALOGUE.items()},
-        "shops": {sid: _new_shop(sid) for sid in SHOPS},
+        "shops": {sid: new_shop(sid) for sid in SHOPS},
         "history": [],
         "player": world.start_player(),
     }
 
 
-def _new_shop(shop_id):
+def new_shop(shop_id):
     """The Snack Stand is open on level 1 with its first product; the others are locked."""
     if shop_id == FIRST_SHOP:
         return {
@@ -221,6 +221,39 @@ def unlock_shop(state, shop):
         "staff_places": 0,
     }
     return new
+
+
+def offer_name(shop, item):
+    """The name of a window offer as the player reads it."""
+    offer = SHOPS[shop]["window"][item]
+    if offer["kind"] == "product":
+        return CATALOGUE[offer["product"]]["name"]
+    return f"Employee place {offer['place']}"
+
+
+def shop_offers(state, shop):
+    """What a shop's window offers right now. The rules answer, so no screen has to guess:
+    `bought`, `available` (employee place 2 waits for place 1) and `affordable` (cash)."""
+    _check_shop(shop)
+    entry = state["shops"][shop]
+    offers = []
+    for item_id, offer in SHOPS[shop]["window"].items():
+        if offer["kind"] == "product":
+            bought = offer["product"] in entry["products"]
+            available = True
+        else:
+            bought = entry["staff_places"] >= offer["place"]
+            available = entry["staff_places"] >= offer["place"] - 1
+        offers.append({
+            "id": item_id,
+            "kind": offer["kind"],
+            "name": offer_name(shop, item_id),
+            "price": offer["price"],
+            "bought": bought,
+            "available": available,
+            "affordable": offer["price"] <= state["cash"],
+        })
+    return offers
 
 
 def buy_upgrade(state, shop, item):
