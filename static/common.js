@@ -1,7 +1,17 @@
 // Helpers shared by the dashboard (app.js) and the campus map (map.js).
 
-const EMOJI = { sandwich: "🥪", coffee: "☕", cookie: "🍪" };
-const ACCENT = { sandwich: "var(--sandwich)", coffee: "var(--coffee)", cookie: "var(--cookie)" };
+const EMOJI = {
+  coffee: "☕", cake: "🍰", bagel: "🥯",
+  surfboard: "🏄", wetsuit: "🤿", surf_lesson: "🌊",
+  hoodie: "🧥", tshirt: "👕", cap: "🧢",
+  beer: "🍺", coke_zero: "🥤", sandwich: "🥪",
+};
+const ACCENT = {
+  coffee: "var(--coffee)", cake: "#d9487b", bagel: "#c98a3d",
+  surfboard: "#3a6fd8", wetsuit: "#2f9e9e", surf_lesson: "#4fb3d9",
+  hoodie: "#8e5bd6", tshirt: "#e8573a", cap: "#1baf7a",
+  beer: "#e0a21b", coke_zero: "#444b57", sandwich: "var(--sandwich)",
+};
 
 const $ = (sel, root = document) => root.querySelector(sel);
 

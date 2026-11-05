@@ -21,10 +21,70 @@ MAX_PRICE = 100_000_000  # cents = 1,000,000 euro, far above any useful price
 
 # The fixed catalogue: unit purchase cost and reference selling price, in cents.
 CATALOGUE = {
-    "sandwich": {"name": "Sandwich", "cost": 200, "ref_price": 400},
     "coffee": {"name": "Coffee", "cost": 80, "ref_price": 200},
-    "cookie": {"name": "Cookie", "cost": 50, "ref_price": 150},
+    "cake": {"name": "Cake", "cost": 150, "ref_price": 400},
+    "bagel": {"name": "Bagel", "cost": 100, "ref_price": 300},
+    "surfboard": {"name": "Surfboard", "cost": 4_000, "ref_price": 9_000},
+    "wetsuit": {"name": "Wetsuit", "cost": 2_500, "ref_price": 6_000},
+    "surf_lesson": {"name": "Surf lesson", "cost": 800, "ref_price": 2_500},
+    "hoodie": {"name": "Hoodie", "cost": 1_800, "ref_price": 3_500},
+    "tshirt": {"name": "T-shirt", "cost": 600, "ref_price": 1_500},
+    "cap": {"name": "Cap", "cost": 400, "ref_price": 1_200},
+    "beer": {"name": "Beer", "cost": 150, "ref_price": 400},
+    "coke_zero": {"name": "Coke Zero", "cost": 80, "ref_price": 250},
+    "sandwich": {"name": "Sandwich", "cost": 200, "ref_price": 400},
 }
+
+STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
+STORAGE_UNITS = 100  # storeroom space per shop (takes effect with shop-process)
+COUNTER_UNITS = 20  # counter space per shop (takes effect with shop-process)
+FIRST_SHOP = "cafe"
+
+
+def _window(product_offers):
+    """What a shop's window sells: its extra products, then two employee places."""
+    items = {
+        pid: {"kind": "product", "product": pid, "price": price}
+        for pid, price in product_offers
+    }
+    items["staff_1"] = {"kind": "staff", "place": 1, "price": STAFF_PLACE_PRICE}
+    items["staff_2"] = {"kind": "staff", "place": 2, "price": STAFF_PLACE_PRICE}
+    return items
+
+
+# The shops (the team's list). Prices in cents. All numbers except the product names
+# are placeholders to balance later. The first shop is open from the start
+# (unlock_price 0); every shop starts with one product and sells more through its window.
+SHOPS = {
+    "cafe": {
+        "name": "Cafe", "unlock_price": 0, "start_product": "coffee",
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "window": _window([("cake", 4_000), ("bagel", 3_000)]),
+    },
+    "beach_cafe": {
+        "name": "Beach Cafe", "unlock_price": 20_000, "start_product": "beer",
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "window": _window([("coke_zero", 6_000), ("sandwich", 8_000)]),
+    },
+    "merchandise": {
+        "name": "Merchandise", "unlock_price": 35_000, "start_product": "hoodie",
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "window": _window([("tshirt", 8_000), ("cap", 6_000)]),
+    },
+    "surf_shop": {
+        "name": "Surf Shop", "unlock_price": 50_000, "start_product": "surfboard",
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "window": _window([("wetsuit", 12_000), ("surf_lesson", 15_000)]),
+    },
+}
+
+
+def shop_product_ids(shop_id):
+    """Every product a shop can ever have: its starting product and its window products."""
+    shop = SHOPS[shop_id]
+    return [shop["start_product"]] + [
+        o["product"] for o in shop["window"].values() if o["kind"] == "product"
+    ]
 
 
 class RejectedAction(Exception):
@@ -38,9 +98,32 @@ def new_state():
         "cash": STARTING_CASH,
         "stock": {pid: 0 for pid in CATALOGUE},
         "prices": {pid: item["ref_price"] for pid, item in CATALOGUE.items()},
+        "shops": {sid: _new_shop(sid) for sid in SHOPS},
         "history": [],
         "player": world.start_player(),
     }
+
+
+def _new_shop(shop_id):
+    """The Snack Stand is open on level 1 with its first product; the others are locked."""
+    if shop_id == FIRST_SHOP:
+        return {
+            "unlocked": True,
+            "level": 1,
+            "products": [SHOPS[shop_id]["start_product"]],
+            "staff_places": 0,
+        }
+    return {"unlocked": False, "level": 0, "products": [], "staff_places": 0}
+
+
+def owned_products(state):
+    """The products the player has: those of every unlocked shop, in catalogue order."""
+    have = {
+        pid
+        for shop in state["shops"].values() if shop["unlocked"]
+        for pid in shop["products"]
+    }
+    return [pid for pid in CATALOGUE if pid in have]
 
 
 def euros_to_cents(text):
@@ -68,14 +151,16 @@ def is_finished(state):
     return state["day"] > LAST_DAY
 
 
-def _check_product(product):
+def _check_product(state, product):
     if not isinstance(product, str) or product not in CATALOGUE:
         raise RejectedAction(f"Unknown product '{product}'.")
+    if product not in owned_products(state):
+        raise RejectedAction(f"You do not have {CATALOGUE[product]['name']} yet.")
 
 
 def buy(state, product, quantity):
     """CT02: buy stock. Cash and stock change together, or not at all."""
-    _check_product(product)
+    _check_product(state, product)
     if is_finished(state):
         raise RejectedAction("The run is complete. Buying is closed.")
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
@@ -94,15 +179,87 @@ def buy(state, product, quantity):
 
 def set_price(state, product, price_cents):
     """CT03: set a positive selling price."""
-    _check_product(product)
+    _check_product(state, product)
     if is_finished(state):
         raise RejectedAction("The run is complete. Prices are locked.")
+    if isinstance(price_cents, bool) or not isinstance(price_cents, int):
+        raise RejectedAction("The selling price must be a whole number of cents.")
     if price_cents <= 0:
         raise RejectedAction("The selling price must be more than €0.")
     if price_cents > MAX_PRICE:
         raise RejectedAction(f"The selling price can be at most {fmt(MAX_PRICE)}.")
     new = copy.deepcopy(state)
     new["prices"][product] = price_cents
+    return new
+
+
+def _check_shop(shop):
+    if not isinstance(shop, str) or shop not in SHOPS:
+        raise RejectedAction(f"Unknown shop '{shop}'.")
+
+
+def unlock_shop(state, shop):
+    """Open a locked shop for its unlock price. It starts on level 1 with one product."""
+    _check_shop(shop)
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Shops can no longer be unlocked.")
+    name = SHOPS[shop]["name"]
+    if state["shops"][shop]["unlocked"]:
+        raise RejectedAction(f"{name} is already unlocked.")
+    price = SHOPS[shop]["unlock_price"]
+    if price > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: unlocking {name} costs {fmt(price)}, "
+            f"you have {fmt(state['cash'])}."
+        )
+    new = copy.deepcopy(state)
+    new["cash"] -= price
+    new["shops"][shop] = {
+        "unlocked": True,
+        "level": 1,
+        "products": [SHOPS[shop]["start_product"]],
+        "staff_places": 0,
+    }
+    return new
+
+
+def buy_upgrade(state, shop, item):
+    """Buy one thing from a shop's window: a product or an employee place.
+
+    Every purchase raises the shop's level by 1. Employee places are bought in order
+    (staff_1, then staff_2) so that staff_places always counts what was bought.
+    """
+    _check_shop(shop)
+    window = SHOPS[shop]["window"]
+    if not isinstance(item, str) or item not in window:
+        raise RejectedAction(f"{SHOPS[shop]['name']} does not offer '{item}'.")
+    if is_finished(state):
+        raise RejectedAction("The run is complete. The window is closed.")
+    entry = state["shops"][shop]
+    if not entry["unlocked"]:
+        raise RejectedAction(f"{SHOPS[shop]['name']} is not unlocked yet.")
+    offer = window[item]
+    if offer["kind"] == "product":
+        if offer["product"] in entry["products"]:
+            raise RejectedAction(f"{CATALOGUE[offer['product']]['name']} is already bought.")
+    else:
+        if entry["staff_places"] >= offer["place"]:
+            raise RejectedAction("That employee place is already bought.")
+        if entry["staff_places"] < offer["place"] - 1:
+            raise RejectedAction("Buy the first employee place before the second.")
+    if offer["price"] > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: this costs {fmt(offer['price'])}, "
+            f"you have {fmt(state['cash'])}."
+        )
+    new = copy.deepcopy(state)
+    new["cash"] -= offer["price"]
+    new_entry = new["shops"][shop]
+    if offer["kind"] == "product":
+        new_entry["products"].append(offer["product"])
+    else:
+        new_entry["staff_places"] += 1
+    new_entry["level"] += 1
     return new
 
 
@@ -122,7 +279,8 @@ def trade_day(state):
 
     new = copy.deepcopy(state)
     lines = []
-    for pid, item in CATALOGUE.items():
+    for pid in owned_products(new):
+        item = CATALOGUE[pid]
         price = new["prices"][pid]
         wanted = demand(price, item["ref_price"])
         sold = min(wanted, new["stock"][pid])  # CT R2: stock limits sales
@@ -171,7 +329,7 @@ def move_player(state, zone, x, y):
 
 def stock_value(state):
     """Remaining stock valued at purchase cost (CT R4)."""
-    return sum(qty * CATALOGUE[pid]["cost"] for pid, qty in state["stock"].items())
+    return sum(state["stock"][pid] * CATALOGUE[pid]["cost"] for pid in owned_products(state))
 
 
 def stock_overview(state):
@@ -181,7 +339,8 @@ def stock_overview(state):
     after the last day nothing sells any more, so everything counts as left.
     """
     lines = []
-    for pid, item in CATALOGUE.items():
+    for pid in owned_products(state):
+        item = CATALOGUE[pid]
         units = state["stock"][pid]
         wanted = 0 if is_finished(state) else demand(state["prices"][pid], item["ref_price"])
         sells = min(wanted, units)

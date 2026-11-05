@@ -343,3 +343,11 @@ body.preview .loading { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- shops panel ---- */
+.shop-card { border-top: 1px solid rgba(128, 128, 128, 0.3); padding: 10px 0; }
+.shop-card h3 { margin: 0 0 4px; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; }
+.shop-card h3 small { opacity: 0.7; font-weight: 600; }
+.shop-offer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; }
+.shop-offer .owned { opacity: 0.6; font-size: 13px; }
+.shop-offer .btn:disabled { opacity: 0.45; cursor: not-allowed; }
