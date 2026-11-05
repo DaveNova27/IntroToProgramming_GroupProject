@@ -10,10 +10,12 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - `app.py` + `static/`: screen (what the user sees and clicks)
   - `app.py`: Flask server and JSON API; it calls the rules, the browser never decides them
   - `static/index.html`, `style.css`, `app.js`: dashboard
-  - `static/map.html`, `map.css`, `map.js`: 3D campus map (three.js from CDN)
-  - `static/views.js`: switching between dashboard and map, keeps both in sync
-  - `static/common.js`: helpers shared by dashboard and map
+  - `static/map.html`, `map.css`: campus page with its display on top
+  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and doors; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `rooms.js`, `environment.js`, `primitives.js`, `locations.js` drawing; `physics.js`, `paths.js` collision and finding a way
+  - `static/views.js`: switching between campus and dashboard, keeps both in sync
+  - `static/common.js`: helpers shared by dashboard and campus
 - `logic.py`: rules (what is valid, how results are calculated)
+- `world.py`: the campus as data (zones, doors, solid objects, room layouts)
 - `db.py`: stored state (what is saved and loaded)
 - `README.md`: how everything fits together, list of specs, known issues
 - `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
@@ -25,8 +27,10 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - One spec per task. Stay inside its "Out of scope" fence.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.
-- All randomness comes from the seed stored in the state. No `random` call without it.
-- The whole game state must stay complete and settable (day, cash, shops, stock, popularity, staff), and the day context (weather, events) must accept an override. The demo mode depends on both.
+- All randomness comes from the seed stored in the state. No `random` call without it. The same holds for anything drawn: no `Math.random` in `static/world/`.
+- The browser decides no rule. The world in `static/world/` only draws and walks; money, stock, days and later building always go through the API.
+- Nothing is loaded from outside this app: no CDN, no web fonts.
+- The whole game state must stay complete and settable (day, cash, shops, stock, popularity, staff, player position), and the day context (weather, events) must accept an override. The demo mode depends on both.
 
 ## How to report
 - Paste the final test output and list every file you changed.

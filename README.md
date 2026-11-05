@@ -40,7 +40,7 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 5. Open a pull request into `main` with the PR template. It needs a passing `Tests` check (GitHub Actions runs `uv run pytest`) and an AI code review (for example `/code-review` in Claude Code) whose findings are fixed or answered in the PR. No human approval is required.
 6. One spec per branch and per pull request. Keep it inside the spec's "Out of scope" fence.
 
-Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`, `db.py`, `app.py`) and **visuals** (campus look and walking paths in `static/map*`). Every feature spec follows the three rules in section 6 of the roadmap (complete settable state, overridable day context, no randomness without the seed) so the demo mode can be built last without a rebuild.
+Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`, `db.py`, `app.py`) and **visuals** (campus look and walking in `static/world/`, `static/map.css`). Every feature spec follows the three rules in section 6 of the roadmap (complete settable state, overridable day context, no randomness without the seed) so the demo mode can be built last without a rebuild.
 
 ## How it fits together
 
@@ -48,10 +48,11 @@ Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`
 |---|---|---|
 | Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`. A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
 | Storage | `db.py` | SQLite, one run. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
-| Server | `app.py` | Flask. `GET /api/state`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`). Each request loads the run, applies one rule and saves only if it was accepted. `/map` redirects to `/#map`; `/map?embed=1` serves the map page for the iframe. |
+| World data | `world.py` | The campus as data: zones, doors, desks, solid objects, room layouts. No rules and no drawing. |
+| Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`. Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
-| View switch | `static/views.js` | One map iframe that is never reloaded: over the "Campus live" window on the dashboard, or full screen (`#map`). Dashboard as a slide-in panel over the map. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
-| 3D map | `static/map.html`, `map.css`, `map.js` | three.js 0.170 from the jsDelivr CDN (needs internet). Stylised Nova SBE campus in Carcavelos: kiosk, storage shed, truck deliveries, students queueing per product, live sales ticker, day/night. Modes `preview` (small window, auto-rotate, no HUD) and `main`. Animations run one after another in a queue (`enqueue`). |
+| View switch | `static/views.js` | One campus iframe that is never reloaded: full screen (the default), or over the "Campus live" window of the dashboard page (`#dashboard`). Dashboard as a slide-in panel over the campus. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
+| Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, doors between the zones, light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
 | Shared | `static/common.js` | `$`, `esc`, `fmt`, `fmtSigned`, `toast`, product emoji. |
 
 The browser never decides a rule: it sends the action, the server answers with
@@ -65,12 +66,14 @@ animate that answer.
 | `first-feature.md` | – (initial commit) | Buy, set prices, trade one day, restart safely |
 | `full-run.md` | `full-run` | Days 2–5, final result, run history, new run with confirmation. Written without the BRD at hand: check IDs and wording against it. |
 | `stock-overview.md` | `stock-overview` | Units, value at cost, sells today / left after today per product |
-| `campus-map.md` | `campus-map` | 3D campus map with truck, queues, ticker |
+| `campus-map.md` | `campus-map` | 3D campus map with truck, queues, ticker (replaced by `world-core`) |
 | `view-switch.md` | `view-switch` | Live window on the dashboard, map as main view, dashboard as side panel |
 | `nova-campus.md` | `nova-campus` | Scene styled after Nova SBE Carcavelos (beach, tunnel, fort, pines) |
 | `finite-prices.md` | `finite-prices` | Refuse non-finite prices without changing the saved run; regression checks in `checks/` |
 | `campus-polish.md` | `campus-polish` | Coastal Tycoon visual polish: facade detail, landscaped plaza, warm light, sea and coordinated UI |
 | `longer-run.md` | `longer-run` | 30-day season instead of five days (`LAST_DAY` in `logic.py`) |
+| `world-api.md` | `world-api` | The campus as data in `world.py`, player position in the state |
+| `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -88,8 +91,7 @@ tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 
-- The 3D map needs an internet connection for three.js; the dashboard works offline.
 - To try changes without touching your own save, copy `app.py`, `logic.py`,
-  `db.py` and `static/` to a temporary folder and start it there on another
-  port (`python -c "import app; app.app.run(port=8765)"`): `db.py` keeps its
+  `world.py`, `db.py` and `static/` to a temporary folder and start it there on another
+  port (`python -c "import app; app.app.run(port=8770)"`): `db.py` keeps its
   database next to itself.

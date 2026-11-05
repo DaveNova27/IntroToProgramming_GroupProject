@@ -1,8 +1,8 @@
-// Switching between the dashboard and the 3D campus map.
-// The map is one live page (an iframe) that is never reloaded: on the
-// dashboard it sits over the "Campus live" window, as the main view it fills
-// the screen. The address ends in #map while the map is the main view, so
-// reload and the back button keep working.
+// Switching between the campus and the dashboard.
+// The campus is the game and opens first. It is one live page (an iframe) that is
+// never reloaded: as the main view it fills the screen, on the dashboard it sits
+// over the "Campus live" window. The address ends in #dashboard while the dashboard
+// is the main view, so reload and the back button keep working.
 
 const frame = $("#campus-frame");
 const slot = $("#campus-slot");
@@ -10,7 +10,7 @@ const dash = $("#dash");
 const handle = $("#drawer-handle");
 let view = null;                 // "dashboard" | "map"
 let moving = false;
-let pushedMap = false;           // we added the #map history entry ourselves
+let pushedDashboard = false;     // we added the #dashboard history entry ourselves
 
 // ---- talking to the map -----------------------------------------------------------
 
@@ -24,7 +24,10 @@ window.addEventListener("run-changed", (e) => tellMap({ type: "action", ...e.det
 window.addEventListener("message", (e) => {
   if (e.origin !== location.origin || e.source !== frame.contentWindow) return;
   const msg = e.data || {};
-  if (msg.type === "ready") tellMap({ type: "mode", mode: view === "map" ? "main" : "preview" });
+  if (msg.type === "ready") {
+    tellMap({ type: "mode", mode: view === "map" ? "main" : "preview" });
+    if (view === "map") frame.focus();
+  }
   if (msg.type === "action") applyExternalState(msg.after);
   if (msg.type === "open-dashboard") openDrawer();
   if (msg.type === "panel-open") {
@@ -122,7 +125,7 @@ function showDashboard(animate) {
 }
 
 function applyHash(animate) {
-  const wanted = location.hash === "#map" ? "map" : "dashboard";
+  const wanted = location.hash === "#dashboard" ? "dashboard" : "map";
   if (wanted === view) return;
   if (wanted === "map") showMap(animate);
   else showDashboard(animate);
@@ -137,16 +140,19 @@ function openDrawer() {
 }
 function closeDrawer() {
   dash.classList.remove("open");
-  if (view === "map") handle.hidden = false;
+  if (view === "map") {
+    handle.hidden = false;
+    frame.focus(); // the keys walk the figure again
+  }
 }
 
-function goMap() {
-  pushedMap = true;
-  location.hash = "map";
-}
-// back to the dashboard: undo our own history entry, or (opened with #map) drop the hash
 function goDashboard() {
-  if (pushedMap) return history.back();
+  pushedDashboard = true;
+  location.hash = "dashboard";
+}
+// back to the campus: undo our own history entry, or (opened with #dashboard) drop the hash
+function goMap() {
+  if (pushedDashboard) return history.back();
   history.replaceState(null, "", location.pathname + location.search);
   applyHash(true);
 }
@@ -162,7 +168,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && dash.classList.contains("open")) closeDrawer();
 });
 window.addEventListener("hashchange", () => {
-  if (location.hash !== "#map") pushedMap = false;
+  if (location.hash !== "#dashboard") pushedDashboard = false;
   applyHash(true);
 });
 window.addEventListener("resize", () => {

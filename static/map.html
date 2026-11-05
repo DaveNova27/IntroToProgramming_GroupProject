@@ -3,64 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Campus Tycoon · 3D Map</title>
+  <title>Campus Tycoon · Campus</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
   <link rel="stylesheet" href="/static/map.css">
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
-  </script>
 </head>
 <body>
   <div class="shell">
-    <!-- the 3D campus is drawn here (WebGL canvas + labels) -->
-    <div id="stage" aria-label="3D campus with your kiosk, storage shed and the road"></div>
+    <!-- the 2.5D campus is drawn here (static/world/) -->
+    <canvas id="world" aria-label="The campus: walk with W A S D or click on the ground"></canvas>
     <div id="loading" class="loading">Building the campus…</div>
 
     <!-- ================= head-up display ================= -->
-    <header class="hud-top">
-      <div class="hud-brand">
-        <span class="logo" aria-hidden="true">🥪</span>
-        <div>
-          <strong>Campus Tycoon</strong>
-          <span class="hud-location">Carcavelos · Nova SBE</span>
-          <nav class="views" aria-label="Views">
-            <span aria-current="page">3D Map</span>
-            <a href="/">Dashboard</a>
-          </nav>
-        </div>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">CT</span>
+        <span class="brand-text"><strong>Campus Tycoon</strong><small>CARCAVELOS · NOVA SBE</small></span>
       </div>
-      <div class="hud-day">
-        <ol id="day-pips" class="pips"></ol>
-        <span id="day-label"></span>
+      <div class="stats" aria-label="Run status">
+        <div class="stat"><span>DAY</span><strong id="stat-day">—</strong></div>
+        <div class="stat stat-time"><span>TIME</span><strong id="stat-time">—</strong></div>
+        <div class="stat stat-cash"><span>CASH</span><strong id="stat-cash">—</strong></div>
+        <div class="stat stat-stock"><span>STOCK</span><strong id="stat-stock">—</strong></div>
+        <div class="stat"><span>OVERALL</span><strong id="stat-gain">—</strong></div>
       </div>
-      <div class="hud-money">
-        <span class="label">Cash</span>
-        <strong id="hud-cash">—</strong>
-        <span id="hud-gain" class="sub"></span>
-      </div>
+      <button id="btn-new-run" class="outline-button" type="button">New run</button>
     </header>
 
-    <!-- storage overview (left) and live sales ticker (right) -->
-    <section id="hud-stock" class="hud-card hud-stock" aria-label="Stock per product"></section>
-    <section id="ticker" class="hud-card ticker" aria-live="polite" hidden>
-      <h3>Live sales · <span id="ticker-day"></span></h3>
-      <div id="ticker-totals" class="ticker-totals"></div>
-      <ol id="ticker-list" class="ticker-list"></ol>
-    </section>
+    <div class="zone-banner">
+      <span aria-hidden="true">◉</span>
+      <div><small id="zone-sub"></small><strong id="zone-name"></strong></div>
+    </div>
+    <div class="zone-chips" aria-label="Areas of the campus">
+      <span data-zone="campus">OUTSIDE</span>
+      <span data-zone="mercado">MERCADO</span>
+      <span data-zone="academy">ACADEMIC</span>
+      <span data-zone="hub">STUDENT HUB</span>
+    </div>
+
+    <section id="hud-stock" class="hud-stock" aria-label="Stock per product"></section>
+
+    <button id="interaction-hint" class="interaction-hint" type="button" hidden>
+      <span class="keycap" aria-hidden="true">E</span>
+      <span><small>INTERACT</small><strong id="interaction-name"></strong></span>
+    </button>
 
     <nav class="toolbar" aria-label="Actions">
-      <button id="btn-order" class="tool" type="button" aria-label="Order stock"><span aria-hidden="true">🚚</span> <span class="txt">Order stock</span></button>
-      <button id="btn-prices" class="tool" type="button" aria-label="Prices"><span aria-hidden="true">🏷️</span> <span class="txt">Prices</span></button>
-      <button id="btn-open" class="tool primary" type="button"><span aria-hidden="true">🏪</span> <span id="open-label">Open</span></button>
-      <button id="btn-fast" class="tool fast" type="button" hidden title="Finish the animation now"><span aria-hidden="true">⏩</span> <span class="txt">Skip</span></button>
-      <button id="btn-camera" class="tool icon" type="button" title="Reset the camera" aria-label="Reset the camera">🎥</button>
+      <button id="btn-order" class="tool" type="button"><span class="ico" aria-hidden="true">▦</span><span class="txt">Stock</span></button>
+      <button id="btn-prices" class="tool" type="button"><span class="ico" aria-hidden="true">€</span><span class="txt">Prices</span></button>
+      <button id="btn-open" class="tool primary" type="button"><span class="ico" aria-hidden="true">☀</span><span id="open-label">Open</span></button>
+      <button id="btn-fast" class="tool" type="button" hidden title="Finish the day now"><span class="ico" aria-hidden="true">»</span><span class="txt">Skip</span></button>
+      <button id="btn-dashboard" class="tool" type="button"><span class="ico" aria-hidden="true">▤</span><span class="txt">Dashboard</span></button>
     </nav>
-    <p class="hint-camera">Drag to rotate · scroll or pinch to zoom · click the kiosk or the shed</p>
 
     <!-- side panel: order stock / prices -->
     <aside id="panel" class="panel" hidden aria-labelledby="panel-title">
@@ -91,13 +84,6 @@
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
   <script src="/static/common.js"></script>
-  <script type="module" src="/static/map.js"></script>
-  <script>
-    // the 3D library comes from a CDN: say so if it never arrives
-    setTimeout(() => {
-      const loading = document.getElementById("loading");
-      if (!loading.hidden) loading.innerHTML = 'The 3D view needs an internet connection to load. <a href="/">Open the dashboard</a>';
-    }, 10000);
-  </script>
+  <script type="module" src="/static/world/main.js"></script>
 </body>
 </html>
