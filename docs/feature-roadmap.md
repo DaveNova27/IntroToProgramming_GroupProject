@@ -1,71 +1,185 @@
-# Campus Tycoon: Feature Roadmap
+# Campus Tycoon: Feature Roadmap (v2)
 
-Status: proposal after the first group call (Nova SBE, 4 members). Everything
-here is a plan to discuss, not a decision, unless it says "decided".
+Status: roadmap v2, agreed by the team on 2026-11-05 where it says "decided". It replaces roadmap v1.
+Part A is the plan. Part B keeps the game design reference of v1 (core loop, weather and event
+factors, demo mode, glossary) that is still valid. Read `AGENTS.md` first for the working rules.
+Rules that stay: `AGENTS.md` and the three roadmap rules (complete settable state,
+overridable day context, no randomness without the seed).
 
-This file is plain text on purpose so that every team member's AI assistant can
-read it from the repository. Read `AGENTS.md` first for the working rules.
+# Part A: Plan
 
-## 1. Project context
-
-Campus Tycoon is a snack-stand simulation with a Flask server and a browser UI.
-
-| Part | Files | Job |
-|---|---|---|
-| Rules | `logic.py` | Pure functions. Every function takes a state and returns a NEW state. A refused action raises `RejectedAction` and changes nothing. Money is integer cents. |
-| Storage | `db.py` | SQLite, one run. |
-| Server | `app.py` | Flask JSON API. The browser never decides a rule. |
-| Dashboard | `static/index.html`, `style.css`, `app.js` | HUD, stock overview, product cards, charts. |
-| 3D map | `static/map.html`, `map.css`, `map.js` | three.js campus scene with kiosk, customers, deliveries, day/night. |
-| Shared | `static/views.js`, `static/common.js` | View switching and helpers. |
-
-Working rules that apply to every task (from `AGENTS.md`):
-
-- One spec per task, one branch per spec, one GitHub Issue per spec, one pull request per spec.
-- Never commit a feature to `main` directly. A pull request needs a passing `Tests` check and an AI code review (findings fixed or answered); no human approval is required.
-- Never edit, delete or skip anything in `tests/`.
-- Store money as integer cents, never floats.
-- A rejected action must not change any saved data.
-- Stay inside the spec's "Out of scope" section.
-- Spec format: `What`, `Out of scope`, `Done when` (see `specs/campus-polish.md`).
-
-Current state of the game: one kiosk, three products (sandwich, coffee, cookie),
-demand is a fixed function of price (`demand()` in `logic.py`: 10 units at or
-below the reference price, 5 up to twice that price, 0 above). The 30-day season
-exists on the branch `longer-run` and is not yet merged into `main`.
-
-## 2. Decisions so far
+## 1. Decisions the team gave so far
 
 | Topic | Decision |
 |---|---|
-| Customers | Rule-based "AI" customers, not a language model. Deterministic with a seed, testable. (Suggestion from the professor: AI-driven customers and demand steered by external factors such as weather.) |
-| Season length | 30 days. The planned 10-day short mode is dropped. |
-| Presentation | A demo mode with scenarios, built LAST, after the game is complete. The team then chooses which features appear in it. |
-| Stock market / casino | Cut. Not part of the core. |
-| Multiplayer | Cut. Mention only as an outlook. It is a security risk: the server would have to check every rule and trust nothing from the browser. |
-| Visuals | Appearance of the campus and the walking paths of the figures are their own track, parallel to the game rules. |
+| Our solo project | Only a starting point. Shops, rules and map are decided fresh by the group. |
+| What we take from Felix | Character control, the people (look and animation), the design, the smooth camera, the build mode. |
+| Map | Decided: Felix' 2.5D world instead of the three.js map. Walk 2D inside the Nova, click to go outside, see the Nova from outside, walk to the Beach Cafe. Map size and Nova design are redone. |
+| Backend | Rules are rewritten in our own backend (Python + Flask + SQLite). Felix' `core.js` is only a reference. The browser decides no rule. |
+| Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
+| Shops | A shop is built at a chosen place with the build mode and opens. Upgrades unlock more products. Which shops and which build items: decided later. |
+| Guests | Own feature, decided later. |
+| Review | An AI reviews every pull request. Merging needs the passing `Tests` check (rule change is PR #25). |
+| Security | Every spec follows the rules in section 3a and the per spec list in 3b. |
+| AI use | Required by the course. Felix' code and art are AI made and may be used. Credit it in the README. |
 
-## 3. The 11 points from the meeting, with status
+## 2. What we reuse from Felix (read as reference, port or vendor)
 
-| # | Feature | Status | Effort | Depends on |
+| Part | Felix file | Size | How we use it |
+|---|---|---|---|
+| Collision and movement | `dist/world-physics.js` | 2 KB | Vendor as is (pure functions: `resolveMovement`, `nearestFreePoint`). |
+| Interior data | `dist/interior-layouts.js` | 5 KB | Use as the data format for the Nova rooms (zones, colliders, routes, activity points). |
+| Zones and doors | `ZONES`, `changeZone`, door hotspots in `dist/app.js` | small | Rewrite cleanly as data. Doors switch zone and spawn point. |
+| Camera | `camera` object, smooth follow and zoom in `app.js` | small | Keep the smooth follow. Indoors the whole room fits on screen. |
+| Characters | `characters.webp` (64 KB), `drawPersonFigure`, `characterView`, pose functions | medium | Extract: six-frame walk, facing from movement, activity poses. |
+| Build mode rules | `facilityFootprint`, `placeFacility`, `moveFacility`, `demolishFacility` in `core.js`, test `tests/building-mode.test.mjs` | small | Port to Python. Rules: rectangular footprints, quarter-turn rotation, no overlap, moving is free, demolition refunds 40 % (value to confirm), cash never negative, a rejected action changes nothing. |
+| Build mode UI | `drawBuildGhost`, `snappedBuildPoint`, `validateBuildPoint`, `openBuildPanel` | medium | Port. The browser may preview validity, the server always re-checks. |
+| Weather and calendar data | `districtWeather` (4 states), `CAMPUS_CALENDAR` (7 day types) | tiny | Use as data for `day-context` and `events-and-disruptions`. |
+
+Not taken (too much for us): 25 district businesses, DJ events, maintenance and
+cleaning, management overlays, guest needs, scheduled deliveries, progression
+levels, showcase editor.
+
+Observed when running it (Nov 2026): all 146 Node tests pass, the world loads without
+console errors, walking, build placement (cash 100.00 to 99.00) and interior exit work.
+16 of its 28 test files read source files, so write behaviour tests for everything we port.
+
+## 3. New spec list
+
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `build-rules` #29, `build-mode-ui` #30, `shop-building` #17, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways` is closed. Season: #2 `longer-run`.
+
+Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
+L = logic. Effort: S small, M medium, L large.
+
+### Phase 1: foundation (parallel)
+
+| Spec | Track | Effort | Depends on | What | Out of scope |
+|---|---|---|---|---|---|
+| `world-core` | V | L | none | Vendor Felix' world layer into `static/world/`: isometric projection, zone switching with doors, smooth camera, WASD and click-to-move, collision. One test zone. Replaces #9 `split-map`. | Economy, build mode, guests, Nova design |
+| `world-art` | V | M | world-core | Player figure and the sprite system from Felix: six-frame walk, facing, poses, `characters.webp`. | Guest behaviour, outfits |
+| `world-api` | L | S | none | Python side: zone layouts as data (size, colliders, doors, spawn), player position saved in the state, endpoints to read both. | Rules for money or building |
+| `day-context` | L | M | none | Issue #10 unchanged: seed in the state, `make_day_context(seed, day)`, weather, demand factor, override. Use Felix' weather and calendar data as the starting table. | Events, forecast, popularity |
+| `badges` | L | S | none | Issue #15 unchanged. Good first task. | Any effect on play |
+
+### Phase 2: the Nova map
+
+| Spec | Track | Effort | Depends on | What | Out of scope |
+|---|---|---|---|---|---|
+| `nova-zones` | V | M | world-core, world-api | Three zones: Nova inside (2D, rooms, doors), Nova outside, beach with the Beach Cafe spot. Clicking a door or marker changes zone. Smaller map size. | Final art, shops, weather |
+| `nova-design` | V | L | nova-zones | Look of the Nova (inside and outside) and the beach: tiles, walls, colours, details. Replaces #11 `campus-look`. | Rules, new mechanics |
+
+### Phase 3: build mode and shops
+
+| Spec | Track | Effort | Depends on | What | Out of scope |
+|---|---|---|---|---|---|
+| `build-rules` | L | M | world-api | Port `place`, `move`, `demolish`, rotate to Python with endpoints. Integer cents, rejected action changes nothing, protected geometry from the zone data. New test file ported from Felix' building tests. | UI, shops, guests |
+| `build-mode-ui` | V | M | build-rules, world-core | Build panel, ghost preview, rotate, confirm and cancel, demolish. Calls the API. | Catalogue effects |
+| `shop-building` | L | L | build-rules, day-context | A shop is built at a place and opens. Upgrades unlock more products. Replaces #17 `multi-shop`. The shop list is decided in this spec. | Staff, guests, shop art |
+| `shop-art` | V | M | shop-building | Look of the shops on the map. Replaces #18 `shop-buildings`. | Rules |
+
+### Phase 4: depth (parallel, after the shops)
+
+| Spec | Track | Effort | Depends on | Note |
 |---|---|---|---|---|
-| 1 | Several shops (own products, prices, target groups; unlocked one after another with money and level) | Core | large | day-context |
-| 2 | Changing demand (daily fluctuation, trends such as a "matcha week") | Core | small to medium | day-context |
-| 3.1 | Campus events (exam period, party, career fair) | Core | medium | day-context |
-| 3.2 | Weather (sun, rain, storm, heat) shifts demand between shops | Core | medium | day-context |
-| 3.3 | Outages (power cut, supply shortage): shop closed or goods scarce | Extension | small | day-context |
-| 3.4 | Strikes (metro, suppliers): fewer walk-in customers or higher purchase prices | Extension | small | day-context |
-| 3.5 | AI-based customers | Extension | large | walkways, day-context |
-| 4 | Fixed length with final settlement (30 days) | Core | done on `longer-run` | none |
-| 5 | Popularity of a shop in % (0 to 100) | Core | medium | day-context |
-| 6 | Outlook for the next day (evening report, forecast sometimes wrong) | Core | medium | day-context |
-| 7 | Buy outfits for the player figure (optional small bonus) | Optional | small (logic), medium (3D) | multi-shop |
-| 8 | Badges for milestones | Extension | small | other features for some badges |
-| 9 | Hire staff (wage vs. more customers served) | Extension | medium | multi-shop |
-| 10 | Stock market, casino | Cut | | |
-| 11 | Multiplayer | Cut | | |
+| `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
+| `popularity` (#13) | L | M | day-context, shop-building | Per shop, 0 to 100 as an integer. Felix' `momentum` is the model. |
+| `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
+| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Felix' `environmentalProfile` and `drawSkyMotion` as reference. |
+| `staff` (#20) | L | M | shop-building | Unchanged in goal. Simple: wage in cents, capacity per shop. |
+| `outfits` (#21) | L | S | shop-building | Optional. Look comes from the sprite system. |
 
-## 4. How a game day works (the core loop)
+### Phase 5 and last
+
+| Spec | Track | Note |
+|---|---|---|
+| `guests` | L and V | Replaces #22 `ai-customers` and #19 `walkways`. Decided later. Felix' guest groups, needs and destination scoring are the reference. Open question: sales per day on the server, or live guests. |
+| `demo-scenarios` (#23) | L | Unchanged, built last. |
+| `final-polish` (#24) | V | Unchanged, last. |
+
+## 3a. Security: rules for every spec
+
+Add these to every spec's "Done when" and to the AI review. Detailed list per spec in 3b.
+
+1. The server decides every rule. The browser only shows and previews. Money, stock, building, unlocking, hiring: always re-checked on the server.
+2. Every endpoint takes JSON and validates all fields: type, whole numbers, finite, in range, ids from a fixed list (whitelist). Anything else is a `RejectedAction` and changes nothing.
+3. Money stays integer cents. A rejected action changes no saved data. One lock per change (load, rule, save).
+4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
+5. No secrets in the repo. Pin dependencies. No scripts from a CDN: vendor them into `static/`.
+6. Error answers contain only our own rule messages, never paths or stack traces.
+7. Anything that sets the state directly (demo mode) works only locally or with an explicit config switch. Never on a public deployment.
+8. If the app is deployed: HTTPS, a production server, a session per player, rate limit, security headers (CSP, X-Content-Type-Options, X-Frame-Options).
+9. Tests for the security part of each spec: a crafted bad request is refused and the saved state stays identical.
+
+## 3b. Security: what to watch per spec
+
+| Spec | Watch out for |
+|---|---|
+| `world-core` | Vendored Felix code: check for `eval`, `innerHTML` with data, external URLs. The browser keeps no rule and no truth in `localStorage`. Movement and camera are cosmetic only. |
+| `world-art` | Only local image files, no external URLs, no user uploads. Keep the atlas small. |
+| `world-api` | Zone id from a whitelist. Check the position on the server (finite, inside the zone bounds). No rule may depend on the position the browser sends. |
+| `day-context` | The seed lives on the server and is never sent to the browser (it would let players predict the weather). The override works only locally or by config switch. |
+| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
+| `nova-zones` | A zone change that affects the state is validated on the server (known door, allowed target). |
+| `nova-design` | Assets only. Names and labels shown through `textContent`. |
+| `build-rules` | Validate type (from the catalogue), rotation (0 to 3), coordinates (finite, in bounds), overlap, cash. Price and refund are computed on the server only. Check and write inside one transaction. Test: a refused place, move or demolish leaves the state identical. |
+| `build-mode-ui` | The preview is only a hint, the server decides. Send only ids and whole numbers. Disable the button while a request runs (no double build). |
+| `shop-building` | Server checks cash, level and place. A product that is not unlocked cannot be bought by a crafted request. Test the locked case. |
+| `shop-art` | Assets only. |
+| `outlook` | The forecast is created on the server. Never expose the seed or the true result of tomorrow. |
+| `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
+| `events-and-disruptions` | Events come from the seed. The browser cannot choose an event, only the demo override can. |
+| `weather-visuals` | The browser only reads today's weather. No `eval`, no external scripts. |
+| `staff` | Wages in integer cents, cash never negative, hiring limit per shop, staff id validated. |
+| `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
+| `guests` | Number of guests is capped (performance, no flooding). Guest data comes only from the server. |
+| `demo-scenarios` | Setting a state or loading a scenario needs a demo switch and works only on localhost. Validate the whole state shape when setting it. Never public. |
+| `final-polish` | Last security pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
+
+## 4. What happens to the existing issues
+
+| Issue | Action |
+|---|---|
+| #2 `longer-run` | Keep. PR #7 still waiting for a merge. |
+| #9 `split-map` | Rewrite as `world-core`. |
+| #10 `day-context`, #12 `outlook`, #14 `events-and-disruptions`, #15 `badges`, #20 `staff`, #21 `outfits`, #23 `demo-scenarios`, #24 `final-polish` | Keep. Update "Depends on" and add Felix references. |
+| #11 `campus-look` | Rewrite as `nova-design`. |
+| #13 `popularity` | Keep. Depends on `shop-building` once shops exist. |
+| #16 `weather-visuals` | Rewrite for the 2.5D renderer. |
+| #17 `multi-shop` | Rewrite as `shop-building`. |
+| #18 `shop-buildings` | Rewrite as `shop-art`. |
+| #19 `walkways` | Close. Zones and collision replace it. Waypoint routes come back inside `guests`. |
+| #22 `ai-customers` | Postpone, merge into `guests`. |
+| New | `world-art`, `world-api`, `nova-zones`, `build-rules`, `build-mode-ui` |
+
+## 5. Suggested start (proposal)
+
+| Person | First spec | Why |
+|---|---|---|
+| Felix | `world-core`, then `world-art` | He knows the world code. He brings it into this repo himself, so his code is his contribution. |
+| David | `world-api`, then `build-rules` | Python rules and API, close to the current `logic.py` and `app.py`. |
+| Christopher | `day-context` | Independent of the map. |
+| Gregor | `badges` | Independent and small. |
+
+Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own PR.
+
+## 6. Open decisions
+
+1. Old three.js map files: removed inside `world-core` or in a clearly named follow-up.
+2. Build catalogue: which items, which prices, any effect on play, and the demolition refund (Felix uses 40 %). Decided later.
+3. Shops: how many, which ones, how upgrades unlock products. Decided later, inside `shop-building`.
+4. (Decided) Season is 30 days.
+5. Forecast error rate (about 20 %) and the weather and event factors per shop.
+6. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
+7. Licence and credit: confirm with Felix and name the source in the README.
+8. Guests: sales computed per day on the server, or live guests on the map?
+
+---
+
+# Part B: Game design reference (from roadmap v1, still valid)
+
+Some wording in v1 mentioned the three.js map, walkways and the human review. Part A wins where they differ.
+
+## B1. How a game day works (the core loop)
 
 Read this as a numbered chain. Each step feeds the next one.
 
@@ -79,7 +193,7 @@ Read this as a numbered chain. Each step feeds the next one.
 
 Everything is per shop once there are several shops: each shop has its own demand, popularity, stock and staff.
 
-## 5. Weather and events against shops (example values)
+## B2. Weather and events against shops (example values)
 
 These factors are examples to discuss, not final numbers. 1.0 means normal demand.
 
@@ -101,7 +215,7 @@ The factors are multiplied. Example: heat on a party day gives the ice stand
 2.0 x 1.3 = 2.6, so the player should order much more ice. Above 1.15 the
 player should order more, below 0.85 less.
 
-## 6. Rules for every feature spec
+## B3. Rules for every feature spec
 
 So that the demo mode needs no rebuild later, every feature spec follows these
 three rules from the start:
@@ -110,46 +224,7 @@ three rules from the start:
 2. The day context can be overridden. `make_day_context(seed, day)` takes an optional argument that fixes weather or event.
 3. No randomness without the seed. Every random choice comes from the seed stored in the state.
 
-## 7. Build order
-
-Two tracks run in parallel: LOGIC (game rules) and VISUALS (appearance, walking
-paths). Each line below is one spec, one branch, one issue, one pull request.
-
-### Phase 1: foundation (in parallel)
-
-1. `split-map` (visuals): split `static/map.js` (about 1860 lines, one file) into modules without changing behaviour. Prevents merge conflicts for all later map work.
-2. `day-context` (logic): seed, weather, demand factor, override for demos. Features 2 and 3.2.
-
-### Phase 2: after the foundation (all in parallel)
-
-3. `campus-look` (visuals, needs `split-map`): polish the campus look, details, light, planting.
-4. `outlook` (logic): evening report with an uncertain forecast. Feature 6.
-5. `popularity` (logic): popularity 0 to 100 %. Feature 5.
-6. `events-and-disruptions` (logic): events, trends, outages, strikes. Features 2, 3.1, 3.3, 3.4.
-7. `badges` (logic): Feature 8. Good starting task for a new member.
-8. `weather-visuals` (visuals, needs `day-context`): rain, storm, heat and sky on the map.
-
-### Phase 3: several shops (one person alone)
-
-9. `multi-shop` (logic): several shops with unlocking. Feature 1. This touches state, database, API and UI at once, so nobody else should change those parts at the same time.
-
-### Phase 4: what builds on the shops (in parallel)
-
-10. `shop-buildings` (visuals): models for ice stand, surf shop, cafe, snack stand.
-11. `walkways` (visuals): a network of waypoints, shops as data (position, entrance, queue), natural walking paths. Today `map.js` has fixed constants for one kiosk, two doors and one queue.
-12. `staff` (logic): Feature 9.
-13. `outfits` (logic): Feature 7, optional.
-
-### Phase 5
-
-14. `ai-customers` (logic, needs `walkways`): each customer chooses a target by budget, favourite product and weather preference, and walks there. Feature 3.5.
-
-### Phase 6: last
-
-15. `demo-scenarios`: scenario loader, explanation overlay and the scenarios themselves. The team chooses which features go in, once the game is complete.
-16. `final-polish`: fine polish of animations, camera and details, matching the demo.
-
-## 8. Demo mode (presentation)
+## B4. Demo mode (presentation)
 
 Built like a tutorial, about 5 minutes. Days are skipped: each scenario loads a
 prepared start state and shows an explanation text. After the goal of a
@@ -168,40 +243,7 @@ Example sequence (a suggestion, the final choice comes after the game is complet
 4. Popularity and staff: empty shelves lower popularity. At a party, hiring staff pays off.
 5. Disruption and finish: power cut or strike, then badges and the final settlement.
 
-## 9. Visuals track
-
-| Topic | Today | Goal |
-|---|---|---|
-| Code structure | `map.js` has about 1860 lines in one file | Modules for scene, buildings, customers and camera |
-| Campus look | Buildings, plaza, coast and kiosk polished by the spec `campus-polish` | Fine polish of details, light and planting |
-| Walking paths | Fixed constants for one kiosk | Waypoint network, shops as data |
-| Weather | Sky colours exist (`setSky`) | Rain, storm and heat visible on the map |
-| Shop buildings | One kiosk | One model per shop |
-| Customers | Random customers on a fixed route | Each customer picks a target and walks the network |
-
-## 10. Where the code goes
-
-| File | What is added |
-|---|---|
-| `logic.py` | `make_day_context(seed, day)`, `demand()` with factors, `forecast()`, `update_popularity()`, `check_badges()`, wages and capacity in `trade_day()`. All pure functions returning a new state. |
-| `db.py` | New state fields: `seed`, `shops`, `popularity`, `staff`, `badges`, `outfits`. Money stays integer cents. |
-| `app.py` | New endpoints for the evening report, unlocking a shop, staff and buying outfits. The browser decides no rule. |
-| `scenarios.py` | New, last: scenarios as data. |
-| `static/` | Dashboard: evening report, shop selection, staff, outfits, demo overlay. Map: split into modules, then weather, shop buildings, walking network, customers, outfits on the figure. |
-| `tests/` | New test files per spec. Existing tests stay unchanged. |
-
-## 11. Open decisions
-
-1. Strength of the weather, event and trend factors per shop. The values in section 5 are guesses.
-2. Error rate of the forecast. Suggestion: about 20 %.
-3. Formula for popularity: how many points do fair prices give, how many do empty shelves cost?
-4. Shop unlocking: which shops, at which price and level, and which shop starts?
-5. Shops early (more depth, but a big rebuild) or first weather, outlook and popularity with one shop? Walking paths and shop buildings depend on this.
-6. Who takes which track. Suggestion: one person for `split-map` and the visuals, one for `day-context`, and the newest member for `badges`.
-7. Which features go into the demo (decided at the end).
-8. Should the professor be able to keep playing freely after the demo?
-
-## 12. Glossary
+## B5. Glossary
 
 | Term | Meaning |
 |---|---|
@@ -211,3 +253,4 @@ Example sequence (a suggestion, the final choice comes after the game is complet
 | Seed | A number stored in the state from which all randomness is derived, so runs are reproducible and testable. |
 | Scenario | A prepared start state with explanation text and a goal, used by the demo mode. |
 | Track | Either logic (game rules) or visuals (appearance, walking paths). |
+

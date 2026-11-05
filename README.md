@@ -76,12 +76,15 @@ The tag `v1.0` is the dashboard-only version before the map.
 ## Group project roadmap
 
 The specs above are the solo-project history. The group project continues with
-the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md):
-`split-map`, `day-context`, `campus-look`, `outlook`, `popularity`,
-`events-and-disruptions`, `badges`, `weather-visuals`, `multi-shop`,
-`shop-buildings`, `walkways`, `staff`, `outfits`, `ai-customers`,
-`demo-scenarios` and `final-polish`. Progress is tracked in the GitHub Issues
-(label `spec`). The 30-day season (`longer-run`) is in review as a pull request.
+the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v2):
+`world-core`, `world-art`, `world-api`, `day-context`, `badges`, `nova-zones`,
+`nova-design`, `build-rules`, `build-mode-ui`, `shop-building`, `shop-art`,
+`outlook`, `popularity`, `events-and-disruptions`, `weather-visuals`, `staff`,
+`outfits`, `guests`, `demo-scenarios` and `final-polish`. The map is the 2.5D
+world taken from a teammate's project (Nova Beach Ventures, code and art made with
+AI, credit: https://github.com/felix-anthes-png/nova-beach-ventures). Progress is
+tracked in the GitHub Issues (label `spec`). The 30-day season (`longer-run`) is
+in review as a pull request.
 
 ## Known issues and ideas
 
