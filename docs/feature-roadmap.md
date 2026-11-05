@@ -19,6 +19,7 @@ overridable day context, no randomness without the seed).
 | Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
 | Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Which shops, prices and steps: decided in `shop-unlock`. |
 | Build mode | Dropped for now: fixed shop places replace it. Issues #29 and #30 are closed. |
+| Work in a shop | Decided: a day is played inside the shop. The player starts alone, carries stock from the storeroom to the counter and sells there. The counter has limited space, so there are two jobs. Two employees can take them over: one refills, one sells. This can differ per shop. |
 | Guests | Own feature, decided later. |
 | Review | An AI reviews every pull request. Merging needs the passing `Tests` check (rule change is PR #25). |
 | Security | Every spec follows the rules in section 3a and the per spec list in 3b. |
@@ -49,7 +50,7 @@ characters and the camera. Still to come from this table: shop data, weather and
 
 ## 3. New spec list
 
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
 
 Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
 L = logic. Effort: S small, M medium, L large.
@@ -75,7 +76,8 @@ L = logic. Effort: S small, M medium, L large.
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `shop-unlock` | L | L | none | Fixed shop places as data, unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. | Staff itself, guests, shop art |
+| `shop-unlock` | L | M | none | The list of shops as data: offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
+| `shop-process` | L and V | L | shop-unlock | A day played live in one shop: storeroom to counter, limited counter space, selling at the counter, a simple queue of customers from the existing price demand. One person alone: touches state, API and screen. | Employees, customers with own choices, several shops at once, popularity |
 | `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
 
 ### Phase 4: depth (parallel, after the shops)
@@ -83,10 +85,10 @@ L = logic. Effort: S small, M medium, L large.
 | Spec | Track | Effort | Depends on | Note |
 |---|---|---|---|---|
 | `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
-| `popularity` (#13) | L | M | day-context, shop-unlock | Per shop, 0 to 100 as an integer. Felix' `momentum` is the model. |
+| `popularity` (#13) | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer. Depends on real sales. Felix' `momentum` is the model. |
 | `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
 | `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. |
-| `staff` (#20) | L | M | shop-unlock | Wage in cents, capacity per shop. The shop's level limits how many people it can have. |
+| `staff` (#20) | L | M | shop-process | Employees do the same actions as the player: one refills, one sells. Wage in cents. Jobs and places are data per shop, the level limits the number. |
 | `outfits` (#21) | L | S | shop-unlock | Optional. The look is an option of `drawPersonFigure`. |
 
 ### Phase 5 and last
@@ -123,12 +125,13 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | `nova-zones` | A zone change that affects the state is validated on the server (known door, allowed target). |
 | `nova-design` | Assets only. Names and labels shown through `textContent`. |
 | `shop-unlock` | Server checks cash, shop id and level. A shop that is locked, or a product or staff place not yet reached, cannot be used by a crafted request. Prices come from the server only. Test the locked case. |
+| `shop-process` | Every refill and sale is a request the server checks against storeroom, counter space and queue. No rule depends on the position the browser sends. A crafted request cannot sell more than the counter holds or sell after the day ended. |
 | `shop-art` | Assets only. |
 | `outlook` | The forecast is created on the server. Never expose the seed or the true result of tomorrow. |
 | `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
 | `events-and-disruptions` | Events come from the seed. The browser cannot choose an event, only the demo override can. |
 | `weather-visuals` | The browser only reads today's weather. No `eval`, no external scripts. |
-| `staff` | Wages in integer cents, cash never negative, hiring limit per shop, staff id validated. |
+| `staff` | Wages in integer cents, cash never negative, hiring limit from the shop's level, employee and job ids validated. Employees run on the server, the browser only shows them. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
 | `guests` | Number of guests is capped (performance, no flooding). Guest data comes only from the server. |
 | `demo-scenarios` | Setting a state or loading a scenario needs a demo switch and works only on localhost. Validate the whole state shape when setting it. Never public. |
@@ -149,7 +152,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | #19 `walkways` | Close. Zones and collision replace it. Waypoint routes come back inside `guests`. |
 | #22 `ai-customers` | Postpone, merge into `guests`. |
 | #29 `build-rules`, #30 `build-mode-ui` | Closed: fixed shop places replace the build mode. |
-| New | `world-art`, `world-api`, `nova-zones` |
+| New | `world-art`, `world-api`, `nova-zones`, `shop-process` (#36) |
 
 ## 5. Suggested start (proposal)
 
@@ -167,6 +170,10 @@ Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own
 1. Old three.js map files: removed inside `world-core` or in a clearly named follow-up.
 2. Level-up: does the player choose between an employee place and a product at each level, or does a level bring both?
 3. Shops: how many, which ones, their prices and level steps. Is the first shop already open? Which product does it start with? Starting with one product conflicts with existing files in `tests/`, which buy all three products in a new run: the team has to accept an exception for those files, as with PR #7.
+3a. Who buys at the counter? Proposal: a simple queue, its size from price demand and the seed.
+3b. How long is a day? Proposal: 1 to 2 minutes with a key to skip. 30 days at 2 minutes is one hour of play.
+3c. What happens in a shop where nobody stands? Proposal: without staff it stays closed.
+3d. What happens to `trade_day`? Existing tests check it. Proposal: it stays as a day without a player and for skipping.
 4. (Decided) Season is 30 days.
 5. Forecast error rate (about 20 %) and the weather and event factors per shop.
 6. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
