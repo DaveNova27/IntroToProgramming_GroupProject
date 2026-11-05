@@ -83,7 +83,7 @@ The tag `v1.0` is the dashboard-only version before the map.
 The specs above are the solo-project history. The group project continues with
 the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v2):
 `world-core`, `world-art`, `world-api`, `day-context`, `badges`, `nova-zones`,
-`nova-design`, `shop-unlock`, `shop-art`,
+`nova-design`, `shop-unlock`, `shop-process`, `shop-art`,
 `outlook`, `popularity`, `events-and-disruptions`, `weather-visuals`, `staff`,
 `outfits`, `guests`, `demo-scenarios` and `final-polish`. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
