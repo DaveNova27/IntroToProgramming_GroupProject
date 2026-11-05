@@ -5,15 +5,28 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the older run.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # The job id "pytest" is the required status check of the protected `main`
+  # branch. Do not rename it without changing the branch protection rule.
   pytest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
       - name: Install dependencies
         run: uv sync --all-extras
-      - name: Run tests
+      - name: Run tests (tests/ and checks/)
         run: uv run pytest

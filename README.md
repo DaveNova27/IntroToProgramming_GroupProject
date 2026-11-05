@@ -4,7 +4,8 @@ A five-day snack-stand simulation (Nova SBE, Introduction to Programming).
 Start with €100, buy stock, set prices, open the stand five times, end with the
 best overall result. The rules come from the BRD (CT01–CT05, CT R1–R5); each
 feature is described by a spec in `specs/`. Working rules for coding agents are
-in `AGENTS.md`.
+in `AGENTS.md`. The plan for the group project (features, build order, demo
+mode) is in [`docs/feature-roadmap.md`](docs/feature-roadmap.md).
 
 Built individually for the Solo Project, now extended as the Group Project for
 2477-2627_S1 Introduction to Programming.
@@ -14,8 +15,9 @@ Built individually for the Solo Project, now extended as the Group Project for
 | Name | Student number |
 |---|---|
 | David Ben Morsey | 79133 |
-| _TODO_ | _TODO_ |
-| _TODO_ | _TODO_ |
+| Christopher Bryce Tiedke | 79960 |
+| Gregor Maximilian Rosenberger | 78878 |
+| Felix Antes | _TODO: add student number_ |
 
 **Deployed app:** _TODO: add the deployed URL once the project is deployed_
 
@@ -28,6 +30,17 @@ uv run pytest               # all checks from the specs
 
 Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoon.db`
 (local only, not in Git) and is loaded again on the next start.
+
+## Working in the group
+
+1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 7) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
+2. Create a branch named after the spec, e.g. `day-context`, from an up-to-date `main`. Never commit a feature to `main` directly.
+3. Write `specs/<name>.md` (What, Out of scope, Done when), then build only that.
+4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec.
+5. Open a pull request into `main` with the PR template. It needs one approving review from another member and a passing `Tests` check (GitHub Actions runs `uv run pytest`).
+6. One spec per branch and per pull request. Keep it inside the spec's "Out of scope" fence.
+
+Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`, `db.py`, `app.py`) and **visuals** (campus look and walking paths in `static/map*`). Every feature spec follows the three rules in section 6 of the roadmap (complete settable state, overridable day context, no randomness without the seed) so the demo mode can be built last without a rebuild.
 
 ## How it fits together
 
@@ -59,6 +72,16 @@ animate that answer.
 | `campus-polish.md` | `campus-polish` | Coastal Tycoon visual polish: facade detail, landscaped plaza, warm light, sea and coordinated UI |
 
 The tag `v1.0` is the dashboard-only version before the map.
+
+## Group project roadmap
+
+The specs above are the solo-project history. The group project continues with
+the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md):
+`split-map`, `day-context`, `campus-look`, `outlook`, `popularity`,
+`events-and-disruptions`, `badges`, `weather-visuals`, `multi-shop`,
+`shop-buildings`, `walkways`, `staff`, `outfits`, `ai-customers`,
+`demo-scenarios` and `final-polish`. Progress is tracked in the GitHub Issues
+(label `spec`). The 30-day season (`longer-run`) is in review as a pull request.
 
 ## Known issues and ideas
 
