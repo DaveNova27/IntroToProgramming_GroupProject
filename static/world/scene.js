@@ -1,0 +1,49 @@
+// What all parts of the 2.5D world share: the canvas, the camera, the projection
+// from map tiles to screen, and the data from the server.
+// Nothing here decides a rule. The player's position and the clock are only for showing.
+
+export const TILE_W = 76;
+export const TILE_H = 38;
+export const PLAYER_RADIUS = 0.28;
+export const WALK_SPEED = 3.5; // tiles per second
+
+// The clock only moves the light (minutes since midnight). It rests in the morning
+// and runs through the day while a trading day plays. The result comes from the server.
+export const DAY_START = 450;
+export const DAY_END = 1170;
+export const MORNING = 540;
+
+export const canvas = document.querySelector("#world");
+export const ctx = canvas.getContext("2d");
+export const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+
+export const camera = { x: 21, y: 18, zoom: 1 };
+
+// filled once from GET /api/world (see world.py)
+export const world = {};
+
+export const scene = {
+  time: 0, // milliseconds, from requestAnimationFrame
+  clock: MORNING,
+  day: 1,
+  zoneId: "campus",
+  player: { x: 21, y: 18 },
+  facing: { x: 0, y: 1 },
+  walking: false,
+  preview: false, // the small live window on the dashboard
+};
+
+export const activeZone = () => world.zones[scene.zoneId];
+
+export function isoPoint(x, y, z = 0) {
+  return { x: ((x - y) * TILE_W) / 2, y: ((x + y) * TILE_H) / 2 - z };
+}
+
+// from a click on the canvas back to map tiles
+export function canvasWorldPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  const center = isoPoint(camera.x, camera.y);
+  const ix = (event.clientX - rect.left - canvas.clientWidth / 2) / camera.zoom + center.x;
+  const iy = (event.clientY - rect.top - canvas.clientHeight / 2) / camera.zoom + center.y;
+  return { x: iy / TILE_H + ix / TILE_W, y: iy / TILE_H - ix / TILE_W };
+}

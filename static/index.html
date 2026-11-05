@@ -8,11 +8,11 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- the dashboard: main view, or a slide-in panel while the map is the main view -->
+  <!-- the dashboard: a slide-in panel over the campus, or its own page (#dashboard) -->
   <div id="dash" class="dash">
   <div class="drawer-bar">
     <strong>📊 Dashboard</strong>
-    <button class="btn small" type="button" data-dash-main>⤢ Make main view</button>
+    <button class="btn small" type="button" data-dash-main>⤢ Full page</button>
     <button class="btn secondary small icon" type="button" data-dash-close aria-label="Close the dashboard panel">✕</button>
   </div>
   <header class="topbar">
@@ -26,7 +26,7 @@
     <div class="day-track" aria-label="Progress">
       <ol id="day-pips" class="day-pips"></ol>
       <span id="day-label" class="day-label"></span>
-      <button id="show-map" class="btn secondary small" type="button">🗺️ Campus map</button>
+      <button id="show-map" class="btn secondary small" type="button">🗺️ Campus</button>
       <button id="new-run-btn" class="btn secondary small" type="button">New run</button>
     </div>
   </header>
@@ -59,7 +59,7 @@
       </article>
     </section>
 
-    <!-- Live window on the 3D campus; click to make the map the main view -->
+    <!-- Live window on the campus; click to make it the main view -->
     <section class="card campus-card" aria-labelledby="campus-title">
       <div class="chart-head">
         <div>
@@ -68,7 +68,7 @@
         </div>
         <span class="live"><i></i>LIVE</span>
       </div>
-      <button id="campus-slot" class="campus-slot" type="button" aria-label="Open the 3D campus map as the main view">
+      <button id="campus-slot" class="campus-slot" type="button" aria-label="Open the campus as the main view">
         <span class="enlarge">⤢ Enlarge</span>
       </button>
     </section>
@@ -137,8 +137,8 @@
   </main>
   </div>
 
-  <!-- the 3D campus: one live page, moved between the window above and full screen -->
-  <iframe id="campus-frame" class="campus-frame" src="/map?embed=1" title="3D campus map" tabindex="-1"></iframe>
+  <!-- the campus: one live page, moved between the window above and full screen -->
+  <iframe id="campus-frame" class="campus-frame" src="/map?embed=1" title="Campus" tabindex="-1"></iframe>
   <button id="drawer-handle" class="drawer-handle" type="button" hidden>📊 <span>Dashboard</span></button>
 
   <!-- New run confirmation (CT01) -->

@@ -103,10 +103,10 @@ def index():
 
 @app.get("/map")
 def campus_map():
-    # The map lives inside the dashboard page (as its live window or main view);
+    # The campus lives inside the main page (full screen or as a live window);
     # only the embedded copy is served here directly.
     if "embed" not in request.args:
-        return redirect("/#map")
+        return redirect("/")
     return send_from_directory(app.static_folder, "map.html")
 
 

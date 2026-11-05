@@ -1,0 +1,476 @@
+// Head-up display, stock and price panels, end-of-day cards. The screen only shows
+// what the server answers and forwards clicks: every rule is decided in logic.py.
+// $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
+
+import { DAY_END, MORNING, reducedMotion, scene } from "./scene.js";
+
+const COLOR = { sandwich: "#2a78d6", coffee: "#eb6834", cookie: "#1baf7a" };
+
+// The world runs embedded in the dashboard page (views.js): small or full screen.
+const embedded = new URLSearchParams(location.search).has("embed");
+
+let state = null;
+let animating = false;
+let dayRunning = null;
+let fast = false;
+let panelMode = null;
+let orderProduct = "sandwich";
+let placePlayer = () => {};
+
+// What happened plays one after another, wherever the action came from.
+let chain = Promise.resolve();
+function enqueue(job) {
+  chain = chain.then(job).catch((err) => console.error(err));
+  return chain;
+}
+
+function tellDashboard(message) {
+  if (embedded) window.parent.postMessage(message, location.origin);
+}
+
+const product = (pid) => state.products.find((p) => p.id === pid);
+
+function previewDemand(cents, ref) {
+  if (cents <= ref) return state.demand_levels.at_or_below_ref;
+  if (cents <= 2 * ref) return state.demand_levels.up_to_double_ref;
+  return 0;
+}
+
+async function send(path, body) {
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    try {
+      return await res.json();
+    } catch {
+      toast("The server hit an error. Nothing was saved.", "error");
+      return null;
+    }
+  } catch {
+    toast("Could not reach the server. Is app.py still running?", "error");
+    return null;
+  }
+}
+
+// ---- the clock (only light) ----------------------------------------------------------
+
+// Browsers pause animation frames in a hidden tab; keep going with a timer there.
+const nextFrame = (cb) => (document.hidden ? setTimeout(() => cb(performance.now()), 100) : requestAnimationFrame(cb));
+
+function tween(ms, update) {
+  if (fast || reducedMotion || ms <= 0) {
+    update(1);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const frame = (now) => {
+      const k = fast ? 1 : Math.max(0, Math.min((now - start) / ms, 1));
+      update(k);
+      if (k < 1) nextFrame(frame);
+      else resolve();
+    };
+    nextFrame(frame);
+  });
+}
+
+// A new run of the clock takes over from one still going.
+let clockRun = 0;
+function runClock(from, to, ms) {
+  const run = ++clockRun;
+  return tween(ms, (k) => {
+    if (run === clockRun) scene.clock = from + (to - from) * k;
+  });
+}
+
+export function updateClock() {
+  const minutes = Math.floor(scene.clock);
+  const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const el = $("#stat-time");
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// ---- head-up display -----------------------------------------------------------------
+
+function renderHud() {
+  scene.day = Math.min(state.day, state.last_day);
+  $("#stat-day").textContent = state.finished ? "Done" : `${state.day} / ${state.last_day}`;
+  $("#stat-cash").textContent = fmt(state.cash);
+  $("#stat-stock").textContent = fmt(state.stock_value);
+  const gain = $("#stat-gain");
+  gain.textContent = fmtSigned(state.overall_gain);
+  gain.className = state.overall_gain > 0 ? "up" : state.overall_gain < 0 ? "down" : "";
+  $("#hud-stock").innerHTML = `<h3>Stock</h3>${state.products.map((p) => `
+    <div class="stock-row" style="--accent:${COLOR[p.id]}">
+      <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
+      <span class="nm">${esc(p.name)}<small>sells up to ${p.demand} a day</small></span>
+      <span class="units">${p.stock}</span>
+    </div>`).join("")}`;
+}
+
+function renderToolbar() {
+  const locked = animating || state.finished;
+  $("#btn-order").disabled = locked;
+  $("#btn-prices").disabled = locked;
+  $("#btn-open").disabled = locked;
+  $("#open-label").textContent = dayRunning
+    ? `Day ${dayRunning} is open…`
+    : state.finished ? "Run complete" : `Open day ${state.day}`;
+  $("#btn-fast").hidden = !animating;
+  const empty = state.products.every((p) => p.stock === 0);
+  $("#btn-order").classList.toggle("hint", empty && !locked);
+}
+
+function renderAll() {
+  renderHud();
+  renderToolbar();
+  if (panelMode) renderPanel();
+}
+
+// ---- panels --------------------------------------------------------------------------
+
+function openPanel(mode) {
+  if (animating || state.finished) return;
+  panelMode = mode;
+  $("#panel").hidden = false;
+  tellDashboard({ type: "panel-open" }); // both use the right side of the screen
+  renderPanel();
+}
+
+function closePanel() {
+  if (panelMode === null) return;
+  panelMode = null;
+  $("#panel").hidden = true;
+  tellDashboard({ type: "panel-closed" });
+}
+
+function renderPanel() {
+  const body = $("#panel-body");
+  if (panelMode === "order") {
+    $("#panel-title").textContent = "Order stock";
+    const p = product(orderProduct);
+    const max = Math.floor(state.cash / p.cost);
+    body.innerHTML = `
+      <div class="pick" role="group" aria-label="Product">
+        ${state.products.map((x) => `
+          <button type="button" data-pick="${esc(x.id)}" aria-pressed="${x.id === orderProduct}" style="--accent:${COLOR[x.id]}">
+            <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
+            <span class="nm">${esc(x.name)}</span>
+            <small>${fmt(x.cost)} each · ${x.stock} in stock</small>
+          </button>`).join("")}
+      </div>
+      <form id="order-form">
+        <div class="field-label"><span>Quantity</span><span>up to ${max} affordable</span></div>
+        <div class="stepper">
+          <button type="button" data-step="-1" aria-label="One less">−</button>
+          <input name="quantity" inputmode="numeric" autocomplete="off" value="10" aria-label="Quantity">
+          <button type="button" data-step="1" aria-label="One more">+</button>
+        </div>
+        <div class="chips">
+          ${[5, 10, 25].map((n) => `<button type="button" class="chip" data-set="${n}">${n}</button>`).join("")}
+          <button type="button" class="chip" data-set="${max}">Max (${max})</button>
+        </div>
+        <div class="total" id="order-total"></div>
+        <p class="error" id="order-error"></p>
+        <button class="btn wide" type="submit">Order</button>
+      </form>`;
+    updateOrderTotal();
+  } else if (panelMode === "prices") {
+    $("#panel-title").textContent = "Prices";
+    body.innerHTML = `
+      <p class="note">Customers buy ${state.demand_levels.at_or_below_ref} a day at or below the reference price, ${state.demand_levels.up_to_double_ref} up to twice it, none above.</p>
+      ${state.products.map((p) => `
+        <form class="price-row" data-price-form="${esc(p.id)}">
+          <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
+          <span class="nm">${esc(p.name)}<small>Ref. ${fmt(p.ref_price)} · cost ${fmt(p.cost)}</small></span>
+          <label class="euro"><span>€</span><input name="price" inputmode="decimal" autocomplete="off"
+            value="${(p.price / 100).toFixed(2)}" aria-label="${esc(p.name)} price in euro"></label>
+          <button class="btn" type="submit">Save</button>
+          <span class="demand" data-demand>Sells up to <b>${p.demand}</b> a day</span>
+          <p class="error" data-error></p>
+        </form>`).join("")}`;
+  }
+}
+
+function updateOrderTotal() {
+  const out = $("#order-total");
+  if (!out) return;
+  const text = $("#order-form").quantity.value.trim();
+  if (!/^\d+$/.test(text)) {
+    out.className = "total";
+    out.innerHTML = `<span>Enter a whole number</span><strong>—</strong>`;
+    return;
+  }
+  const total = Number(text) * product(orderProduct).cost;
+  const tooMuch = total > state.cash;
+  out.className = `total ${tooMuch ? "too-much" : ""}`;
+  out.innerHTML = `<span>${tooMuch ? "More than your cash" : "Total cost"}</span><strong>${fmt(total)}</strong>`;
+}
+
+function wirePanel() {
+  const panel = $("#panel");
+  panel.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close]")) return closePanel();
+    const pickBtn = e.target.closest("[data-pick]");
+    if (pickBtn) {
+      const typed = $("#order-form")?.quantity.value;
+      orderProduct = pickBtn.dataset.pick;
+      renderPanel();
+      if (typed) $("#order-form").quantity.value = typed;
+      return updateOrderTotal();
+    }
+    const input = $("#order-form")?.quantity;
+    const step = e.target.closest("[data-step]");
+    const set = e.target.closest("[data-set]");
+    if (input && step) {
+      const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
+      input.value = Math.max(1, current + Number(step.dataset.step));
+      updateOrderTotal();
+    } else if (input && set) {
+      input.value = set.dataset.set;
+      updateOrderTotal();
+    }
+  });
+  panel.addEventListener("input", (e) => {
+    if (e.target.name === "quantity") return updateOrderTotal();
+    const form = e.target.closest("[data-price-form]");
+    if (!form) return;
+    const p = product(form.dataset.priceForm);
+    const value = Number(e.target.value.trim().replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0) return;
+    const cents = Math.round(value * 100);
+    form.querySelector("[data-demand]").innerHTML = cents === p.price
+      ? `Sells up to <b>${p.demand}</b> a day`
+      : `Sells up to <b>${previewDemand(cents, p.ref_price)}</b> a day · not saved yet`;
+  });
+  panel.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (e.target.id === "order-form") return order(orderProduct, e.target.quantity.value);
+    const form = e.target.closest("[data-price-form]");
+    if (form) savePrice(form);
+  });
+}
+
+// ---- actions -------------------------------------------------------------------------
+
+async function order(pid, quantityText) {
+  if (animating) return;
+  const data = await send("/api/buy", { product: pid, quantity: quantityText });
+  if (!data) return;
+  state = data.state;
+  renderHud();
+  if (data.error) {
+    // nothing changed; keep the panel and what was typed, show why
+    $("#order-error").textContent = data.error;
+    return toast(data.error, "error");
+  }
+  closePanel();
+  renderToolbar();
+  tellDashboard({ type: "action", after: data.state });
+  toast(data.message);
+}
+
+async function savePrice(form) {
+  const pid = form.dataset.priceForm;
+  const data = await send("/api/price", { product: pid, price: form.price.value });
+  if (!data) return;
+  state = data.state;
+  renderHud();
+  if (data.error) {
+    form.querySelector("[data-error]").textContent = data.error;
+    return toast(data.error, "error");
+  }
+  form.querySelector("[data-error]").textContent = "";
+  const p = product(pid);
+  form.price.value = (p.price / 100).toFixed(2);
+  form.querySelector("[data-demand]").innerHTML = `Sells up to <b>${p.demand}</b> a day`;
+  tellDashboard({ type: "action", after: data.state });
+  toast(data.message);
+}
+
+// The numbers are final on the server already. They appear when the day has played.
+async function playDay(after) {
+  dayRunning = after.history[after.history.length - 1].day;
+  animating = true;
+  renderToolbar();
+  try {
+    await runClock(scene.clock, DAY_END, 3200);
+  } finally {
+    state = after;
+    animating = false;
+    dayRunning = null;
+    fast = false;
+    renderAll();
+  }
+}
+
+async function openDay() {
+  if (animating || state.finished) return;
+  closePanel();
+  const data = await send("/api/open", { day: state.day });
+  if (!data) return;
+  if (data.error) {
+    state = data.state;
+    renderAll();
+    return toast(data.error, "error");
+  }
+  tellDashboard({ type: "action", after: data.state });
+  await enqueue(async () => {
+    await playDay(data.state);
+    showDaySummary(state.history[state.history.length - 1]);
+  });
+}
+
+// The dashboard did something: its own screen already shows the numbers.
+function syncFromDashboard(msg) {
+  enqueue(async () => {
+    if (msg.kind === "open") {
+      closePanel();
+      hideOverlay();
+      await playDay(msg.after);
+      await runClock(DAY_END, MORNING, 900);
+    } else {
+      state = msg.after;
+      if (msg.kind === "new-run") {
+        closePanel();
+        hideOverlay();
+        scene.clock = MORNING;
+        placePlayer(state.player);
+      }
+      renderAll();
+    }
+  });
+}
+
+// the desks in the world, by what their location says on the server
+export function useLocation(action) {
+  if (action === "stock") openPanel("order");
+  if (action === "prices") openPanel("prices");
+  if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
+}
+
+// ---- end of day, end of run ----------------------------------------------------------
+
+function showOverlay(html) {
+  $("#overlay-card").innerHTML = html;
+  $("#overlay").hidden = false;
+  $("#overlay-card").querySelector("button, a")?.focus();
+}
+
+function hideOverlay() {
+  $("#overlay").hidden = true;
+}
+
+function showDaySummary(result) {
+  const gp = result.gross_profit;
+  const rows = result.lines.map((line) => `
+    <tr><td>${EMOJI[line.product]} ${esc(product(line.product).name)}</td><td>${line.sold}</td>
+    <td>${fmt(line.revenue)}</td><td>${fmt(line.gross_profit)}</td></tr>`).join("");
+  const sold = result.lines.reduce((sum, l) => sum + l.sold, 0);
+  showOverlay(`
+    <p class="eyebrow">Day ${result.day} closed</p>
+    <p class="big ${gp > 0 ? "up" : gp < 0 ? "down" : ""}">${fmtSigned(gp)}</p>
+    <p class="note">gross profit · cost of goods sold ${fmt(result.cogs)} · cash now ${fmt(result.cash_after)}</p>
+    <table>
+      <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
+    </table>
+    <div class="actions">
+      <button class="btn" type="button" data-next>${state.finished ? "See the final result" : `Start day ${state.day}`}</button>
+    </div>`);
+}
+
+function showFinal() {
+  const gain = state.overall_gain;
+  showOverlay(`
+    <p class="eyebrow">Run complete · ${state.history.length} days</p>
+    <p class="big ${gain > 0 ? "up" : gain < 0 ? "down" : ""}">${fmtSigned(gain)}</p>
+    <p class="note">overall result = final cash ${fmt(state.cash)} + stock at cost ${fmt(state.stock_value)} − ${fmt(state.starting_cash)} start</p>
+    <div class="actions">
+      <button class="btn" type="button" data-new-run>Start a new run</button>
+      <button class="btn ghost" type="button" data-dashboard>Dashboard</button>
+    </div>
+    <div class="actions"><button class="btn ghost" type="button" data-dismiss>Look around the campus</button></div>`);
+}
+
+function askNewRun() {
+  $("#dialog-text").textContent = state.finished
+    ? `Your completed run (${fmtSigned(state.overall_gain)}) is replaced by a fresh one: day 1, ${fmt(state.starting_cash)}, no stock. This cannot be undone.`
+    : `This ends your run on day ${state.day} with ${fmt(state.cash)} cash. You start again on day 1 with ${fmt(state.starting_cash)} and no stock. This cannot be undone.`;
+  const dialog = $("#new-run-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+}
+
+function wireOverlay() {
+  $("#overlay").addEventListener("click", (e) => {
+    if (e.target.closest("[data-next]")) {
+      hideOverlay();
+      runClock(scene.clock, MORNING, 500);
+      if (state.finished) showFinal();
+    } else if (e.target.closest("[data-dismiss]")) {
+      hideOverlay();
+    } else if (e.target.closest("[data-dashboard]")) {
+      tellDashboard({ type: "open-dashboard" });
+    } else if (e.target.closest("[data-new-run]")) {
+      askNewRun();
+    }
+  });
+  $("#new-run-dialog").addEventListener("close", async (e) => {
+    if (e.target.returnValue !== "confirm") return;
+    const data = await send("/api/new-run", { confirm: true });
+    if (!data) return;
+    state = data.state;
+    if (data.error) return toast(data.error, "error");
+    closePanel();
+    hideOverlay();
+    scene.clock = MORNING;
+    placePlayer(state.player);
+    renderAll();
+    tellDashboard({ type: "action", after: data.state });
+    toast(data.message);
+  });
+}
+
+// ---- start ---------------------------------------------------------------------------
+
+function setMode(mode) {
+  scene.preview = mode === "preview";
+  document.body.classList.toggle("preview", scene.preview);
+  if (scene.preview) closePanel();
+}
+
+// while a card or dialog is open, the figure stays where it is
+export function inputBlocked() {
+  return !$("#overlay").hidden || $("#new-run-dialog").open;
+}
+
+export function initUi(firstState, actions) {
+  state = firstState;
+  placePlayer = actions.placePlayer;
+  wirePanel();
+  wireOverlay();
+  $("#btn-order").addEventListener("click", () => openPanel("order"));
+  $("#btn-prices").addEventListener("click", () => openPanel("prices"));
+  $("#btn-open").addEventListener("click", openDay);
+  $("#btn-fast").addEventListener("click", () => { fast = true; });
+  $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));
+  $("#btn-new-run").addEventListener("click", askNewRun);
+  window.addEventListener("message", (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    const msg = e.data || {};
+    if (msg.type === "mode") setMode(msg.mode);
+    if (msg.type === "action") syncFromDashboard(msg);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePanel();
+  });
+  setMode(embedded ? "preview" : "main");
+  renderAll();
+  if (state.finished) showFinal();
+  tellDashboard({ type: "ready" });
+}
