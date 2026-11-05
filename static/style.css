@@ -105,15 +105,15 @@ button, input { font: inherit; color: inherit; }
 .brand h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.04em; }
 .tagline { color: var(--muted); font-size: 13px; }
 
-.day-track { display: flex; align-items: center; gap: 12px; }
-.day-pips { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.day-track { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.day-pips { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0; padding: 0; }
 .day-pips li {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   background: var(--surface);
   border: 1px solid var(--border);

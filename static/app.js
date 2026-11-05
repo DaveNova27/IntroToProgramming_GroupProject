@@ -457,6 +457,7 @@ function columnChart(container, { categories, series, tooltip, label, animate })
   }
 
   const band = innerW / categories.length;
+  const labelStep = Math.max(1, Math.ceil(46 / band)); // thin out x labels when bands are narrow
   const gap = 2;
   const barW = Math.min(24, (band * 0.7 - gap * (series.length - 1)) / series.length);
   const groupW = barW * series.length + gap * (series.length - 1);
@@ -483,7 +484,9 @@ function columnChart(container, { categories, series, tooltip, label, animate })
       }
     });
 
-    svg.append(el("text", { class: "tick", x: bandX + band / 2, y: height - 8, "text-anchor": "middle" }, cat));
+    if (i % labelStep === 0) {
+      svg.append(el("text", { class: "tick", x: bandX + band / 2, y: height - 8, "text-anchor": "middle" }, cat));
+    }
 
     if (hasData) {
       const hit = el("rect", { class: "hit", x: bandX, y: m.top, width: band, height: innerH });

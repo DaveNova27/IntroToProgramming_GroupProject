@@ -1,6 +1,6 @@
 # Campus Tycoon
 
-Snack-stand simulation: 5 trading days, start with €100. Product rules are in the BRD (CT01-CT05, CT R1-R5). The current task is always the spec in `specs/`.
+Snack-stand simulation: a 30-day season, start with €100. Product rules are in the BRD (CT01-CT05, CT R1-R5). The current task is always the spec in `specs/`.
 
 ## Commands
 - Run the app: `uv run python app.py` (then open http://127.0.0.1:8000)
