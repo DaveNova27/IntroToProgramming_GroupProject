@@ -16,6 +16,7 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 - `logic.py`: rules (what is valid, how results are calculated)
 - `db.py`: stored state (what is saved and loaded)
 - `README.md`: how everything fits together, list of specs, known issues
+- `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
 
 ## Rules
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
@@ -24,6 +25,8 @@ Snack-stand simulation: 5 trading days, start with €100. Product rules are in 
 - One spec per task. Stay inside its "Out of scope" fence.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.
+- All randomness comes from the seed stored in the state. No `random` call without it.
+- The whole game state must stay complete and settable (day, cash, shops, stock, popularity, staff), and the day context (weather, events) must accept an override. The demo mode depends on both.
 
 ## How to report
 - Paste the final test output and list every file you changed.
