@@ -74,6 +74,7 @@ animate that answer.
 | `longer-run.md` | `longer-run` | 30-day season instead of five days (`LAST_DAY` in `logic.py`) |
 | `world-api.md` | `world-api` | The campus as data in `world.py`, player position in the state |
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
+| `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -91,6 +92,10 @@ tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 
+- The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.
+- A trading day only moves the light and then shows its result. The old map's truck, queues and live ticker went with three.js; customers on the map are the spec `guests`.
+- The passers-by are decoration: they cause no sale.
+- Water in the courtyard basin is not solid: people can walk through it.
 - To try changes without touching your own save, copy `app.py`, `logic.py`,
   `world.py`, `db.py` and `static/` to a temporary folder and start it there on another
   port (`python -c "import app; app.app.run(port=8770)"`): `db.py` keeps its

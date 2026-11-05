@@ -31,7 +31,7 @@ overridable day context, no randomness without the seed).
 | Interior data | `dist/interior-layouts.js` | 5 KB | Use as the data format for the Nova rooms (zones, colliders, routes, activity points). |
 | Zones and doors | `ZONES`, `changeZone`, door hotspots in `dist/app.js` | small | Rewrite cleanly as data. Doors switch zone and spawn point. |
 | Camera | `camera` object, smooth follow and zoom in `app.js` | small | Keep the smooth follow. Indoors the whole room fits on screen. |
-| Characters | `characters.webp` (64 KB), `drawPersonFigure`, `characterView`, pose functions | medium | Extract: six-frame walk, facing from movement, activity poses. |
+| Characters | `drawPersonFigure`, `characterView`, pose functions | medium | Done in `world-art`: six-frame walk, facing from movement, activity poses. Drawn in code; Felix' image files in `dist/assets` are not used by his game either. |
 | Build mode rules | `facilityFootprint`, `placeFacility`, `moveFacility`, `demolishFacility` in `core.js`, test `tests/building-mode.test.mjs` | small | Port to Python. Rules: rectangular footprints, quarter-turn rotation, no overlap, moving is free, demolition refunds 40 % (value to confirm), cash never negative, a rejected action changes nothing. |
 | Build mode UI | `drawBuildGhost`, `snappedBuildPoint`, `validateBuildPoint`, `openBuildPanel` | medium | Port. The browser may preview validity, the server always re-checks. |
 | Weather and calendar data | `districtWeather` (4 states), `CAMPUS_CALENDAR` (7 day types) | tiny | Use as data for `day-context` and `events-and-disruptions`. |
@@ -44,6 +44,9 @@ Observed when running it (Nov 2026): all 146 Node tests pass, the world loads wi
 console errors, walking, build placement (cash 100.00 to 99.00) and interior exit work.
 16 of its 28 test files read source files, so write behaviour tests for everything we port.
 
+The baseline (`longer-run`, `world-api`, `world-core`, `world-art`) already took the world, the
+characters and the camera. Still to come from this table: build mode, weather and calendar data.
+
 ## 3. New spec list
 
 Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `build-rules` #29, `build-mode-ui` #30, `shop-building` #17, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways` is closed. Season: #2 `longer-run`.
@@ -55,9 +58,9 @@ L = logic. Effort: S small, M medium, L large.
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `world-core` | V | L | none | Vendor Felix' world layer into `static/world/`: isometric projection, zone switching with doors, smooth camera, WASD and click-to-move, collision. One test zone. Replaces #9 `split-map`. | Economy, build mode, guests, Nova design |
-| `world-art` | V | M | world-core | Player figure and the sprite system from Felix: six-frame walk, facing, poses, `characters.webp`. | Guest behaviour, outfits |
-| `world-api` | L | S | none | Python side: zone layouts as data (size, colliders, doors, spawn), player position saved in the state, endpoints to read both. | Rules for money or building |
+| `world-core` | V | L | none | DONE (baseline). Felix' world layer in `static/world/`: isometric projection, zone switching with doors, smooth camera, WASD and click-to-move, collision, finding a way. His outdoor campus and three rooms. Replaces #9 `split-map`. | Economy, build mode, guests, Nova design |
+| `world-art` | V | M | world-core | DONE (baseline). Felix' character for the player and for the people in the rooms, drawn in code: six-frame walk, facing, poses. Passers-by outdoors as decoration. | Guest behaviour, outfits |
+| `world-api` | L | S | none | DONE (baseline). `world.py`: zone layouts as data (size, colliders, doors, spawn), player position saved in the state, endpoints to read and save it. | Rules for money or building |
 | `day-context` | L | M | none | Issue #10 unchanged: seed in the state, `make_day_context(seed, day)`, weather, demand factor, override. Use Felix' weather and calendar data as the starting table. | Events, forecast, popularity |
 | `badges` | L | S | none | Issue #15 unchanged. Good first task. | Any effect on play |
 
@@ -84,9 +87,9 @@ L = logic. Effort: S small, M medium, L large.
 | `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
 | `popularity` (#13) | L | M | day-context, shop-building | Per shop, 0 to 100 as an integer. Felix' `momentum` is the model. |
 | `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
-| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Felix' `environmentalProfile` and `drawSkyMotion` as reference. |
+| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. |
 | `staff` (#20) | L | M | shop-building | Unchanged in goal. Simple: wage in cents, capacity per shop. |
-| `outfits` (#21) | L | S | shop-building | Optional. Look comes from the sprite system. |
+| `outfits` (#21) | L | S | shop-building | Optional. The look is an option of `drawPersonFigure`. |
 
 ### Phase 5 and last
 
@@ -115,7 +118,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | Spec | Watch out for |
 |---|---|
 | `world-core` | Vendored Felix code: check for `eval`, `innerHTML` with data, external URLs. The browser keeps no rule and no truth in `localStorage`. Movement and camera are cosmetic only. |
-| `world-art` | Only local image files, no external URLs, no user uploads. Keep the atlas small. |
+| `world-art` | Only drawn in code: no external URLs, no user uploads. Passers-by never talk to the server. |
 | `world-api` | Zone id from a whitelist. Check the position on the server (finite, inside the zone bounds). No rule may depend on the position the browser sends. |
 | `day-context` | The seed lives on the server and is never sent to the browser (it would let players predict the weather). The override works only locally or by config switch. |
 | `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
@@ -155,8 +158,8 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 
 | Person | First spec | Why |
 |---|---|---|
-| Felix | `world-core`, then `world-art` | He knows the world code. He brings it into this repo himself, so his code is his contribution. |
-| David | `world-api`, then `build-rules` | Python rules and API, close to the current `logic.py` and `app.py`. |
+| Felix | `nova-zones`, then `build-mode-ui` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
+| David | `build-rules` | Python rules and API, close to the current `logic.py` and `app.py`. |
 | Christopher | `day-context` | Independent of the map. |
 | Gregor | `badges` | Independent and small. |
 

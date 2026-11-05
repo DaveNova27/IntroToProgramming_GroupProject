@@ -1,8 +1,9 @@
-// The player on the map. A simple marker: `world-art` gives it a real figure.
+// The player on the map: the same figure as everyone else, with a ring around it.
 
+import { drawPersonFigure } from "./people.js";
 import { ctx, isoPoint, scene } from "./scene.js";
 
-export function drawPlayer() {
+export function drawPlayer(t) {
   const p = isoPoint(scene.player.x, scene.player.y, 4);
   ctx.save();
   ctx.translate(p.x, p.y);
@@ -15,11 +16,12 @@ export function drawPlayer() {
   ctx.beginPath();
   ctx.ellipse(0, 2, 23, 9, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = "#bce65f";
-  ctx.beginPath();
-  ctx.roundRect(-7, -38, 14, 38, 7);
-  ctx.fill();
-  ctx.strokeStyle = "#173743";
-  ctx.stroke();
   ctx.restore();
+  drawPersonFigure(scene.player.x, scene.player.y, t, 0, {
+    phase: 0,
+    moving: scene.walking,
+    facing: scene.facing,
+    pose: scene.walking ? "walk" : "idle",
+    player: true,
+  });
 }

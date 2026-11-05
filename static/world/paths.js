@@ -7,7 +7,10 @@ const STEP = 0.5; // tiles between two grid points
 const SAMPLE = 0.1; // tiles between two checks along a straight line
 const SQRT2 = Math.SQRT2;
 
+const grids = new WeakMap(); // one grid per list of solid objects
+
 function buildGrid(bounds, colliders, radius) {
+  if (grids.has(colliders)) return grids.get(colliders);
   const columns = Math.floor((bounds.maxX - bounds.minX) / STEP) + 1;
   const rows = Math.floor((bounds.maxY - bounds.minY) / STEP) + 1;
   const free = new Uint8Array(columns * rows);
@@ -17,7 +20,9 @@ function buildGrid(bounds, colliders, radius) {
       free[row * columns + column] = pointBlocked(point, colliders, radius) ? 0 : 1;
     }
   }
-  return { columns, rows, free };
+  const grid = { columns, rows, free };
+  grids.set(colliders, grid);
+  return grid;
 }
 
 // the free grid point closest to a position, searching outward
@@ -133,5 +138,5 @@ export function findPath(start, goal, bounds, colliders, radius) {
     x: bounds.minX + (node % grid.columns) * STEP,
     y: bounds.minY + Math.floor(node / grid.columns) * STEP,
   }));
-  return straighten([start, ...points, goal], colliders, radius);
+  return straighten([start, ...points, goal], colliders, radius).slice(1);
 }
