@@ -12,6 +12,7 @@ import { drawLocation, locationsHere } from "./locations.js";
 import { drawPlayer } from "./player.js";
 import { roomActors } from "./rooms.js";
 import { activeZone, camera, canvas, ctx, isoPoint, scene } from "./scene.js";
+import { walkerActors } from "./walkers.js";
 
 export function drawWorld(t) {
   const w = canvas.clientWidth;
@@ -39,7 +40,7 @@ export function drawWorld(t) {
   }
 
   const actors = [
-    ...(zone.outdoor ? campusActors(t) : roomActors()),
+    ...(zone.outdoor ? [...campusActors(t), ...walkerActors(t)] : roomActors(t)),
     ...locationsHere().map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
     { depth: scene.player.x + scene.player.y, draw: () => drawPlayer(t) },
   ];

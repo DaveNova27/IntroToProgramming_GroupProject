@@ -3,6 +3,7 @@
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
 import { drawCampusWing } from "./campus.js";
+import { drawPersonFigure } from "./people.js";
 import {
   WORLD_MATERIALS,
   drawBlock,
@@ -17,7 +18,7 @@ import {
   mixColor,
   roundedRect,
 } from "./primitives.js";
-import { TILE_H, TILE_W, activeZone, ctx, isoPoint, world } from "./scene.js";
+import { TILE_H, TILE_W, activeZone, ctx, isoPoint, scene, world } from "./scene.js";
 
 export function drawInteriorFloor(zone) {
   const base = zone.id === "academy" ? "#e9e5da" : zone.id === "mercado" ? "#e2ddd0" : "#dfe7e2";
@@ -335,7 +336,29 @@ export function drawRoomShell(zone) {
   ctx.fillText(zone.name.toUpperCase(), p.x + 4, p.y + 3);
 }
 
-export function roomActors() {
+const SHIRTS = ["#f5c95e", "#ff8060", "#64cbc8", "#9a7bc1", "#bce65f", "#f0e9dc", "#e6a769"];
+
+// the people in the room, and what they are doing once the player comes close
+function drawRoomPerson(activity, t, index) {
+  drawPersonFigure(activity.x, activity.y, t, index + 140, {
+    color: SHIRTS[(index + scene.zoneId.length) % SHIRTS.length],
+    phase: index * 0.7,
+    moving: activity.pose === "repair",
+    facing: activity.facing,
+    pose: activity.pose,
+    role: activity.role,
+  });
+  if (Math.hypot(scene.player.x - activity.x, scene.player.y - activity.y) < 2.15) {
+    const p = isoPoint(activity.x, activity.y, 67);
+    roundedRect(p.x - 31, p.y - 6, 62, 12, 5, "rgba(12,39,47,.9)");
+    ctx.fillStyle = activity.role ? "#f5c95e" : "#dff4ef";
+    ctx.textAlign = "center";
+    ctx.font = "800 4.7px Menlo, Consolas, monospace";
+    ctx.fillText(activity.label.toUpperCase(), p.x, p.y + 1.5);
+  }
+}
+
+export function roomActors(t) {
   const zone = activeZone();
   const actors = [
     { depth: 0.1, draw: () => drawInteriorFloor(zone) },
@@ -367,5 +390,11 @@ export function roomActors() {
       { depth: 10.7, draw: () => drawIndoorPlant(7.8, 6.9, 1.1) },
     );
   }
+  world.interiors[zone.id].activities.forEach((activity, index) => {
+    actors.push({
+      depth: activity.x + activity.y + 0.03,
+      draw: () => drawRoomPerson(activity, t, index),
+    });
+  });
   return actors;
 }

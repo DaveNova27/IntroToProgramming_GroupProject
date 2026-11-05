@@ -17,6 +17,7 @@ import {
   world,
 } from "./scene.js";
 import { initUi, inputBlocked, updateClock, useLocation } from "./ui.js";
+import { createWalkers, updateWalkers } from "./walkers.js";
 
 const CLICK_REACH = 1.35; // tiles around a door or desk that count as clicking it
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
@@ -251,6 +252,7 @@ function loop(t) {
   lastTime = t;
   scene.time = t;
   walk(dt);
+  updateWalkers(dt);
   moveCamera(dt);
   renderHint();
   updateClock();
@@ -280,6 +282,7 @@ async function boot() {
     return;
   }
   placePlayer(state.player);
+  createWalkers();
   initUi(state, { placePlayer });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
