@@ -22,7 +22,7 @@ Campus Tycoon is a snack-stand simulation with a Flask server and a browser UI.
 Working rules that apply to every task (from `AGENTS.md`):
 
 - One spec per task, one branch per spec, one GitHub Issue per spec, one pull request per spec.
-- Never commit a feature to `main` directly. A pull request needs one approving review from another member and a passing `Tests` check.
+- Never commit a feature to `main` directly. A pull request needs a passing `Tests` check and an AI code review (findings fixed or answered); no human approval is required.
 - Never edit, delete or skip anything in `tests/`.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.

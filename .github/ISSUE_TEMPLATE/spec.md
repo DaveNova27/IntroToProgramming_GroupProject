@@ -37,4 +37,4 @@ What this spec explicitly does not cover.
 - [ ] Implementation on its own branch
 - [ ] Tests added and passing (`uv run pytest`), `tests/` untouched
 - [ ] Follows the three roadmap rules (settable state, overridable day context, seed-only randomness)
-- [ ] PR opened against `main`, reviewed and approved by another member
+- [ ] PR opened against `main`, AI code review done and its findings handled

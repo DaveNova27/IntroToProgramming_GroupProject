@@ -37,7 +37,7 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 2. Create a branch named after the spec, e.g. `day-context`, from an up-to-date `main`. Never commit a feature to `main` directly.
 3. Write `specs/<name>.md` (What, Out of scope, Done when), then build only that.
 4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec.
-5. Open a pull request into `main` with the PR template. It needs one approving review from another member and a passing `Tests` check (GitHub Actions runs `uv run pytest`).
+5. Open a pull request into `main` with the PR template. It needs a passing `Tests` check (GitHub Actions runs `uv run pytest`) and an AI code review (for example `/code-review` in Claude Code) whose findings are fixed or answered in the PR. No human approval is required.
 6. One spec per branch and per pull request. Keep it inside the spec's "Out of scope" fence.
 
 Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`, `db.py`, `app.py`) and **visuals** (campus look and walking paths in `static/map*`). Every feature spec follows the three rules in section 6 of the roadmap (complete settable state, overridable day context, no randomness without the seed) so the demo mode can be built last without a rebuild.

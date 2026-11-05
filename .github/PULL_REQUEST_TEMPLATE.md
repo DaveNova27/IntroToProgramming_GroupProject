@@ -15,6 +15,7 @@ Short description. List every file you changed.
 - [ ] Money is integer cents, a rejected action changes no saved data
 - [ ] Randomness comes from the seed, state stays complete and settable
 - [ ] If the UI changed: checked in the browser (dashboard and map)
+- [ ] AI code review done (for example `/code-review`), findings fixed or answered below
 
 ## Test output
 

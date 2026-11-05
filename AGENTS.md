@@ -39,6 +39,9 @@ contribute code to this repository.
 - One GitHub Issue per spec, using the "Spec" issue template. Assign yourself before
   starting.
 - Open a pull request from your spec branch into `main`. `main` is protected: a PR
-  needs at least one approving review from another member and a passing `Tests`
-  check (GitHub Actions runs `uv run pytest` on every PR) before it can be merged.
+  needs a passing `Tests` check (GitHub Actions runs `uv run pytest` on every PR)
+  before it can be merged. No human approval is required.
+- Every PR gets an AI code review (for example `/code-review` in Claude Code) before
+  it is merged. Fix the findings or answer them in the PR. The AI review replaces the
+  review by another member.
 - Keep PRs scoped to one spec, same as the solo rules above.
