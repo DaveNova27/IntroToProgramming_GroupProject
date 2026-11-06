@@ -35,7 +35,8 @@ the player decides how much stock to buy for tomorrow, and takes a risk doing so
 - Next to today's weather the dashboard and the head-up display on the campus page show
   "Tomorrow": the small picture of the forecast weather and its range, e.g. `22–28 °C`.
   The pictures are the existing inline SVG of `day-context`; texts are set with
-  `textContent`.
+  `textContent`. On a phone (760 px and narrower) the campus display hides the forecast,
+  as it already hides the time; on the last day it is hidden too.
 
 ## Decide (my recommendations)
 
@@ -47,6 +48,8 @@ the player decides how much stock to buy for tomorrow, and takes a risk doing so
 3. **Forecast with an override?** Recommendation: the override fixes the weather of every
    day until it is cleared, so tomorrow is also that weather, and the forecast shows it
    and is always right. The demo mode then never shows a wrong forecast by accident.
+   This holds while the override stays set: clearing it before tomorrow brings back the
+   seed's roll for tomorrow, which can differ from the forecast that was shown.
 4. **When is there a forecast?** Recommendation: whenever there is a tomorrow, also while
    a day is open. None on day 30 and after the season.
 5. **Error rate.** Recommendation: a constant of 20 % in `logic.py`, a placeholder like

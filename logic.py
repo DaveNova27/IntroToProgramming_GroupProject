@@ -414,14 +414,20 @@ def _override_weather(override):
     return None
 
 
+def _roll_weather(rng, override):
+    """The weather of a day: the override if it is valid, otherwise rolled by the weights.
+    Always rolls first, so the generator is at the same point for the temperature."""
+    rolled = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
+    return _override_weather(override) or rolled
+
+
 def make_day_context(seed, day, override=None):
     """The weather of one day, from the seed and the day only (same input, same answer).
 
     override: None, or {"weather": id} to fix the weather (demo mode); the temperature is
     still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
     rng = random.Random(f"{seed}:{day}")
-    weather = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
-    weather = _override_weather(override) or weather
+    weather = _roll_weather(rng, override)
     low, high = WEATHER[weather]["temp"]
     return {
         "day": day,
@@ -440,9 +446,10 @@ def make_outlook(seed, day, override=None):
     """The forecast for `day`, from the seed and the day only (same input, same answer).
 
     Rolls with its own generator, so the real weather of make_day_context stays the same.
-    With an override the forecast is always right. Returns {"day", "weather", "temp_range"}:
-    the weather the forecast shows and that weather's range in whole degrees Celsius."""
-    real = make_day_context(seed, day, override)["weather"]
+    With an override the forecast is always right, as long as the override stays set.
+    Returns {"day", "weather", "temp_range"}: the weather the forecast shows and that
+    weather's range in whole degrees Celsius."""
+    real = _roll_weather(random.Random(f"{seed}:{day}"), override)
     shown = real
     rng = random.Random(f"{seed}:{day}:outlook")
     misses = rng.randrange(100) < OUTLOOK_MISS_PERCENT

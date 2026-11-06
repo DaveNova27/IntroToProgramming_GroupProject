@@ -76,6 +76,7 @@ function drawWeatherChip(el, id, text, title, label, prefix = "") {
     el.replaceChildren();
     el.removeAttribute("title");
     el.removeAttribute("aria-label");
+    el.removeAttribute("role");
     return;
   }
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

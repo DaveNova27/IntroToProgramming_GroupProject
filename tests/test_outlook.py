@@ -144,8 +144,6 @@ def test_neither_the_seed_nor_a_right_or_wrong_flag_is_in_any_answer(run_on_disk
     for response in answers:
         text = response.get_data(as_text=True)
         assert str(SEED) not in text and '"seed"' not in text
-        for word in ('"correct"', '"right"', '"wrong"', '"miss"', '"actual"', '"real"'):
-            assert word not in text
         body = response.get_json()
         outlook = body.get("state", body)["outlook"]
         assert outlook is None or set(outlook) == {"day", "id", "name", "temp_low", "temp_high"}

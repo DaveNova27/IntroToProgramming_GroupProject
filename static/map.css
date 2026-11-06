@@ -318,6 +318,8 @@ p { margin: 0; }
 }
 @media (max-width: 760px) {
   .stat-time { display: none; }
+  /* a phone has no room for the forecast next to today's weather (outlook) */
+  .stat-outlook { display: none; }
   .topbar { gap: 8px; padding: 6px 10px; }
   .outline-button { padding: 6px 7px; font-size: 11px; }
   .brand-mark { width: 28px; height: 28px; font-size: 12px; }
