@@ -50,7 +50,7 @@ characters and the camera. Still to come from this table: shop data, weather and
 
 ## 3. New spec list
 
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
 
 Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
 L = logic. Effort: S small, M medium, L large.
@@ -79,6 +79,7 @@ L = logic. Effort: S small, M medium, L large.
 | `shop-unlock` | L | M | none | The list of shops as data (the team's four shops): offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
 | `shop-process` | L and V | L | shop-unlock | A day played live in one shop: storeroom to counter, limited counter space, selling at the counter, a simple queue of customers from the existing price demand. One person alone: touches state, API and screen. | Employees, customers with own choices, several shops at once, popularity |
 | `pricing` (#38) | L | M | day-context, shop-process | New price logic instead of the solo project's fixed demand steps: price, weather, events to customers. Replaces only `customers_for` from `shop-process`. Added 2026-11-06. | Shop day, popularity, guests |
+| `shop-walk` (#40) | L and V | L | shop-process, nova-zones, shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step is still a server request; no rule reads the position. Replaces the Play day panel. Added 2026-11-06. | Employees, guests, several shops at once, popularity, new price logic |
 | `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
 
 ### Phase 4: depth (parallel, after the shops)
