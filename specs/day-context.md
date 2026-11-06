@@ -12,8 +12,9 @@ has demand factors per shop (the roadmap's B2 table), but in this spec they are 
 
 ### State
 
-- `state["seed"]`: a whole number. A new run draws it once from `secrets` (the only place
-  randomness is created). `new_state(seed=None)` takes a seed for tests and the demo mode.
+- `state["seed"]`: a whole number. The app draws it once with `new_seed()` (from `secrets`, the only
+  place randomness is created) when a run starts. `new_state(seed=DEFAULT_SEED)` stays the same every time
+  for tests and the demo mode (an old test compares two fresh states).
   It is saved in a new `meta` table. A save from before this spec gets a fresh seed on its first load
   and keeps it from then on.
 - `state["day_override"]`: `None`, or `{"weather": "<id>"}`. Complete and settable.

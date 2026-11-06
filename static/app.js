@@ -91,6 +91,7 @@ function renderHeader() {
   $("#day-label").textContent = state.finished
     ? "Run complete"
     : `Day ${state.day} of ${state.last_day}`;
+  showWeather($("#weather-chip"), state.weather);
 }
 
 function renderKpis() {

@@ -9,6 +9,8 @@ leave existing data unchanged).
 """
 
 import copy
+import random
+import secrets
 from decimal import Decimal, InvalidOperation
 
 import world
@@ -39,6 +41,23 @@ STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
 STORAGE_UNITS = 100  # storeroom space per shop, checked when buying stock
 COUNTER_UNITS = 20  # counter space per shop (limits refills in a shift)
 FIRST_SHOP = "cafe"
+DEFAULT_SEED = 1  # only for tests and the demo; real runs draw one with new_seed()
+
+# The weather (day-context, issue #10). weight: how often it appears, in percent.
+# temp: range in whole degrees Celsius. demand_percent: the demand factor per shop in
+# whole percent (100 = normal), from the roadmap's table B2. Calculated and shown only:
+# the customers are not changed by it yet (the price logic, issue #38, applies it).
+# All numbers are placeholders to balance.
+WEATHER = {
+    "sun": {"name": "Sunny", "weight": 40, "temp": (22, 28),
+            "demand_percent": {"cafe": 80, "surf_shop": 130, "merchandise": 100, "beach_cafe": 150}},
+    "rain": {"name": "Rainy", "weight": 25, "temp": (14, 19),
+             "demand_percent": {"cafe": 140, "surf_shop": 50, "merchandise": 120, "beach_cafe": 40}},
+    "heat": {"name": "Hot", "weight": 20, "temp": (31, 38),
+             "demand_percent": {"cafe": 60, "surf_shop": 120, "merchandise": 80, "beach_cafe": 180}},
+    "storm": {"name": "Stormy", "weight": 15, "temp": (12, 17),
+              "demand_percent": {"cafe": 100, "surf_shop": 20, "merchandise": 100, "beach_cafe": 20}},
+}
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 PATIENCE_TICKS = 15  # a customer leaves this many ticks after arriving
@@ -94,9 +113,19 @@ class RejectedAction(Exception):
     """Raised when a rule refuses an action. The message is shown to the player."""
 
 
-def new_state():
-    """A fresh run: day 1, 100 euro, no stock, prices at the reference price."""
+def new_seed():
+    """Draw a seed for a real run. The only place where randomness is created."""
+    return secrets.randbits(32)
+
+
+def new_state(seed=DEFAULT_SEED):
+    """A fresh run: day 1, 100 euro, no stock, prices at the reference price.
+
+    The state is the same every time for the same seed. The app draws a real seed with
+    new_seed() when a run starts; tests and the demo mode pass their own."""
     return {
+        "seed": seed,
+        "day_override": None,
         "day": 1,
         "cash": STARTING_CASH,
         "stock": {pid: 0 for pid in CATALOGUE},
@@ -361,6 +390,44 @@ def trade_day(state):
     new["history"].append(result)
     new["day"] += 1  # CT R5: exactly one day per trade action
     return new, result
+
+
+def make_day_context(seed, day, override=None):
+    """The weather of one day, from the seed and the day only (same input, same answer).
+
+    override: None, or {"weather": id} to fix the weather (demo mode); the temperature is
+    still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
+    rng = random.Random(f"{seed}:{day}")
+    roll = rng.randrange(sum(w["weight"] for w in WEATHER.values()))
+    weather = next(iter(WEATHER))
+    for wid, w in WEATHER.items():
+        if roll < w["weight"]:
+            weather = wid
+            break
+        roll -= w["weight"]
+    if override is not None:
+        weather = override["weather"]
+    low, high = WEATHER[weather]["temp"]
+    return {
+        "day": day,
+        "weather": weather,
+        "temperature": rng.randint(low, high),
+        "demand_percent": dict(WEATHER[weather]["demand_percent"]),
+    }
+
+
+def day_context(state):
+    """Today's context of the run."""
+    return make_day_context(state["seed"], state["day"], state["day_override"])
+
+
+def set_day_override(state, weather):
+    """Fix the weather (a demo switch) or clear it with None."""
+    if weather is not None and (not isinstance(weather, str) or weather not in WEATHER):
+        raise RejectedAction(f"Unknown weather '{weather}'.")
+    new = copy.deepcopy(state)
+    new["day_override"] = None if weather is None else {"weather": weather}
+    return new
 
 
 def customers_for(price_cents, ref_price_cents):

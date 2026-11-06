@@ -98,6 +98,7 @@ export function updateClock() {
 function renderHud() {
   scene.day = Math.min(state.day, state.last_day);
   $("#stat-day").textContent = state.finished ? "Done" : `${state.day} / ${state.last_day}`;
+  showWeather($("#stat-weather"), state.weather);
   $("#stat-cash").textContent = fmt(state.cash);
   $("#stat-stock").textContent = fmt(state.stock_value);
   const gain = $("#stat-gain");
