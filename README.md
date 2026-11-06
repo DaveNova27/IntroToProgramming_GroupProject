@@ -76,6 +76,7 @@ animate that answer.
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
+| `shop-process.md` | `shop-process` | A day played live in the Cafe: carry stock from the storeroom to the counter (20 units) and serve a queue of customers, 90 ticks counted by the server. Closes into the history like `trade_day`, which stays as the day without a player. Play day panel on the campus page. Walking in the shop is not wired to it yet. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
