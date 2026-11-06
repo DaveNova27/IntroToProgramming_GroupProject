@@ -123,10 +123,7 @@ def test_the_endpoint_works_with_the_switch_on_this_computer_and_refuses_bad_ids
     ok = client.post("/api/day-override", json={"weather": "storm"})
     assert ok.status_code == 200 and ok.get_json()["state"]["weather"]["id"] == "storm"
     saved = db.load(run_on_disk)
-    for bad in ({"weather": "fog"}, {"weather": 3}, {"weather": ["sun"]}, {}):
-        # {} means weather None, which clears: only the invalid ones must leave the save alone
-        if bad == {}:
-            continue
+    for bad in ({"weather": "fog"}, {"weather": 3}, {"weather": ["sun"]}):
         assert client.post("/api/day-override", json=bad).status_code == 400
         assert db.load(run_on_disk) == saved
     assert client.post("/api/day-override", json={"weather": None}).get_json()["state"]["weather"]["id"] \
@@ -180,3 +177,38 @@ def test_a_new_run_through_the_api_draws_a_fresh_seed(run_on_disk):
     client = app.app.test_client()
     assert client.post("/api/new-run", json={"confirm": True}).status_code == 200
     assert db.load(run_on_disk)["seed"] != SEED
+
+
+# ---- review fixes ---------------------------------------------------------
+
+def test_an_unknown_saved_override_falls_back_to_the_roll_and_does_not_crash():
+    rolled = logic.make_day_context(SEED, 1)
+    for bad in ({"weather": "fog"}, {"weather": ["sun"]}, {}, "storm", 5):
+        assert logic.make_day_context(SEED, 1, bad) == rolled
+
+
+def test_loading_a_save_does_not_change_the_file(tmp_path):
+    path = tmp_path / "run.db"
+    db.save(logic.new_state(SEED), path)
+    before = path.read_bytes()
+    db.load(path)
+    assert path.read_bytes() == before
+
+
+def test_the_weather_is_gone_when_the_season_is_over(monkeypatch):
+    state = logic.new_state(SEED)
+    state["day"] = logic.LAST_DAY + 1
+    monkeypatch.setattr(app, "load_run", lambda: state)
+    assert app.app.test_client().get("/api/state").get_json()["weather"] is None
+
+
+def test_the_endpoint_is_refused_behind_a_proxy_and_accepts_ipv4_mapped_loopback(run_on_disk, monkeypatch):
+    monkeypatch.setenv("CAMPUS_TYCOON_DEMO", "1")
+    client = app.app.test_client()
+    before = db.load(run_on_disk)
+    proxied = client.post("/api/day-override", json={"weather": "rain"},
+                          headers={"X-Forwarded-For": "203.0.113.5"})
+    assert proxied.status_code == 400 and db.load(run_on_disk) == before
+    mapped = client.post("/api/day-override", json={"weather": "rain"},
+                         environ_overrides={"REMOTE_ADDR": "::ffff:127.0.0.1"})
+    assert mapped.status_code == 200

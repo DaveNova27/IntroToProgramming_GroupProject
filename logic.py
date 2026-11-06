@@ -398,14 +398,10 @@ def make_day_context(seed, day, override=None):
     override: None, or {"weather": id} to fix the weather (demo mode); the temperature is
     still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
     rng = random.Random(f"{seed}:{day}")
-    roll = rng.randrange(sum(w["weight"] for w in WEATHER.values()))
-    weather = next(iter(WEATHER))
-    for wid, w in WEATHER.items():
-        if roll < w["weight"]:
-            weather = wid
-            break
-        roll -= w["weight"]
-    if override is not None:
+    weather = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
+    # an unknown saved id must not crash every request: fall back to the seed's roll
+    if isinstance(override, dict) and isinstance(override.get("weather"), str) \
+            and override["weather"] in WEATHER:
         weather = override["weather"]
     low, high = WEATHER[weather]["temp"]
     return {

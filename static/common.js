@@ -51,8 +51,17 @@ const WEATHER_ICON = {
   storm: '<path d="M7 14a4.5 4.5 0 0 1 .6-8.9A5.5 5.5 0 0 1 18 6.5 3.8 3.8 0 0 1 17.5 14z" fill="#6f7d90"/><path d="M12.5 13l-3 5h3l-1.5 4 5-6.5h-3.2l1.7-2.5z" fill="#f5c52e"/>',
 };
 
-// icon names come from the fixed list above, the text is set with textContent
+// icon names come from the fixed list above, the text is set with textContent.
+// Nothing is rebuilt while the weather is unchanged; no weather (run over) clears the chip.
 function showWeather(el, weather) {
+  const key = weather ? `${weather.id}:${weather.temperature}` : "";
+  if (el.dataset.weather === key) return;
+  el.dataset.weather = key;
+  if (!weather) {
+    el.replaceChildren();
+    el.removeAttribute("title");
+    return;
+  }
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", "20");
@@ -64,4 +73,6 @@ function showWeather(el, weather) {
   text.textContent = ` ${weather.temperature} °C`;
   el.replaceChildren(svg, text);
   el.title = weather.name;
+  el.setAttribute("role", "img");
+  el.setAttribute("aria-label", `${weather.name}, ${weather.temperature} °C`);
 }

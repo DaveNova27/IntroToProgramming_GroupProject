@@ -64,6 +64,11 @@ def connect(path=DEFAULT_PATH):
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA)
+    # a save from before the seed existed gets one now and keeps it from then on
+    # (here and not in load(), so that reading a save never writes)
+    conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('seed', ?)",
+                 (json.dumps(logic.new_seed()),))
+    conn.commit()
     return conn
 
 
@@ -82,10 +87,6 @@ def load(path=DEFAULT_PATH):
         shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
         shift = conn.execute("SELECT data FROM shift WHERE id = 1").fetchone()
         meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
-        if "seed" not in meta:
-            # a save from before the seed existed: draw one now and keep it from then on
-            meta["seed"] = json.dumps(logic.new_seed())
-            conn.execute("INSERT INTO meta (key, value) VALUES ('seed', ?)", (meta["seed"],))
     # products added to the catalogue after the save was made start with stock 0
     stock = {pid: 0 for pid in logic.CATALOGUE}
     prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}

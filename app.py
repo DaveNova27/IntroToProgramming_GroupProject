@@ -79,7 +79,10 @@ def shift_view(state):
 
 
 def weather_view(state):
-    """Today's weather for the screen. The seed itself never leaves the server."""
+    """Today's weather for the screen (none once the season is over).
+    The seed itself never leaves the server."""
+    if logic.is_finished(state):
+        return None
     context = logic.day_context(state)
     return {
         "id": context["weather"],
@@ -252,7 +255,11 @@ def buy_upgrade():
 
 def demo_switch_on():
     """The weather override is a demo hook: only with the switch on and from this computer."""
-    return os.environ.get("CAMPUS_TYCOON_DEMO") == "1" and request.remote_addr in ("127.0.0.1", "::1")
+    # a proxy in front would make every client look local: refuse when one has been involved
+    if request.headers.get("X-Forwarded-For") or request.headers.get("Forwarded"):
+        return False
+    return (os.environ.get("CAMPUS_TYCOON_DEMO") == "1"
+            and request.remote_addr in ("127.0.0.1", "::1", "::ffff:127.0.0.1"))
 
 
 @app.post("/api/day-override")
