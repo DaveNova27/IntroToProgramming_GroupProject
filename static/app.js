@@ -91,8 +91,13 @@ function renderHeader() {
   $("#day-label").textContent = state.finished
     ? "Run complete"
     : `Day ${state.day} of ${state.last_day}`;
-  showWeather($("#weather-chip"), state.weather);
-  showOutlook($("#outlook-chip"), state.outlook, "Tomorrow");
+  if (dayIsOpen(state)) {
+    showWeather($("#weather-chip"), state.weather);
+    showOutlook($("#outlook-chip"), state.outlook, "Tomorrow");
+  } else {
+    showOutlook($("#weather-chip"), state.outlook, "Forecast");
+    showOutlook($("#outlook-chip"), null);
+  }
 }
 
 function renderKpis() {

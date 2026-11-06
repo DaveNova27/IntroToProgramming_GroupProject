@@ -65,11 +65,31 @@ function showOutlook(el, outlook, prefix = "") {
   if (!outlook) return drawWeatherChip(el, null);
   const range = `${outlook.temp_low}–${outlook.temp_high} °C`;
   drawWeatherChip(el, outlook.id, ` ${range}`, `Forecast for day ${outlook.day}: ${outlook.name}`,
-    `Forecast for tomorrow: ${outlook.name}, ${range}`, prefix);
+    `Forecast for day ${outlook.day}: ${outlook.name}, ${range}`, prefix);
 }
 
+// The weather picture as markup, for places built with a template (the evening report).
+// Only ids from the fixed list above give a picture.
+function WEATHER_ICON_SVG(id) {
+  const inner = Object.hasOwn(WEATHER_ICON, id) ? WEATHER_ICON[id] : "";
+  return `<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:middle">${inner}</svg>`;
+}
+
+// The real weather of a day is shown once the day is opened (state.shift is set); before
+// that the forecast stands in its place. The server sends both; this only picks what to show.
+function dayIsOpen(state) {
+  return Boolean(state.shift) && !state.finished;
+}
+
+// What the evening report says per shop. The advice itself comes from the server.
+const TIP_TEXT = {
+  more: (p) => `more customers expected (${p} %), stock up.`,
+  less: (p) => `fewer customers expected (${p} %), buy less.`,
+  normal: (p) => `about the usual customers (${p} %).`,
+};
+
 function drawWeatherChip(el, id, text, title, label, prefix = "") {
-  const key = id ? `${id}:${text}:${title}` : "";
+  const key = id ? `${prefix}:${id}:${text}:${title}` : "";
   if (el.dataset.weather === key) return;
   el.dataset.weather = key;
   if (!id) {

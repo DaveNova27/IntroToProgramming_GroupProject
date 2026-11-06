@@ -98,9 +98,14 @@ export function updateClock() {
 function renderHud() {
   scene.day = Math.min(state.day, state.last_day);
   $("#stat-day").textContent = state.finished ? "Done" : `${state.day} / ${state.last_day}`;
-  showWeather($("#stat-weather"), state.weather);
-  showOutlook($("#stat-outlook"), state.outlook);
-  $("#stat-outlook").closest(".stat").hidden = !state.outlook; // no tomorrow on the last day
+  // before the day is opened only the forecast is shown; once open, the real weather and
+  // the forecast for tomorrow (none once the last day is open)
+  const open = dayIsOpen(state);
+  $("#stat-weather-label").textContent = open || state.finished ? "WEATHER" : "FORECAST";
+  if (open) showWeather($("#stat-weather"), state.weather);
+  else showOutlook($("#stat-weather"), state.outlook);
+  showOutlook($("#stat-outlook"), open ? state.outlook : null);
+  $("#stat-outlook").closest(".stat").hidden = !(open && state.outlook);
   $("#stat-cash").textContent = fmt(state.cash);
   $("#stat-stock").textContent = fmt(state.stock_value);
   const gain = $("#stat-gain");
@@ -560,10 +565,27 @@ function showDaySummary(result) {
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
-    </table>
+    </table>${eveningReport()}
     <div class="actions">
       <button class="btn" type="button" data-next>${state.finished ? "See the final result" : `Start day ${state.day}`}</button>
     </div>`);
+}
+
+// The forecast for the next day and one tip per open shop (outlook). Shown in the day
+// summary; the tips and the forecast come from the server.
+function eveningReport() {
+  const o = state.outlook;
+  if (!o || state.finished) return "";
+  const tips = o.tips.map((t) => `
+    <li><b>${esc(t.name)}:</b> ${esc(TIP_TEXT[t.advice]?.(t.percent) ?? "")}</li>`).join("");
+  return `
+    <div class="evening-report">
+      <p class="eyebrow">Forecast for day ${o.day}</p>
+      <p class="forecast"><span class="icon" aria-hidden="true">${WEATHER_ICON_SVG(o.id)}</span>
+        <b>${esc(o.name)}</b>, ${o.temp_low}–${o.temp_high} °C</p>
+      <ul class="tips">${tips}</ul>
+      <p class="note">Forecasts are wrong about ${o.miss_percent} % of the time.</p>
+    </div>`;
 }
 
 function showFinal() {

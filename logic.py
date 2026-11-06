@@ -69,6 +69,10 @@ OUTLOOK_MISS = {
     "rain": ("sun", "storm"),
     "storm": ("rain",),
 }
+# Tips in the evening report (roadmap B2): a shop's demand factor at or above MORE_AT means
+# more customers, at or below LESS_AT fewer. Placeholders to balance.
+OUTLOOK_MORE_AT = 115
+OUTLOOK_LESS_AT = 85
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
@@ -459,10 +463,34 @@ def make_outlook(seed, day, override=None):
 
 
 def outlook(state):
-    """The forecast for tomorrow, or None when there is no tomorrow (day 30 and after)."""
-    if state["day"] >= LAST_DAY:
+    """The forecast for the next day whose real weather is not shown yet: today while the
+    day is not opened, tomorrow while it is open. None when there is no such day."""
+    day = state["day"] + (1 if state.get("shift") is not None else 0)
+    if day > LAST_DAY:
         return None
-    return make_outlook(state["seed"], state["day"] + 1, state["day_override"])
+    return make_outlook(state["seed"], day, state["day_override"])
+
+
+def outlook_tips(state):
+    """Per unlocked shop: the forecast's demand factor and whether to expect more, fewer or
+    the usual customers. Empty without a forecast. Advice about stock only, no prices."""
+    forecast = outlook(state)
+    if forecast is None:
+        return []
+    factors = WEATHER[forecast["weather"]]["demand_percent"]
+    tips = []
+    for sid in SHOPS:
+        if not state["shops"][sid]["unlocked"]:
+            continue
+        percent = factors[sid]
+        if percent >= OUTLOOK_MORE_AT:
+            advice = "more"
+        elif percent <= OUTLOOK_LESS_AT:
+            advice = "less"
+        else:
+            advice = "normal"
+        tips.append({"shop": sid, "percent": percent, "advice": advice})
+    return tips
 
 
 def set_day_override(state, weather):

@@ -97,8 +97,9 @@ def weather_view(state):
 
 
 def outlook_view(state):
-    """Tomorrow's forecast for the screen (none on the last day and after).
-    Only what the forecast shows: never the real weather of tomorrow or whether it is right."""
+    """The forecast for the screen: today before the day is opened, tomorrow while it is
+    open (none when there is no such day), with a tip per open shop.
+    Only what the forecast shows: never whether it is right."""
     forecast = logic.outlook(state)
     if forecast is None:
         return None
@@ -109,6 +110,9 @@ def outlook_view(state):
         "name": logic.WEATHER[forecast["weather"]]["name"],
         "temp_low": low,
         "temp_high": high,
+        "miss_percent": logic.OUTLOOK_MISS_PERCENT,
+        "tips": [dict(tip, name=logic.SHOPS[tip["shop"]]["name"])
+                 for tip in logic.outlook_tips(state)],
     }
 
 
