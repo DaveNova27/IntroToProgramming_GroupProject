@@ -78,6 +78,7 @@ L = logic. Effort: S small, M medium, L large.
 |---|---|---|---|---|---|
 | `shop-unlock` | L | M | none | The list of shops as data (the team's four shops): offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
 | `shop-process` | L and V | L | shop-unlock | A day played live in one shop: storeroom to counter, limited counter space, selling at the counter, a simple queue of customers from the existing price demand. One person alone: touches state, API and screen. | Employees, customers with own choices, several shops at once, popularity |
+| `pricing` (#38) | L | M | day-context, shop-process | New price logic instead of the solo project's fixed demand steps: price, weather, events to customers. Replaces only `customers_for` from `shop-process`. Added 2026-11-06. | Shop day, popularity, guests |
 | `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
 
 ### Phase 4: depth (parallel, after the shops)
