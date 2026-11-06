@@ -54,6 +54,29 @@ def shops_view(state):
     return out
 
 
+def shift_view(state):
+    """The running shift as the screen needs it (or None). Only counts, no future customers."""
+    shift = state["shift"]
+    if shift is None:
+        return None
+    tick = shift["tick"]
+    waiting = {}
+    for c in shift["queue"]:
+        if c["arrives"] <= tick:
+            waiting[c["product"]] = waiting.get(c["product"], 0) + 1
+    return {
+        "shop": shift["shop"],
+        "tick": tick,
+        "day_ticks": logic.DAY_TICKS,
+        "counter": shift["counter"],
+        "counter_space": logic.SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values()),
+        "counter_size": logic.SHOPS[shift["shop"]]["counter"],
+        "waiting": waiting,
+        "sold": shift["sold"],
+        "lost": shift["lost"],
+    }
+
+
 def view(state):
     """Everything the dashboard shows, calculated by the rules, never by the browser."""
     finished = logic.is_finished(state)
@@ -80,7 +103,9 @@ def view(state):
         "shops": shops_view(state),
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
-        "forecast": None if finished else logic.trade_day(state)[1],
+        "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
+        "shift": shift_view(state),
+        "shift_shops": list(logic.SHIFT_SHOPS),
         "history": state["history"],
         "player": state["player"],
         "demand_levels": {
@@ -207,6 +232,56 @@ def buy_upgrade():
         cost = state["cash"] - new_state["cash"]
         name = logic.SHOPS[shop]["name"]
         return new_state, f"Bought {logic.offer_name(shop, item)} for {name}: {logic.fmt(cost)}."
+
+    return apply(action)
+
+
+@app.post("/api/shift/start")
+def start_shift():
+    body = json_body()
+
+    def action(state):
+        shop = body.get("shop")
+        new_state = logic.start_shift(state, shop)
+        return new_state, f"Day {state['day']} started in the {logic.SHOPS[shop]['name']}."
+
+    return apply(action)
+
+
+@app.post("/api/shift/refill")
+def refill():
+    body = json_body()
+
+    def action(state):
+        product, quantity = body.get("product"), body.get("quantity")
+        new_state = logic.refill(state, product, quantity)
+        return new_state, f"Put {quantity} × {logic.CATALOGUE[product]['name']} on the counter."
+
+    return apply(action)
+
+
+@app.post("/api/shift/sell")
+def sell():
+    body = json_body()
+
+    def action(state):
+        product = body.get("product")
+        new_state = logic.sell(state, product)
+        name = logic.CATALOGUE[product]["name"]
+        return new_state, f"Sold 1 × {name} for {logic.fmt(state['prices'][product])}."
+
+    return apply(action)
+
+
+@app.post("/api/shift/tick")
+def shift_tick():
+    def action(state):
+        new_state, result = logic.tick(state)
+        if result is None:
+            return new_state, ""
+        return new_state, (
+            f"Day {result['day']} closed: gross profit {logic.fmt(result['gross_profit'])}."
+        )
 
     return apply(action)
 
