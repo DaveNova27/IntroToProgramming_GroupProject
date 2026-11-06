@@ -114,9 +114,11 @@ function renderHud() {
 function renderToolbar() {
   const locked = animating || state.finished;
   $("#btn-order").disabled = locked;
-  $("#btn-prices").disabled = locked;
+  $("#btn-prices").disabled = locked || !!state.shift;
   $("#btn-shops").disabled = locked;
-  $("#btn-open").disabled = locked;
+  $("#btn-shift").disabled = locked;
+  $("#btn-shift").querySelector(".txt").textContent = state.shift ? "Shift" : "Play day";
+  $("#btn-open").disabled = locked || !!state.shift;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
     : state.finished ? "Run complete" : `Open day ${state.day}`;
@@ -129,6 +131,7 @@ function renderAll() {
   renderHud();
   renderToolbar();
   if (panelMode) renderPanel();
+  syncShiftTimer();
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -206,6 +209,8 @@ function renderPanel() {
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
             </div>`}
         </section>`).join("")}`;
+  } else if (panelMode === "shift") {
+    renderShiftPanel(body);
   } else if (panelMode === "prices") {
     $("#panel-title").textContent = "Prices";
     body.innerHTML = `
@@ -220,6 +225,106 @@ function renderPanel() {
           <span class="demand" data-demand>Sells up to <b>${p.demand}</b> a day</span>
           <p class="error" data-error></p>
         </form>`).join("")}`;
+  }
+}
+
+// ---- a day played live in the Cafe ---------------------------------------------------
+// The server holds the counter, the queue and the clock. This only shows them and sends
+// each refill, sale and tick. Where the figure stands plays no part.
+
+let shiftHtml = "";
+let shiftTimer = null;
+let shiftBusy = false;
+
+function renderShiftPanel(body) {
+  $("#panel-title").textContent = "Cafe shift";
+  const sh = state.shift;
+  if (!sh) {
+    shiftHtml = "";
+    const cafe = state.shops.find((s) => state.shift_shops.includes(s.id) && s.unlocked);
+    body.innerHTML = `
+      <p class="note">Play day ${state.day} yourself: carry stock from the storeroom to the counter
+        and serve the customers who queue. The day lasts about ${state.shift_day_ticks ?? 90} seconds.
+        Prices are fixed during the shift.</p>
+      <p class="error" id="shift-error"></p>
+      <button class="btn wide" type="button" data-shift-start="${esc(cafe ? cafe.id : "")}"
+        ${cafe && !state.finished ? "" : "disabled"}>Start day ${state.day} in the ${esc(cafe ? cafe.name : "shop")}</button>`;
+    return;
+  }
+  const shop = state.shops.find((s) => s.id === sh.shop);
+  const rows = shop.products.map((pid) => {
+    const p = product(pid);
+    const onCounter = sh.counter[pid] ?? 0;
+    const waiting = sh.waiting[pid] ?? 0;
+    const step = Math.min(5, p.stock, sh.counter_space);
+    const fill = Math.min(p.stock, sh.counter_space);
+    return `
+      <div class="shift-row" style="--accent:${COLOR[pid]}">
+        <span class="em" aria-hidden="true">${EMOJI[pid]}</span>
+        <span class="nm">${esc(p.name)}<small>storeroom ${p.stock} · counter ${onCounter} · waiting ${waiting} · sold ${sh.sold[pid] ?? 0}</small></span>
+        <button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${step}" ${step > 0 ? "" : "disabled"}>+${step}</button>
+        <button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${fill}" ${fill > 0 ? "" : "disabled"}>Fill</button>
+        <button class="btn" type="button" data-sell="${esc(pid)}" ${onCounter > 0 && waiting > 0 ? "" : "disabled"}>Sell ${fmt(p.price)}</button>
+      </div>`;
+  }).join("");
+  const html = `
+    <p class="note">Counter ${sh.counter_size - sh.counter_space} / ${sh.counter_size} · customers who left: ${sh.lost}</p>
+    <p class="error" id="shift-error"></p>${rows}`;
+  if (!$("#shift-clock")) {
+    body.innerHTML = `<progress id="shift-clock" max="${sh.day_ticks}"></progress><div id="shift-body"></div>`;
+    shiftHtml = "";
+  }
+  $("#shift-clock").value = sh.tick;
+  if (html !== shiftHtml) {
+    $("#shift-body").innerHTML = html;
+    shiftHtml = html;
+  }
+}
+
+// One request, one tick: the server counts the day, never this clock.
+function syncShiftTimer() {
+  if (state.shift && !shiftTimer) shiftTimer = setInterval(shiftTick, 1000);
+  if (!state.shift && shiftTimer) {
+    clearInterval(shiftTimer);
+    shiftTimer = null;
+  }
+}
+
+async function shiftTick() {
+  if (shiftBusy || !state.shift) return;
+  shiftBusy = true;
+  try {
+    const data = await send("/api/shift/tick", {});
+    if (!data) return;
+    const before = state.day;
+    state = data.state;
+    renderAll();
+    if (state.day !== before) {
+      tellDashboard({ type: "action", after: data.state });
+      showDaySummary(state.history[state.history.length - 1]);
+    }
+  } finally {
+    shiftBusy = false;
+  }
+}
+
+async function shiftAction(path, body) {
+  if (shiftBusy) return;
+  shiftBusy = true;
+  try {
+    const data = await send(path, body);
+    if (!data) return;
+    state = data.state;
+    renderAll();
+    if (data.error) {
+      const el = $("#shift-error");
+      if (el) el.textContent = data.error;
+      return toast(data.error, "error");
+    }
+    tellDashboard({ type: "action", after: data.state });
+    if (path.endsWith("/start")) toast(data.message);
+  } finally {
+    shiftBusy = false;
   }
 }
 
@@ -251,6 +356,16 @@ function wirePanel() {
         item: upgradeBtn.dataset.upgradeItem,
       });
     }
+    const startBtn = e.target.closest("[data-shift-start]");
+    if (startBtn) return shiftAction("/api/shift/start", { shop: startBtn.dataset.shiftStart });
+    const refillBtn = e.target.closest("[data-refill]");
+    if (refillBtn) {
+      return shiftAction("/api/shift/refill", {
+        product: refillBtn.dataset.refill, quantity: Number(refillBtn.dataset.qty),
+      });
+    }
+    const sellBtn = e.target.closest("[data-sell]");
+    if (sellBtn) return shiftAction("/api/shift/sell", { product: sellBtn.dataset.sell });
     const pickBtn = e.target.closest("[data-pick]");
     if (pickBtn) {
       const typed = $("#order-form")?.quantity.value;
@@ -510,6 +625,7 @@ export function initUi(firstState, actions) {
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));
   $("#btn-shops").addEventListener("click", () => openPanel("shops"));
+  $("#btn-shift").addEventListener("click", () => openPanel("shift"));
   $("#btn-open").addEventListener("click", openDay);
   $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));

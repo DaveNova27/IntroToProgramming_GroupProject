@@ -36,9 +36,12 @@ CATALOGUE = {
 }
 
 STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
-STORAGE_UNITS = 100  # storeroom space per shop (takes effect with shop-process)
-COUNTER_UNITS = 20  # counter space per shop (takes effect with shop-process)
+STORAGE_UNITS = 100  # storeroom space per shop, checked when buying stock
+COUNTER_UNITS = 20  # counter space per shop (limits refills in a shift)
 FIRST_SHOP = "cafe"
+SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
+DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
+PATIENCE_TICKS = 15  # a customer leaves this many ticks after arriving
 
 
 def _window(product_offers):
@@ -99,6 +102,7 @@ def new_state():
         "stock": {pid: 0 for pid in CATALOGUE},
         "prices": {pid: item["ref_price"] for pid, item in CATALOGUE.items()},
         "shops": {sid: new_shop(sid) for sid in SHOPS},
+        "shift": None,
         "history": [],
         "player": world.start_player(),
     }
@@ -158,6 +162,16 @@ def _check_product(state, product):
         raise RejectedAction(f"You do not have {CATALOGUE[product]['name']} yet.")
 
 
+def _check_storeroom_space(state, product, quantity):
+    """The storeroom of the product's shop holds at most SHOPS[shop]["storage"] units."""
+    shop = next(sid for sid in SHOPS if product in shop_product_ids(sid))
+    held = sum(state["stock"][pid] for pid in shop_product_ids(shop))
+    room = SHOPS[shop]["storage"] - held
+    if quantity > room:
+        raise RejectedAction(
+            f"The {SHOPS[shop]['name']} storeroom has room for only {max(room, 0)} more units.")
+
+
 def buy(state, product, quantity):
     """CT02: buy stock. Cash and stock change together, or not at all."""
     _check_product(state, product)
@@ -165,6 +179,7 @@ def buy(state, product, quantity):
         raise RejectedAction("The run is complete. Buying is closed.")
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
         raise RejectedAction("Quantity must be a positive whole number.")
+    _check_storeroom_space(state, product, quantity)
     total = quantity * CATALOGUE[product]["cost"]
     if total > state["cash"]:
         raise RejectedAction(
@@ -182,6 +197,8 @@ def set_price(state, product, price_cents):
     _check_product(state, product)
     if is_finished(state):
         raise RejectedAction("The run is complete. Prices are locked.")
+    if state.get("shift") is not None:
+        raise RejectedAction("Prices are fixed while a shift is running.")
     if isinstance(price_cents, bool) or not isinstance(price_cents, int):
         raise RejectedAction("The selling price must be a whole number of cents.")
     if price_cents <= 0:
@@ -309,6 +326,8 @@ def trade_day(state):
     """CT04: run one trading day. Returns (new_state, result_of_the_day)."""
     if is_finished(state):
         raise RejectedAction("The run is complete. Trading is closed.")
+    if state.get("shift") is not None:
+        raise RejectedAction("A shift is running. Finish the day in the shop first.")
 
     new = copy.deepcopy(state)
     lines = []
@@ -344,6 +363,155 @@ def trade_day(state):
     return new, result
 
 
+def customers_for(price_cents, ref_price_cents):
+    """How many customers want one product on a played day.
+
+    The one place that turns a price into customers. It is the old demand() for now;
+    the new price logic (issue #38) replaces only this function."""
+    return demand(price_cents, ref_price_cents)
+
+
+def _check_open_shift(state):
+    """The open shift, or a refusal. Also refuses everything after the last day."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. The shop is closed.")
+    shift = state.get("shift")
+    if shift is None:
+        raise RejectedAction("No shift is running. Start the day in a shop first.")
+    return shift
+
+
+def _check_shift_product(state, shift, product):
+    if not isinstance(product, str) or product not in CATALOGUE:
+        raise RejectedAction(f"Unknown product '{product}'.")
+    if product not in shift["counter"]:  # the products the shift started with
+        raise RejectedAction(f"{CATALOGUE[product]['name']} is not sold in this shop.")
+
+
+def start_shift(state, shop):
+    """Start playing the day in a shop. Builds the queue of customers, no randomness."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. The shop is closed.")
+    _check_shop(shop)
+    if shop not in SHIFT_SHOPS:
+        raise RejectedAction(f"A day cannot be played in the {SHOPS[shop]['name']} yet.")
+    if not state["shops"][shop]["unlocked"]:
+        raise RejectedAction(f"The {SHOPS[shop]['name']} is not unlocked.")
+    if state.get("shift") is not None:
+        raise RejectedAction("A shift is already running.")
+    products = state["shops"][shop]["products"]
+    planned, queue = {}, []
+    for k, pid in enumerate(products):
+        count = customers_for(state["prices"][pid], CATALOGUE[pid]["ref_price"])
+        planned[pid] = count
+        for j in range(count):
+            arrives = min((j * DAY_TICKS) // count + k, DAY_TICKS - 1)
+            queue.append({"product": pid, "arrives": arrives,
+                          "patience_until": arrives + PATIENCE_TICKS})
+    queue.sort(key=lambda c: c["arrives"])  # stable: products keep their order per tick
+    new = copy.deepcopy(state)
+    new["shift"] = {
+        "shop": shop, "tick": 0,
+        "counter": {pid: 0 for pid in products},
+        "queue": queue, "planned": planned,
+        "sold": {pid: 0 for pid in products}, "lost": 0,
+    }
+    return new
+
+
+def refill(state, product, quantity):
+    """Carry units from the storeroom to the counter. The counter space is limited."""
+    shift = _check_open_shift(state)
+    _check_shift_product(state, shift, product)
+    if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
+        raise RejectedAction("Quantity must be a positive whole number.")
+    name = CATALOGUE[product]["name"]
+    if quantity > state["stock"][product]:
+        raise RejectedAction(
+            f"The storeroom holds only {state['stock'][product]} × {name}.")
+    space = SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values())
+    if quantity > space:
+        raise RejectedAction(f"The counter has room for only {space} more units.")
+    new = copy.deepcopy(state)
+    new["stock"][product] -= quantity
+    new["shift"]["counter"][product] += quantity
+    return new
+
+
+def sell(state, product):
+    """Sell one unit from the counter to the first customer waiting for it."""
+    shift = _check_open_shift(state)
+    _check_shift_product(state, shift, product)
+    name = CATALOGUE[product]["name"]
+    if shift["counter"][product] <= 0:
+        raise RejectedAction(f"There is no {name} on the counter.")
+    tick = shift["tick"]
+    for i, customer in enumerate(shift["queue"]):
+        if (customer["product"] == product
+                and customer["arrives"] <= tick < customer["patience_until"]):
+            break
+    else:
+        raise RejectedAction(f"Nobody is waiting for {name}.")
+    new = copy.deepcopy(state)
+    new["shift"]["queue"].pop(i)
+    new["shift"]["counter"][product] -= 1
+    new["shift"]["sold"][product] += 1
+    new["cash"] += new["prices"][product]
+    return new
+
+
+def tick(state):
+    """One tick of the day. Impatient customers leave; the last tick closes the shift.
+
+    Returns (new_state, result) where result is the day's result when the shift closed,
+    otherwise None."""
+    _check_open_shift(state)
+    new = copy.deepcopy(state)
+    shift = new["shift"]
+    shift["tick"] += 1
+    waiting = []
+    for customer in shift["queue"]:
+        if customer["patience_until"] <= shift["tick"]:
+            shift["lost"] += 1
+        else:
+            waiting.append(customer)
+    shift["queue"] = waiting
+    if shift["tick"] < DAY_TICKS:
+        return new, None
+    return _close_shift(new)
+
+
+def _close_shift(new):
+    """Book the day like trade_day does; unsold counter units go back to the storeroom."""
+    shift = new["shift"]
+    shift["lost"] += len(shift["queue"])  # whoever is still in the queue goes home
+    shift["queue"] = []
+    lines = []
+    for pid, sold in shift["sold"].items():
+        item = CATALOGUE[pid]
+        price = new["prices"][pid]
+        lines.append({
+            "product": pid, "price": price, "demand": shift["planned"][pid],
+            "sold": sold, "revenue": sold * price, "cogs": sold * item["cost"],
+            "gross_profit": sold * (price - item["cost"]),
+        })
+        new["stock"][pid] += shift["counter"][pid]
+    result = {
+        "day": new["day"],
+        "shop": shift["shop"],
+        "lines": lines,
+        "revenue": sum(line["revenue"] for line in lines),
+        "cogs": sum(line["cogs"] for line in lines),
+        "gross_profit": sum(line["gross_profit"] for line in lines),
+        "lost": shift["lost"],
+        "cash_after": new["cash"],
+    }
+    new["history"].append(result)
+    new["day"] += 1
+    new["shift"] = None
+    return new, result
+
+
 def move_player(state, zone, x, y):
     """Save where the player stands. Only for showing the world: no rule depends on it."""
     if not isinstance(zone, str) or zone not in world.ZONES:
@@ -361,8 +529,10 @@ def move_player(state, zone, x, y):
 
 
 def stock_value(state):
-    """Remaining stock valued at purchase cost (CT R4)."""
-    return sum(state["stock"][pid] * CATALOGUE[pid]["cost"] for pid in owned_products(state))
+    """Remaining stock valued at purchase cost (CT R4), counter units included."""
+    counter = (state.get("shift") or {}).get("counter", {})
+    return sum((state["stock"][pid] + counter.get(pid, 0)) * CATALOGUE[pid]["cost"]
+               for pid in owned_products(state))
 
 
 def stock_overview(state):

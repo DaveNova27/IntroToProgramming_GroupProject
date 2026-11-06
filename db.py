@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS shop_products (    -- the products a shop has, one ro
     product TEXT NOT NULL,
     PRIMARY KEY (shop, product)
 );
+CREATE TABLE IF NOT EXISTS shift (            -- the day played live in a shop, none if no shift
+    id   INTEGER PRIMARY KEY CHECK (id = 1),
+    data TEXT NOT NULL                         -- counter, queue, tick as JSON
+);
 """
 
 
@@ -72,6 +76,7 @@ def load(path=DEFAULT_PATH):
         shop_rows = conn.execute(
             "SELECT shop, unlocked, level, staff_places FROM shops").fetchall()
         shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
+        shift = conn.execute("SELECT data FROM shift WHERE id = 1").fetchone()
     # products added to the catalogue after the save was made start with stock 0
     stock = {pid: 0 for pid in logic.CATALOGUE}
     prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}
@@ -84,6 +89,7 @@ def load(path=DEFAULT_PATH):
         "stock": stock,
         "prices": prices,
         "shops": _shops(shop_rows, shop_products, [p for p, _, _ in products]),
+        "shift": json.loads(shift[0]) if shift else None,
         "history": [json.loads(r) for (r,) in history],
         "player": _player(player),
     }
@@ -177,6 +183,9 @@ def _write(conn, state):
         for pid in shop["products"]:
             conn.execute(
                 "INSERT INTO shop_products (shop, product) VALUES (?, ?)", (sid, pid))
+    conn.execute("DELETE FROM shift")
+    if state["shift"] is not None:
+        conn.execute("INSERT INTO shift (id, data) VALUES (1, ?)", (json.dumps(state["shift"]),))
     for result in state["history"]:
         # INSERT OR IGNORE: an already stored day is never written twice
         conn.execute(
