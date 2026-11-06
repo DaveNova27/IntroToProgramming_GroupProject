@@ -95,6 +95,7 @@ tracked in the GitHub Issues (label `spec`).
 ## Known issues and ideas
 
 - The shop prices, unlock prices and levels are placeholders to balance. The price logic itself is replaced in `pricing` (#38).
+- The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
 - Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
 - The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.

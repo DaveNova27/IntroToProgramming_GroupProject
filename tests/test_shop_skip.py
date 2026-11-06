@@ -143,3 +143,22 @@ def test_the_api_opens_the_day_then_the_shift_then_skips(tmp_path, monkeypatch):
     assert state["shift"]["shop"] == "cafe"
     assert client.post("/api/shift/skip").status_code == 200
     assert db.load(path)["day"] == 2
+
+
+def test_a_shift_that_would_not_fit_into_the_rest_of_the_day_is_refused():
+    state, _ = ticks(opened(), logic.OPEN_DAY_TICKS - logic.SHIFT_TICKS)
+    assert logic.start_shift(state, "cafe")["shift"]["shift_end"] == logic.OPEN_DAY_TICKS
+    state, _ = logic.tick(state)
+    refused(lambda s: logic.start_shift(s, "cafe"), state)
+
+
+def test_an_open_day_and_a_finished_shift_survive_a_restart(tmp_path):
+    path = tmp_path / "run.db"
+    state, _ = ticks(opened(), 7)
+    db.save(state, path)
+    assert db.load(path) == state
+    state = logic.start_shift(state, "cafe")
+    state, _ = ticks(state, logic.SHIFT_TICKS)
+    assert state["shift"]["over"]
+    db.save(state, path)
+    assert db.load(path) == state

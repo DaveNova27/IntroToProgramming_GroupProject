@@ -446,10 +446,15 @@ def _check_open_shift(state):
     return shift
 
 
+def _shift_running(shift):
+    """True while somebody works: the shift has started and is not over yet."""
+    return shift["shop"] is not None and not shift.get("over")
+
+
 def _check_shift_product(state, shift, product):
     if shift["shop"] is None:
         raise RejectedAction("Start your shift in a shop first.")
-    if shift.get("over"):
+    if not _shift_running(shift):
         raise RejectedAction("Your shift is over. The day is still running.")
     if not isinstance(product, str) or product not in CATALOGUE:
         raise RejectedAction(f"Unknown product '{product}'.")
@@ -474,8 +479,8 @@ def open_day(state):
 def start_shift(state, shop):
     """Start the shift in a shop. Builds the queue of customers, no randomness.
 
-    Works on the open day (customers who already came and left are lost) or, without an
-    open day, opens the day and the shift together."""
+    Works on the open day (the shift clock and the customers start now, and the whole shift
+    must fit into the rest of the day) or, without an open day, opens both together."""
     if is_finished(state):
         raise RejectedAction("The run is complete. The shop is closed.")
     _check_shop(shop)
@@ -488,6 +493,8 @@ def start_shift(state, shop):
         raise RejectedAction("A shift is already running.")
     products = state["shops"][shop]["products"]
     start = open_shift["tick"] if open_shift else 0  # the shift clock starts now
+    if open_shift and open_shift["day_end"] - start < SHIFT_TICKS:
+        raise RejectedAction("Too late for a shift: the day ends before it could be played.")
     planned, queue = {}, []
     for k, pid in enumerate(products):
         count = customers_for(state["prices"][pid], CATALOGUE[pid]["ref_price"])
@@ -566,8 +573,7 @@ def tick(state):
         else:
             waiting.append(customer)
     shift["queue"] = waiting
-    if shift["shop"] is not None and not shift.get("over") \
-            and shift["tick"] >= shift.get("shift_end", DAY_TICKS):
+    if _shift_running(shift) and shift["tick"] >= shift.get("shift_end", DAY_TICKS):
         _end_shift(new)
     if shift["tick"] < shift.get("day_end", DAY_TICKS):
         return new, None
