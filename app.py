@@ -96,6 +96,26 @@ def weather_view(state):
     }
 
 
+def outlook_view(state):
+    """The forecast for the screen: today before the day is opened, tomorrow while it is
+    open (none when there is no such day), with a tip per open shop.
+    Only what the forecast shows: never whether it is right."""
+    forecast = logic.outlook(state)
+    if forecast is None:
+        return None
+    low, high = forecast["temp_range"]
+    return {
+        "day": forecast["day"],
+        "id": forecast["weather"],
+        "name": logic.WEATHER[forecast["weather"]]["name"],
+        "temp_low": low,
+        "temp_high": high,
+        "miss_percent": forecast["miss_percent"],
+        "tips": [dict(tip, name=logic.SHOPS[tip["shop"]]["name"])
+                 for tip in logic.outlook_tips(state, forecast)],
+    }
+
+
 def view(state):
     """Everything the dashboard shows, calculated by the rules, never by the browser."""
     finished = logic.is_finished(state)
@@ -124,6 +144,7 @@ def view(state):
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
         "weather": weather_view(state),
+        "outlook": outlook_view(state),
         "shift": shift_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,

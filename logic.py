@@ -58,6 +58,21 @@ WEATHER = {
     "storm": {"name": "Stormy", "weight": 15, "temp": (12, 17),
               "demand_percent": {"cafe": 100, "surf_shop": 20, "merchandise": 100, "beach_cafe": 20}},
 }
+
+# The outlook (issue #12): the forecast of tomorrow's weather is wrong this often, in whole
+# percent. A wrong forecast shows a weather next to the real one, never any weather.
+# Placeholders to balance.
+OUTLOOK_MISS_PERCENT = 20
+OUTLOOK_MISS = {
+    "sun": ("heat", "rain"),
+    "heat": ("sun",),
+    "rain": ("sun", "storm"),
+    "storm": ("rain",),
+}
+# Tips in the evening report (roadmap B2): a shop's demand factor at or above MORE_AT means
+# more customers, at or below LESS_AT fewer. Placeholders to balance.
+OUTLOOK_MORE_AT = 115
+OUTLOOK_LESS_AT = 85
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
@@ -394,17 +409,29 @@ def trade_day(state):
     return new, result
 
 
+def _override_weather(override):
+    """The weather an override fixes, or None. An unknown saved id must not crash every
+    request: it counts as no override, so the seed's roll is used."""
+    if isinstance(override, dict) and isinstance(override.get("weather"), str) \
+            and override["weather"] in WEATHER:
+        return override["weather"]
+    return None
+
+
+def _roll_weather(rng, override):
+    """The weather of a day: the override if it is valid, otherwise rolled by the weights.
+    Always rolls first, so the generator is at the same point for the temperature."""
+    rolled = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
+    return _override_weather(override) or rolled
+
+
 def make_day_context(seed, day, override=None):
     """The weather of one day, from the seed and the day only (same input, same answer).
 
     override: None, or {"weather": id} to fix the weather (demo mode); the temperature is
     still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
     rng = random.Random(f"{seed}:{day}")
-    weather = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
-    # an unknown saved id must not crash every request: fall back to the seed's roll
-    if isinstance(override, dict) and isinstance(override.get("weather"), str) \
-            and override["weather"] in WEATHER:
-        weather = override["weather"]
+    weather = _roll_weather(rng, override)
     low, high = WEATHER[weather]["temp"]
     return {
         "day": day,
@@ -417,6 +444,57 @@ def make_day_context(seed, day, override=None):
 def day_context(state):
     """Today's context of the run."""
     return make_day_context(state["seed"], state["day"], state["day_override"])
+
+
+def make_outlook(seed, day, override=None):
+    """The forecast for `day`, from the seed and the day only (same input, same answer).
+
+    Rolls with its own generator, so the real weather of make_day_context stays the same.
+    With an override the forecast is always right, as long as the override stays set.
+    Returns {"day", "weather", "temp_range"}: the weather the forecast shows and that
+    weather's range in whole degrees Celsius."""
+    real = _roll_weather(random.Random(f"{seed}:{day}"), override)
+    shown = real
+    rng = random.Random(f"{seed}:{day}:outlook")
+    misses = rng.randrange(100) < OUTLOOK_MISS_PERCENT
+    fixed = _override_weather(override) is not None
+    if misses and not fixed:
+        shown = rng.choice(OUTLOOK_MISS[real])
+    return {"day": day, "weather": shown, "temp_range": WEATHER[shown]["temp"],
+            "miss_percent": 0 if fixed else OUTLOOK_MISS_PERCENT}
+
+
+def outlook(state):
+    """The forecast for the next day whose real weather is not shown yet: today while the
+    day is not opened, tomorrow while it is open. None when there is no such day."""
+    day = state["day"] + (1 if state.get("shift") is not None else 0)
+    if day > LAST_DAY:
+        return None
+    return make_outlook(state["seed"], day, state["day_override"])
+
+
+def outlook_tips(state, forecast=None):
+    """Per unlocked shop: the forecast's demand factor and whether to expect more, fewer or
+    the usual customers. Empty without a forecast. Advice about stock only, no prices.
+
+    forecast: outlook(state) if the caller has it already, so it is not rolled twice."""
+    forecast = forecast or outlook(state)
+    if forecast is None:
+        return []
+    factors = WEATHER[forecast["weather"]]["demand_percent"]
+    tips = []
+    for sid in SHOPS:
+        if not state["shops"][sid]["unlocked"]:
+            continue
+        percent = factors[sid]
+        if percent >= OUTLOOK_MORE_AT:
+            advice = "more"
+        elif percent <= OUTLOOK_LESS_AT:
+            advice = "less"
+        else:
+            advice = "normal"
+        tips.append({"shop": sid, "percent": percent, "advice": advice})
+    return tips
 
 
 def set_day_override(state, weather):
