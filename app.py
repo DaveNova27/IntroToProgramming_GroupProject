@@ -106,6 +106,7 @@ def view(state):
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
         "shift": shift_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
+        "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
         "player": state["player"],
         "demand_levels": {

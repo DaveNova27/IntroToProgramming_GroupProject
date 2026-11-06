@@ -355,6 +355,12 @@ function renderOpenPanel() {
   }
 
   const f = state.forecast;
+  if (!f) {
+    panel.innerHTML = `
+      <h2>Shift running</h2>
+      <p class="chart-sub">Day ${state.day} is being played in the shop. Finish it on the campus.</p>`;
+    return;
+  }
   const lines = f.lines.map((line) => {
     const p = state.products.find((x) => x.id === line.product);
     return `
