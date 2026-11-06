@@ -77,6 +77,7 @@ animate that answer.
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
+| `outlook.md` | `outlook` | Forecast of tomorrow's weather next to today's (dashboard and campus display): the weather and its temperature range. Wrong about 20 % of the time (a neighbouring weather), drawn from the seed with its own roll so the real weather stays the same; always right with the demo override. Neither the real weather of tomorrow nor the seed leaves the server. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 

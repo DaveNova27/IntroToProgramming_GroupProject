@@ -92,6 +92,7 @@ function renderHeader() {
     ? "Run complete"
     : `Day ${state.day} of ${state.last_day}`;
   showWeather($("#weather-chip"), state.weather);
+  showOutlook($("#outlook-chip"), state.outlook, "Tomorrow");
 }
 
 function renderKpis() {

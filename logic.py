@@ -58,6 +58,17 @@ WEATHER = {
     "storm": {"name": "Stormy", "weight": 15, "temp": (12, 17),
               "demand_percent": {"cafe": 100, "surf_shop": 20, "merchandise": 100, "beach_cafe": 20}},
 }
+
+# The outlook (issue #12): the forecast of tomorrow's weather is wrong this often, in whole
+# percent. A wrong forecast shows a weather next to the real one, never any weather.
+# Placeholders to balance.
+OUTLOOK_MISS_PERCENT = 20
+OUTLOOK_MISS = {
+    "sun": ("heat", "rain"),
+    "heat": ("sun",),
+    "rain": ("sun", "storm"),
+    "storm": ("rain",),
+}
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
@@ -394,6 +405,15 @@ def trade_day(state):
     return new, result
 
 
+def _override_weather(override):
+    """The weather an override fixes, or None. An unknown saved id must not crash every
+    request: it counts as no override, so the seed's roll is used."""
+    if isinstance(override, dict) and isinstance(override.get("weather"), str) \
+            and override["weather"] in WEATHER:
+        return override["weather"]
+    return None
+
+
 def make_day_context(seed, day, override=None):
     """The weather of one day, from the seed and the day only (same input, same answer).
 
@@ -401,10 +421,7 @@ def make_day_context(seed, day, override=None):
     still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
     rng = random.Random(f"{seed}:{day}")
     weather = rng.choices(list(WEATHER), weights=[w["weight"] for w in WEATHER.values()])[0]
-    # an unknown saved id must not crash every request: fall back to the seed's roll
-    if isinstance(override, dict) and isinstance(override.get("weather"), str) \
-            and override["weather"] in WEATHER:
-        weather = override["weather"]
+    weather = _override_weather(override) or weather
     low, high = WEATHER[weather]["temp"]
     return {
         "day": day,
@@ -417,6 +434,28 @@ def make_day_context(seed, day, override=None):
 def day_context(state):
     """Today's context of the run."""
     return make_day_context(state["seed"], state["day"], state["day_override"])
+
+
+def make_outlook(seed, day, override=None):
+    """The forecast for `day`, from the seed and the day only (same input, same answer).
+
+    Rolls with its own generator, so the real weather of make_day_context stays the same.
+    With an override the forecast is always right. Returns {"day", "weather", "temp_range"}:
+    the weather the forecast shows and that weather's range in whole degrees Celsius."""
+    real = make_day_context(seed, day, override)["weather"]
+    shown = real
+    rng = random.Random(f"{seed}:{day}:outlook")
+    misses = rng.randrange(100) < OUTLOOK_MISS_PERCENT
+    if misses and _override_weather(override) is None:
+        shown = rng.choice(OUTLOOK_MISS[real])
+    return {"day": day, "weather": shown, "temp_range": WEATHER[shown]["temp"]}
+
+
+def outlook(state):
+    """The forecast for tomorrow, or None when there is no tomorrow (day 30 and after)."""
+    if state["day"] >= LAST_DAY:
+        return None
+    return make_outlook(state["seed"], state["day"] + 1, state["day_override"])
 
 
 def set_day_override(state, weather):
