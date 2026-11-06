@@ -8,6 +8,7 @@ refresh or a double click cannot repeat a day.
 Run it with:  uv run python app.py   (then open http://127.0.0.1:8000)
 """
 
+import os
 import threading
 
 from flask import Flask, jsonify, redirect, request, send_from_directory
@@ -27,7 +28,7 @@ def load_run():
     """Load the saved run, or start and save a fresh one (first start)."""
     state = db.load()
     if state is None:
-        state = logic.new_state()
+        state = logic.new_state(logic.new_seed())
         db.save(state)
     return state
 
@@ -77,6 +78,20 @@ def shift_view(state):
     }
 
 
+def weather_view(state):
+    """Today's weather for the screen (none once the season is over).
+    The seed itself never leaves the server."""
+    if logic.is_finished(state):
+        return None
+    context = logic.day_context(state)
+    return {
+        "id": context["weather"],
+        "name": logic.WEATHER[context["weather"]]["name"],
+        "temperature": context["temperature"],
+        "demand_percent": context["demand_percent"],
+    }
+
+
 def view(state):
     """Everything the dashboard shows, calculated by the rules, never by the browser."""
     finished = logic.is_finished(state)
@@ -104,6 +119,7 @@ def view(state):
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
+        "weather": weather_view(state),
         "shift": shift_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,
@@ -237,6 +253,31 @@ def buy_upgrade():
     return apply(action)
 
 
+def demo_switch_on():
+    """The weather override is a demo hook: only with the switch on and from this computer."""
+    # a proxy in front would make every client look local: refuse when one has been involved
+    if request.headers.get("X-Forwarded-For") or request.headers.get("Forwarded"):
+        return False
+    return (os.environ.get("CAMPUS_TYCOON_DEMO") == "1"
+            and request.remote_addr in ("127.0.0.1", "::1", "::ffff:127.0.0.1"))
+
+
+@app.post("/api/day-override")
+def day_override():
+    body = json_body()
+
+    def action(state):
+        if not demo_switch_on():
+            raise logic.RejectedAction("The weather override is a demo switch and is off.")
+        weather = body.get("weather")
+        new_state = logic.set_day_override(state, weather)
+        if weather is None:
+            return new_state, "Weather back to the seed's forecast."
+        return new_state, f"Weather fixed to {logic.WEATHER[weather]['name']}."
+
+    return apply(action)
+
+
 @app.post("/api/shift/start")
 def start_shift():
     body = json_body()
@@ -317,7 +358,7 @@ def new_run():
                 "error": "A new run starts only after you confirm it.",
                 "state": view(state),
             }), 400
-        fresh = logic.new_state()
+        fresh = logic.new_state(logic.new_seed())
         db.save_new_run(fresh)
         return jsonify({
             "message": f"New run started: day 1, {logic.fmt(logic.STARTING_CASH)}, no stock.",
