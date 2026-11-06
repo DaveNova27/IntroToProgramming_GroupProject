@@ -377,7 +377,7 @@ function renderOpenPanel() {
 
   panel.innerHTML = `
     <h2>Open for day ${state.day}</h2>
-    <p class="chart-sub">Forecast with your current stock and prices</p>
+    <p class="chart-sub">What a fully staffed day would bring (alone you only earn what you serve)</p>
     <ul class="forecast">${lines}</ul>
     <dl class="sums">
       <div><dt>Revenue</dt><dd>${fmt(f.revenue)}</dd></div>
@@ -386,9 +386,7 @@ function renderOpenPanel() {
       <div><dt>Cash after the day</dt><dd>${fmt(f.cash_after)}</dd></div>
     </dl>
     ${sold === 0 ? '<p class="notice"><span aria-hidden="true">⚠</span><span>Nothing will sell: your shelves are empty or every price is above twice the reference.</span></p>' : ""}
-    <button class="btn open-btn" id="open-btn" type="button">Open for day ${state.day}</button>`;
-
-  $("#open-btn").addEventListener("click", () => send("/api/open", { day: state.day }));
+    <p class="notice"><span aria-hidden="true">ℹ</span><span>Without staff nothing sells by itself. Open day ${state.day} on the campus and serve the customers yourself.</span></p>`;
 }
 
 // ---- charts (hand-drawn SVG) -----------------------------------------------
