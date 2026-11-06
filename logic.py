@@ -457,9 +457,11 @@ def make_outlook(seed, day, override=None):
     shown = real
     rng = random.Random(f"{seed}:{day}:outlook")
     misses = rng.randrange(100) < OUTLOOK_MISS_PERCENT
-    if misses and _override_weather(override) is None:
+    fixed = _override_weather(override) is not None
+    if misses and not fixed:
         shown = rng.choice(OUTLOOK_MISS[real])
-    return {"day": day, "weather": shown, "temp_range": WEATHER[shown]["temp"]}
+    return {"day": day, "weather": shown, "temp_range": WEATHER[shown]["temp"],
+            "miss_percent": 0 if fixed else OUTLOOK_MISS_PERCENT}
 
 
 def outlook(state):
@@ -471,10 +473,12 @@ def outlook(state):
     return make_outlook(state["seed"], day, state["day_override"])
 
 
-def outlook_tips(state):
+def outlook_tips(state, forecast=None):
     """Per unlocked shop: the forecast's demand factor and whether to expect more, fewer or
-    the usual customers. Empty without a forecast. Advice about stock only, no prices."""
-    forecast = outlook(state)
+    the usual customers. Empty without a forecast. Advice about stock only, no prices.
+
+    forecast: outlook(state) if the caller has it already, so it is not rolled twice."""
+    forecast = forecast or outlook(state)
     if forecast is None:
         return []
     factors = WEATHER[forecast["weather"]]["demand_percent"]

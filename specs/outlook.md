@@ -27,9 +27,10 @@ mind and takes a risk doing so.
   generator `random.Random(f"{seed}:{day}:outlook")` whether the forecast misses and, if it
   does, which weather from `OUTLOOK_MISS` it shows. The weather roll of `day-context` is
   not touched, so the real weather stays the same as before this spec. Returns
-  `{"day", "weather", "temp_range"}` with the forecast weather and that weather's
-  temperature range from `WEATHER` (see "Decide", 2). With an override the forecast is
-  always right (see "Decide", 3).
+  `{"day", "weather", "temp_range", "miss_percent"}` with the forecast weather, that
+  weather's temperature range from `WEATHER` (see "Decide", 2) and how often such a
+  forecast is wrong. With an override the forecast is always right and `miss_percent` is 0
+  (see "Decide", 3).
 - `outlook(state)`: the forecast for the next day whose weather is not shown yet (see
   "Decide", 6): today while the day is not opened, tomorrow while it is open. `None` when
   there is no such day (day 30 opened, or the season over).
@@ -37,7 +38,8 @@ mind and takes a risk doing so.
   for every unlocked shop, in the order of `SHOPS`, `{"shop", "percent", "advice"}` where
   `percent` is the forecast weather's demand factor for the shop and `advice` is `"more"`
   (percent at or above 115), `"less"` (at or below 85) or `"normal"`. Empty when there is
-  no forecast. Only advice about stock; no price advice (see "Decide", 7).
+  no forecast. Takes the forecast as an optional second argument so it is not rolled
+  twice. Only advice about stock; no price advice (see "Decide", 7).
 
 ### API and screen
 
@@ -54,8 +56,9 @@ mind and takes a risk doing so.
   `esc()`.
 - Evening report: the day summary on the campus page shows below the day's table the
   forecast for the next day (picture, name, range), one line per tip, e.g. "Cafe: more
-  customers expected (140 %), stock up.", and the note "Forecasts are wrong about 1 day in
-  5." Nothing about the forecast after the last day.
+  customers expected (140 %), stock up.", the note "Forecasts are wrong about 20 % of the
+  time." (left out when `miss_percent` is 0), and a line that the tips take effect once
+  #38 applies the weather to the customers. Nothing about the forecast after the last day.
 
 ## Decide
 

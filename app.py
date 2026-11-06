@@ -110,9 +110,9 @@ def outlook_view(state):
         "name": logic.WEATHER[forecast["weather"]]["name"],
         "temp_low": low,
         "temp_high": high,
-        "miss_percent": logic.OUTLOOK_MISS_PERCENT,
+        "miss_percent": forecast["miss_percent"],
         "tips": [dict(tip, name=logic.SHOPS[tip["shop"]]["name"])
-                 for tip in logic.outlook_tips(state)],
+                 for tip in logic.outlook_tips(state, forecast)],
     }
 
 

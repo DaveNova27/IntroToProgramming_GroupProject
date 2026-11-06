@@ -578,13 +578,18 @@ function eveningReport() {
   if (!o || state.finished) return "";
   const tips = o.tips.map((t) => `
     <li><b>${esc(t.name)}:</b> ${esc(TIP_TEXT[t.advice]?.(t.percent) ?? "")}</li>`).join("");
+  // with a fixed weather (demo override) the server sends miss_percent 0: no warning then
+  const miss = o.miss_percent > 0
+    ? `<p class="note">Forecasts are wrong about ${esc(o.miss_percent)} % of the time.</p>` : "";
+  // remove this line once pricing (#38) applies the weather to the customers
+  const notYet = `<p class="note">The tips follow the weather table. The weather changes
+    the number of customers once the new price logic (#38) is in.</p>`;
   return `
     <div class="evening-report">
-      <p class="eyebrow">Forecast for day ${o.day}</p>
+      <p class="eyebrow">Forecast for day ${esc(o.day)}</p>
       <p class="forecast"><span class="icon" aria-hidden="true">${WEATHER_ICON_SVG(o.id)}</span>
-        <b>${esc(o.name)}</b>, ${o.temp_low}–${o.temp_high} °C</p>
-      <ul class="tips">${tips}</ul>
-      <p class="note">Forecasts are wrong about ${o.miss_percent} % of the time.</p>
+        <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C</p>
+      <ul class="tips">${tips}</ul>${miss}${notYet}
     </div>`;
 }
 

@@ -139,11 +139,27 @@ def test_the_tips_name_every_unlocked_shop_with_the_forecast_factor(weather):
         assert tip == {"shop": tip["shop"], "percent": percent, "advice": expected_advice(percent)}
 
 
-def test_the_thresholds_give_more_less_and_normal():
+@pytest.mark.parametrize("percent, advice", [
+    (logic.OUTLOOK_MORE_AT, "more"), (logic.OUTLOOK_MORE_AT + 1, "more"),
+    (logic.OUTLOOK_MORE_AT - 1, "normal"), (100, "normal"), (logic.OUTLOOK_LESS_AT + 1, "normal"),
+    (logic.OUTLOOK_LESS_AT, "less"), (logic.OUTLOOK_LESS_AT - 1, "less"),
+])
+def test_the_thresholds_give_more_less_and_normal(monkeypatch, percent, advice):
+    # its own factor, so balancing the placeholder table later does not break this test
+    monkeypatch.setitem(logic.WEATHER["rain"]["demand_percent"], "cafe", percent)
+    state = logic.set_day_override(logic.new_state(SEED), "rain")
+    assert logic.outlook_tips(state) == [{"shop": "cafe", "percent": percent, "advice": advice}]
+
+
+def test_tips_from_a_given_forecast_match_the_tips_rolled_from_the_state():
     state = logic.new_state(SEED)
-    assert logic.outlook_tips(logic.set_day_override(state, "rain"))[0]["advice"] == "more"  # cafe 140
-    assert logic.outlook_tips(logic.set_day_override(state, "sun"))[0]["advice"] == "less"   # cafe 80
-    assert logic.outlook_tips(logic.set_day_override(state, "storm"))[0]["advice"] == "normal"  # 100
+    assert logic.outlook_tips(state, logic.outlook(state)) == logic.outlook_tips(state)
+
+
+def test_the_forecast_names_its_miss_rate_and_none_with_an_override():
+    state = logic.new_state(SEED)
+    assert logic.outlook(state)["miss_percent"] == logic.OUTLOOK_MISS_PERCENT
+    assert logic.outlook(logic.set_day_override(state, "heat"))["miss_percent"] == 0
 
 
 def test_no_tips_without_a_forecast():
