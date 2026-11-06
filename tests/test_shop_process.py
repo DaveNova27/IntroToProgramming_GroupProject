@@ -144,14 +144,14 @@ def test_nothing_works_after_the_last_day():
 def test_a_crafted_run_of_sales_cannot_sell_more_than_the_counter_holds():
     state = logic.refill(started(30), "coffee", 3)
     sold = 0
-    for t in range(logic.DAY_TICKS - 1):
-        while True:
+    for _ in range(logic.DAY_TICKS - 1):
+        for _ in range(5):  # hammer the sell request every tick
             try:
                 state = logic.sell(state, "coffee")
                 sold += 1
             except logic.RejectedAction:
-                break
-        state, result = logic.tick(state)
+                pass
+        state, _ = logic.tick(state)
     assert sold == 3 and state["shift"]["sold"]["coffee"] == 3
 
 
@@ -255,3 +255,34 @@ def test_waiting_customers_leave_after_their_patience():
     state = logic.sell(logic.refill(state, "coffee", 5), "coffee")  # the customer from tick 9 waits
     assert state["shift"]["sold"]["coffee"] == 1
     refused(lambda s: logic.sell(s, "coffee"), state)  # the next one arrives at tick 18
+
+
+# ---- review fixes ---------------------------------------------------------
+
+def test_a_product_bought_during_the_shift_is_refused_not_a_crash():
+    state = started()
+    state["cash"] = 100_000
+    state = logic.buy_upgrade(state, "cafe", "cake")
+    state["stock"]["cake"] = 5
+    refused(lambda s: logic.refill(s, "cake", 1), state)
+    refused(lambda s: logic.sell(s, "cake"), state)
+
+
+def test_stock_on_the_counter_still_counts_in_the_stock_value():
+    state = started(30)
+    value = logic.stock_value(state)
+    assert logic.stock_value(logic.refill(state, "coffee", 20)) == value
+    assert logic.overall_gain(logic.refill(state, "coffee", 20)) == logic.overall_gain(state)
+
+
+def test_a_locked_shop_cannot_start_a_shift(monkeypatch):
+    monkeypatch.setattr(logic, "SHIFT_SHOPS", ("cafe", "beach_cafe"))
+    refused(lambda s: logic.start_shift(s, "beach_cafe"), stocked())
+
+
+def test_the_storeroom_holds_at_most_its_space():
+    state = logic.new_state()
+    state["cash"] = 1_000_000
+    state = logic.buy(state, "coffee", 100)
+    refused(lambda s: logic.buy(s, "coffee", 1), state)
+    refused(lambda s: logic.buy(s, "coffee", 100), state)

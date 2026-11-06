@@ -36,7 +36,7 @@ CATALOGUE = {
 }
 
 STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
-STORAGE_UNITS = 100  # storeroom space per shop (takes effect with shop-process)
+STORAGE_UNITS = 100  # storeroom space per shop, checked when buying stock
 COUNTER_UNITS = 20  # counter space per shop (limits refills in a shift)
 FIRST_SHOP = "cafe"
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
@@ -162,6 +162,16 @@ def _check_product(state, product):
         raise RejectedAction(f"You do not have {CATALOGUE[product]['name']} yet.")
 
 
+def _check_storeroom_space(state, product, quantity):
+    """The storeroom of the product's shop holds at most SHOPS[shop]["storage"] units."""
+    shop = next(sid for sid in SHOPS if product in shop_product_ids(sid))
+    held = sum(state["stock"][pid] for pid in shop_product_ids(shop))
+    room = SHOPS[shop]["storage"] - held
+    if quantity > room:
+        raise RejectedAction(
+            f"The {SHOPS[shop]['name']} storeroom has room for only {max(room, 0)} more units.")
+
+
 def buy(state, product, quantity):
     """CT02: buy stock. Cash and stock change together, or not at all."""
     _check_product(state, product)
@@ -169,6 +179,7 @@ def buy(state, product, quantity):
         raise RejectedAction("The run is complete. Buying is closed.")
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
         raise RejectedAction("Quantity must be a positive whole number.")
+    _check_storeroom_space(state, product, quantity)
     total = quantity * CATALOGUE[product]["cost"]
     if total > state["cash"]:
         raise RejectedAction(
@@ -373,7 +384,7 @@ def _check_open_shift(state):
 def _check_shift_product(state, shift, product):
     if not isinstance(product, str) or product not in CATALOGUE:
         raise RejectedAction(f"Unknown product '{product}'.")
-    if product not in state["shops"][shift["shop"]]["products"]:
+    if product not in shift["counter"]:  # the products the shift started with
         raise RejectedAction(f"{CATALOGUE[product]['name']} is not sold in this shop.")
 
 
@@ -518,8 +529,10 @@ def move_player(state, zone, x, y):
 
 
 def stock_value(state):
-    """Remaining stock valued at purchase cost (CT R4)."""
-    return sum(state["stock"][pid] * CATALOGUE[pid]["cost"] for pid in owned_products(state))
+    """Remaining stock valued at purchase cost (CT R4), counter units included."""
+    counter = (state.get("shift") or {}).get("counter", {})
+    return sum((state["stock"][pid] + counter.get(pid, 0)) * CATALOGUE[pid]["cost"]
+               for pid in owned_products(state))
 
 
 def stock_overview(state):
