@@ -118,11 +118,12 @@ function renderToolbar() {
   $("#btn-prices").disabled = locked || !!state.shift;
   $("#btn-shops").disabled = locked;
   $("#btn-shift").disabled = locked;
-  $("#btn-shift").querySelector(".txt").textContent = state.shift ? "Shift" : "Play day";
-  $("#btn-open").disabled = locked || !!state.shift;
+  $("#btn-shift").querySelector(".txt").textContent = "Shift";
+  $("#btn-open").disabled = locked;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
-    : state.finished ? "Run complete" : `Open day ${state.day}`;
+    : state.finished ? "Run complete"
+    : state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`;
   $("#btn-fast").hidden = !animating;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
@@ -238,18 +239,42 @@ let shiftTimer = null;
 let shiftBusy = false;
 
 function renderShiftPanel(body) {
-  $("#panel-title").textContent = "Cafe shift";
+  $("#panel-title").textContent = "Shift";
   const sh = state.shift;
   if (!sh) {
     shiftHtml = "";
+    body.innerHTML = `<p class="note">Open the day first. Then start your shift here while the day runs.</p>`;
+    return;
+  }
+  if (!$("#shift-clock")) {
+    body.innerHTML = `<progress id="shift-clock"></progress><div id="shift-body"></div>`;
+    shiftHtml = "";
+  }
+  // the bar shows the shift once it runs (its 90 seconds start with it), else the day
+  const working = sh.shop && !sh.over;
+  $("#shift-clock").max = working ? sh.shift_ticks : sh.day_ticks;
+  $("#shift-clock").value = working ? sh.tick - (sh.shift_end - sh.shift_ticks) : sh.tick;
+  if (sh.over) {
+    const html = `<p class="note">Your shift is over: ${Object.values(sh.sold).reduce((a, b) => a + b, 0)} sold,
+      ${sh.lost} customers left. The day is still running. Skip to its end.</p>`;
+    if (html !== shiftHtml) {
+      $("#shift-body").innerHTML = html;
+      shiftHtml = html;
+    }
+    return;
+  }
+  if (!sh.shop) {
     const cafe = state.shops.find((s) => state.shift_shops.includes(s.id) && s.unlocked);
-    body.innerHTML = `
-      <p class="note">Play day ${state.day} yourself: carry stock from the storeroom to the counter
-        and serve the customers who queue. The day lasts about ${state.shift_day_ticks ?? 90} seconds.
-        Prices are fixed during the shift.</p>
+    const html = `
+      <p class="note">Day ${state.day} is running, nobody is serving. The shift lasts ${sh.shift_ticks}
+        seconds and starts when you press the button. Whoever does not work earns nothing.</p>
       <p class="error" id="shift-error"></p>
       <button class="btn wide" type="button" data-shift-start="${esc(cafe ? cafe.id : "")}"
-        ${cafe && !state.finished ? "" : "disabled"}>Start day ${state.day} in the ${esc(cafe ? cafe.name : "shop")}</button>`;
+        ${cafe ? "" : "disabled"}>Start shift in the ${esc(cafe ? cafe.name : "shop")}</button>`;
+    if (html !== shiftHtml) {
+      $("#shift-body").innerHTML = html;
+      shiftHtml = html;
+    }
     return;
   }
   const shop = state.shops.find((s) => s.id === sh.shop);
@@ -271,11 +296,6 @@ function renderShiftPanel(body) {
   const html = `
     <p class="note">Counter ${sh.counter_size - sh.counter_space} / ${sh.counter_size} · customers who left: ${sh.lost}</p>
     <p class="error" id="shift-error"></p>${rows}`;
-  if (!$("#shift-clock")) {
-    body.innerHTML = `<progress id="shift-clock" max="${sh.day_ticks}"></progress><div id="shift-body"></div>`;
-    shiftHtml = "";
-  }
-  $("#shift-clock").value = sh.tick;
   if (html !== shiftHtml) {
     $("#shift-body").innerHTML = html;
     shiftHtml = html;
@@ -323,7 +343,8 @@ async function shiftAction(path, body) {
       return toast(data.error, "error");
     }
     tellDashboard({ type: "action", after: data.state });
-    if (path.endsWith("/start")) toast(data.message);
+    if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
+    if (path.endsWith("/skip")) showDaySummary(state.history[state.history.length - 1]);
   } finally {
     shiftBusy = false;
   }
@@ -476,21 +497,11 @@ async function playDay(after) {
   }
 }
 
+// Open starts the day clock. The shift is started separately in the Shift panel while the
+// day runs; while it runs this button lets the time pass without any sale.
 async function openDay() {
   if (animating || state.finished) return;
-  closePanel();
-  const data = await send("/api/open", { day: state.day });
-  if (!data) return;
-  if (data.error) {
-    state = data.state;
-    renderAll();
-    return toast(data.error, "error");
-  }
-  tellDashboard({ type: "action", after: data.state });
-  await enqueue(async () => {
-    await playDay(data.state);
-    showDaySummary(state.history[state.history.length - 1]);
-  });
+  return shiftAction(state.shift ? "/api/shift/skip" : "/api/day/open", {});
 }
 
 // The dashboard did something: its own screen already shows the numbers.

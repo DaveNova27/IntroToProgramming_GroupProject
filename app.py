@@ -65,13 +65,17 @@ def shift_view(state):
     for c in shift["queue"]:
         if c["arrives"] <= tick:
             waiting[c["product"]] = waiting.get(c["product"], 0) + 1
+    size = logic.SHOPS[shift["shop"]]["counter"] if shift["shop"] else 0
     return {
         "shop": shift["shop"],
         "tick": tick,
-        "day_ticks": logic.DAY_TICKS,
+        "day_ticks": shift.get("day_end", logic.DAY_TICKS),
+        "shift_end": shift.get("shift_end", logic.DAY_TICKS) if shift["shop"] else None,
+        "shift_ticks": logic.SHIFT_TICKS,
+        "over": bool(shift.get("over")),
         "counter": shift["counter"],
-        "counter_space": logic.SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values()),
-        "counter_size": logic.SHOPS[shift["shop"]]["counter"],
+        "counter_space": size - sum(shift["counter"].values()),
+        "counter_size": size,
         "waiting": waiting,
         "sold": shift["sold"],
         "lost": shift["lost"],
@@ -278,6 +282,14 @@ def day_override():
     return apply(action)
 
 
+@app.post("/api/day/open")
+def day_open():
+    def action(state):
+        return logic.open_day(state), f"Day {state['day']} is open."
+
+    return apply(action)
+
+
 @app.post("/api/shift/start")
 def start_shift():
     body = json_body()
@@ -285,7 +297,7 @@ def start_shift():
     def action(state):
         shop = body.get("shop")
         new_state = logic.start_shift(state, shop)
-        return new_state, f"Day {state['day']} started in the {logic.SHOPS[shop]['name']}."
+        return new_state, f"Shift started in the {logic.SHOPS[shop]['name']}."
 
     return apply(action)
 
@@ -323,6 +335,17 @@ def shift_tick():
             return new_state, ""
         return new_state, (
             f"Day {result['day']} closed: gross profit {logic.fmt(result['gross_profit'])}."
+        )
+
+    return apply(action)
+
+
+@app.post("/api/shift/skip")
+def shift_skip():
+    def action(state):
+        new_state, result = logic.skip_shift(state)
+        return new_state, (
+            f"Day {result['day']} skipped: gross profit {logic.fmt(result['gross_profit'])}."
         )
 
     return apply(action)

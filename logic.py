@@ -60,6 +60,8 @@ WEATHER = {
 }
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
+SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
+OPEN_DAY_TICKS = 300   # how long an opened day lasts (placeholder; the shift is a part of it)
 PATIENCE_TICKS = 15  # a customer leaves this many ticks after arriving
 
 
@@ -444,15 +446,41 @@ def _check_open_shift(state):
     return shift
 
 
+def _shift_running(shift):
+    """True while somebody works: the shift has started and is not over yet."""
+    return shift["shop"] is not None and not shift.get("over")
+
+
 def _check_shift_product(state, shift, product):
+    if shift["shop"] is None:
+        raise RejectedAction("Start your shift in a shop first.")
+    if not _shift_running(shift):
+        raise RejectedAction("Your shift is over. The day is still running.")
     if not isinstance(product, str) or product not in CATALOGUE:
         raise RejectedAction(f"Unknown product '{product}'.")
     if product not in shift["counter"]:  # the products the shift started with
         raise RejectedAction(f"{CATALOGUE[product]['name']} is not sold in this shop.")
 
 
+def open_day(state):
+    """Open the day: the clock starts running. Nobody is serving yet. The player starts a
+    shift in a shop while the day runs (start_shift), or lets the day pass and earns nothing."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. The shop is closed.")
+    if state.get("shift") is not None:
+        raise RejectedAction("The day is already open.")
+    new = copy.deepcopy(state)
+    new["shift"] = {"shop": None, "tick": 0, "counter": {}, "queue": [],
+                    "planned": {}, "sold": {}, "lost": 0,
+                    "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False}
+    return new
+
+
 def start_shift(state, shop):
-    """Start playing the day in a shop. Builds the queue of customers, no randomness."""
+    """Start the shift in a shop. Builds the queue of customers, no randomness.
+
+    Works on the open day (the shift clock and the customers start now, and the whole shift
+    must fit into the rest of the day) or, without an open day, opens both together."""
     if is_finished(state):
         raise RejectedAction("The run is complete. The shop is closed.")
     _check_shop(shop)
@@ -460,24 +488,30 @@ def start_shift(state, shop):
         raise RejectedAction(f"A day cannot be played in the {SHOPS[shop]['name']} yet.")
     if not state["shops"][shop]["unlocked"]:
         raise RejectedAction(f"The {SHOPS[shop]['name']} is not unlocked.")
-    if state.get("shift") is not None:
+    open_shift = state.get("shift")
+    if open_shift is not None and open_shift["shop"] is not None:
         raise RejectedAction("A shift is already running.")
     products = state["shops"][shop]["products"]
+    start = open_shift["tick"] if open_shift else 0  # the shift clock starts now
+    if open_shift and open_shift["day_end"] - start < SHIFT_TICKS:
+        raise RejectedAction("Too late for a shift: the day ends before it could be played.")
     planned, queue = {}, []
     for k, pid in enumerate(products):
         count = customers_for(state["prices"][pid], CATALOGUE[pid]["ref_price"])
         planned[pid] = count
         for j in range(count):
-            arrives = min((j * DAY_TICKS) // count + k, DAY_TICKS - 1)
+            arrives = start + min((j * SHIFT_TICKS) // count + k, SHIFT_TICKS - 1)
             queue.append({"product": pid, "arrives": arrives,
                           "patience_until": arrives + PATIENCE_TICKS})
     queue.sort(key=lambda c: c["arrives"])  # stable: products keep their order per tick
     new = copy.deepcopy(state)
     new["shift"] = {
-        "shop": shop, "tick": 0,
+        "shop": shop, "tick": start,
         "counter": {pid: 0 for pid in products},
         "queue": queue, "planned": planned,
         "sold": {pid: 0 for pid in products}, "lost": 0,
+        "day_end": open_shift["day_end"] if open_shift else DAY_TICKS,
+        "shift_end": start + SHIFT_TICKS, "over": False,
     }
     return new
 
@@ -539,9 +573,34 @@ def tick(state):
         else:
             waiting.append(customer)
     shift["queue"] = waiting
-    if shift["tick"] < DAY_TICKS:
+    if _shift_running(shift) and shift["tick"] >= shift.get("shift_end", DAY_TICKS):
+        _end_shift(new)
+    if shift["tick"] < shift.get("day_end", DAY_TICKS):
         return new, None
     return _close_shift(new)
+
+
+def _end_shift(new):
+    """The shift is over, the day goes on: whoever still waits goes home, the counter is
+    cleared back into the storeroom. What was sold stays booked for the day."""
+    shift = new["shift"]
+    shift["lost"] += len(shift["queue"])
+    shift["queue"] = []
+    for pid in shift["counter"]:
+        new["stock"][pid] += shift["counter"][pid]
+        shift["counter"][pid] = 0
+    shift["over"] = True
+
+
+def skip_shift(state):
+    """Let the rest of the day pass without any sales. Whoever did not work earns nothing.
+
+    Only runs the ticks (the same rule as the clock), so no customer is served."""
+    _check_open_shift(state)
+    result = None
+    while result is None:
+        state, result = tick(state)
+    return state, result
 
 
 def _close_shift(new):

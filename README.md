@@ -76,7 +76,7 @@ animate that answer.
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
-| `shop-process.md` | `shop-process` | A day played live in the Cafe: carry stock from the storeroom to the counter (20 units) and serve a queue of customers, 90 ticks counted by the server. Closes into the history like `trade_day`, which stays as the day without a player. Play day panel on the campus page. Walking in the shop is not wired to it yet. |
+| `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -95,6 +95,7 @@ tracked in the GitHub Issues (label `spec`).
 ## Known issues and ideas
 
 - The shop prices, unlock prices and levels are placeholders to balance. The price logic itself is replaced in `pricing` (#38).
+- The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
 - Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
 - The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.

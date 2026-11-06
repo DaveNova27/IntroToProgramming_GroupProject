@@ -36,8 +36,9 @@ goes up by 1.
 The day has `DAY_TICKS` (90) ticks. The server counts them in the state: one request
 `tick` = exactly one tick. Time is never read from the browser's clock and the browser
 cannot send a number of ticks. The browser calls `tick` about once a second. The tick that
-reaches `DAY_TICKS` closes the shift on the server. Skip key: the existing
-`trade_day` (day without a player). It is refused while a shift is open.
+reaches `DAY_TICKS` closes the shift on the server. Skip key: `skip_shift` lets the
+rest of the day pass with no sale at all (who did not work earns nothing). `trade_day`
+(day without a player, for later staff and the demo) stays and is refused while a shift is open.
 
 ### Customers
 
@@ -54,7 +55,15 @@ changes nothing else here.
 
 ### Actions (all pure functions that return a new state, like `buy`)
 
-- `start_shift(state, shop)`: shop id from `SHOPS`, shop unlocked, no shift open, run not
+- Two clocks: an opened day lasts `OPEN_DAY_TICKS` (300). The shift lasts `SHIFT_TICKS` (90),
+  counted from `start_shift`, one shift per day. When it ends the day goes on (counter back
+  into the storeroom, queue gone home, sales stay booked) until the day ends or is skipped.
+  Without an open day, `start_shift` opens both together and both end after 90 ticks (as before).
+- `open_day(state)`: the day clock starts (`shift` with `shop = None`), nobody is serving.
+  Prices, `trade_day` and a second `open_day` are refused while it runs. If nobody starts a
+  shift, the day passes with no sale.
+- `start_shift(state, shop)`: (on the open day: customers who
+  came and gave up before are lost; without an open day it opens both together) shop id from `SHOPS`, shop unlocked, no shift open, run not
   finished. Builds the queue, counter empty.
 - `refill(state, product, quantity)`: whole number > 0, product belongs to the open
   shift's shop and is owned, storeroom holds it, counter space left. Moves storeroom to
