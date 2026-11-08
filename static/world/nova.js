@@ -87,38 +87,51 @@ function drawGallery(wall, x0, x1) {
   if (x1 > split) drawRaisedSlab(Math.max(x0, split), inner, x1 - Math.max(x0, split), 0.2, GALLERY_Z, 5, WHITE.top, WHITE.east, WHITE.south);
 }
 
+// A wall is cut at the seams between the parts of the building, so that no slice reaches over two
+// parts with different heights: [start, length] pieces along the wall.
+function wallSegments(wall, alongX) {
+  const start = alongX ? wall.x : wall.y;
+  const end = start + (alongX ? wall.w : wall.h);
+  const seams = world.nova.parts
+    .flatMap((p) => (alongX ? [p.x, p.x + p.w] : [p.y, p.y + p.h]))
+    .filter((at) => at > start + 1e-9 && at < end - 1e-9);
+  const cuts = [...new Set([start, ...seams.sort((a, b) => a - b), end])];
+  return cuts.slice(1).map((to, i) => [cuts[i], to - cuts[i]]);
+}
+
 function wallActors() {
   const actors = [];
   const atrium = world.nova.parts.find((part) => part.glassRoof);
   for (const wall of world.nova.walls) {
     const alongX = wall.w >= wall.h;
-    const length = alongX ? wall.w : wall.h;
-    const count = Math.max(1, Math.ceil(length / SLICE));
-    const size = length / count;
     const front = wall.side === "south" || wall.side === "east";
-    for (let i = 0; i < count; i++) {
-      const x = alongX ? wall.x + i * size : wall.x;
-      const y = alongX ? wall.y : wall.y + i * size;
-      const w = alongX ? size : wall.w;
-      const h = alongX ? wall.h : size;
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-      // The front walls sort by their front line (everything inside is behind them). The back walls
-      // sort by their back corner, so that everything standing in the rooms is drawn after them.
-      let depth = cx + wall.y + wall.h + 0.01;
-      if (wall.side === "north") depth = x + wall.y;
-      if (wall.side === "west") depth = wall.x + y;
-      if (wall.side === "east") depth = wall.x + wall.w + cy + 0.01;
-      actors.push({
-        depth,
-        draw: () => {
-          const full = zAt(cx, cy);
-          drawWallSlice(wall, x, y, w, h, front ? RIM + (full - RIM) * scene.roof : full);
-          if (wall.side === "north" && atrium && x < atrium.x + atrium.w && x + w > atrium.x && scene.roof < OPEN_BELOW) {
-            drawGallery(wall, Math.max(x, atrium.x), Math.min(x + w, atrium.x + atrium.w));
-          }
-        },
-      });
+    for (const [from, length] of wallSegments(wall, alongX)) {
+      const count = Math.max(1, Math.ceil(length / SLICE));
+      const size = length / count;
+      for (let i = 0; i < count; i++) {
+        const x = alongX ? from + i * size : wall.x;
+        const y = alongX ? wall.y : from + i * size;
+        const w = alongX ? size : wall.w;
+        const h = alongX ? wall.h : size;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        // The front walls sort by their front line (everything inside is behind them). The back walls
+        // sort by their back corner, so that everything standing in the rooms is drawn after them.
+        let depth = cx + wall.y + wall.h + 0.01;
+        if (wall.side === "north") depth = x + wall.y;
+        if (wall.side === "west") depth = wall.x + y;
+        if (wall.side === "east") depth = wall.x + wall.w + cy + 0.01;
+        actors.push({
+          depth,
+          draw: () => {
+            const full = zAt(cx, cy);
+            drawWallSlice(wall, x, y, w, h, front ? RIM + (full - RIM) * scene.roof : full);
+            if (wall.side === "north" && atrium && x < atrium.x + atrium.w && x + w > atrium.x && scene.roof < OPEN_BELOW) {
+              drawGallery(wall, Math.max(x, atrium.x), Math.min(x + w, atrium.x + atrium.w));
+            }
+          },
+        });
+      }
     }
   }
   return actors;
