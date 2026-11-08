@@ -98,18 +98,26 @@ function drawSandWash() {
 
 // ripples in the sand, a darker wet strip along the water, foam that comes in and goes out
 function drawShore(t) {
-  for (let j = 0; j < 12; j++) {
+  for (let j = 0; j < 16; j++) {
     for (let i = 0; i < 34; i++) {
       if ((i * 3 + j * 5) % 4 === 0) continue; // the ripples are not in a grid
       const x = 1.6 + i * 1.18 + (j % 2) * 0.6;
       const y = 25.9 + j * 0.56 + ((i * 7) % 5) * 0.05;
       line(isoPoint(x, y, 4.8), isoPoint(x + 0.55, y + 0.02, 4.8), "#b79b5c", 0.8, 0.28);
+      // grains: darker and lighter specks, so the sand is not one flat colour
+      const g = isoPoint(x + 0.3 + ((i * 11) % 7) * 0.09, y + 0.28, 4.8);
+      dot(g, 0.8, (i + j) % 3 ? "#c4a766" : "#f3e2b0", 0.5);
     }
   }
   const wet = [];
-  for (let x = -13.5; x <= 58.5; x += 0.9) wet.push(isoPoint(x, 32.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
-  for (let x = 58.5; x >= -13.5; x -= 0.9) wet.push(isoPoint(x, 33.05, 4.7));
+  for (let x = -13.5; x <= 58.5; x += 0.9) wet.push(isoPoint(x, 34.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
+  for (let x = 58.5; x >= -13.5; x -= 0.9) wet.push(isoPoint(x, 35.05, 4.7));
   drawPlane(wet, "rgba(120,98,60,.2)", null);
+  // damp sand above it, darker the nearer the water
+  const damp = [];
+  for (let x = -13.5; x <= 58.5; x += 0.9) damp.push(isoPoint(x, 33.2 + 0.25 * Math.sin(x * 0.5 + 1), 4.65));
+  for (let x = 58.5; x >= -13.5; x -= 0.9) damp.push(isoPoint(x, 34.3, 4.65));
+  drawPlane(damp, "rgba(150,120,70,.1)", null);
   for (let k = 0; k < 3; k++) {
     ctx.save();
     ctx.strokeStyle = "#ffffff";
@@ -118,7 +126,7 @@ function drawShore(t) {
     ctx.beginPath();
     for (let x = -13.5; x <= 58.5; x += 0.5) {
       const swell = 0.16 * Math.sin(x * 0.7 + clock(t) * 0.0018 - k * 0.8) + 0.1 * Math.sin(x * 1.9 + clock(t) * 0.0011);
-      const p = isoPoint(x, 32.92 - k * 0.2 + swell, 4.9);
+      const p = isoPoint(x, 34.92 - k * 0.2 + swell, 4.9);
       if (x === -13.5) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -134,7 +142,7 @@ function drawDuneStrip() {
   for (let x = 41.4; x >= 1.2; x -= 0.8) strip.push(isoPoint(x, 25.35 + 0.18 * Math.sin(x * 0.6), 5.2));
   drawPlane(strip, "rgba(241,222,168,.7)", null);
   for (let x = 1.6; x <= 41; x += 0.37) {
-    const y = 31.35 + 0.35 * Math.sin(x * 0.45) + 0.12 * Math.sin(x * 2.1);
+    const y = 33.35 + 0.35 * Math.sin(x * 0.45) + 0.12 * Math.sin(x * 2.1);
     if ((Math.round(x * 100) % 5) % 2 === 0) continue; // broken: it is not a ruler line
     dot(isoPoint(x, y, 5.1), 0.9, (Math.round(x * 10) % 3) ? "#6f6a45" : "#8a6f43", 0.55);
   }
@@ -184,33 +192,70 @@ function drawBeachDetails() {
   ctx.stroke();
 }
 
-// the boardwalk: planks in two tones with dark gaps, edge beams, nails, a worn middle, steps to the sand
-function drawBoardwalk() {
+// the beach way: pale sandstone pavers on the promenade, then a weathered boardwalk behind the low wall
+// that the sand drifts over: its edges, its end and a few patches along it
+function drawBeachWay() {
   const way = world.beachWay;
-  drawSoftShadow(way.x + way.w / 2, way.y + way.h / 2, way.w * 22, way.h * 20, 0.08);
-  drawGroundSlab(way.x - 0.2, way.y, way.w + 0.4, way.h, "#8b6645", 5);
-  const rows = Math.floor(way.h / 0.4);
+  const kerb = world.beach.kerb;
+  const start = kerb.y + kerb.h; // where the boards begin
+  const end = way.y + way.h;
+  // ---- the paved path: a border, two tones of pavers, a seam every few rows
+  flat(way.x - 0.14, way.y, way.w + 0.28, start - way.y, "#bdb6a2", 4.7);
+  const rows = Math.floor((start - way.y) / 0.75);
   for (let j = 0; j < rows; j++) {
-    const y = way.y + j * 0.4;
-    const tone = (j * 5) % 3 === 0 ? "#b88a58" : j % 2 ? "#c49a62" : "#cfa970";
-    flat(way.x, y, way.w, 0.36, tone, 5.4, "rgba(70,45,22,.35)");
-    // the boards are cut at different places
-    const cut = way.x + ((j * 37) % 23) / 23 * way.w;
-    line(isoPoint(cut, y, 5.6), isoPoint(cut, y + 0.36, 5.6), "rgba(70,45,22,.45)", 0.8);
-    if (j % 2 === 0) {
-      dot(isoPoint(way.x + 0.2, y + 0.18, 5.7), 0.7, "#6b4a2a");
-      dot(isoPoint(way.x + way.w - 0.2, y + 0.18, 5.7), 0.7, "#6b4a2a");
+    for (let i = 0; i < 4; i++) {
+      const w = way.w / 4;
+      flat(way.x + i * w + 0.02, way.y + j * 0.75 + 0.02, w - 0.04, 0.71, (i + j) % 2 ? "#e6dfcd" : "#ddd5c1", 4.9, "rgba(120,110,90,.22)");
     }
   }
-  flat(way.x + way.w / 2 - 0.35, way.y, 0.7, way.h, "rgba(255,244,214,.16)", 5.5);
-  flat(way.x - 0.14, way.y, 0.14, way.h, "#8b6645", 5.8);
-  flat(way.x + way.w, way.y, 0.14, way.h, "#8b6645", 5.8);
-  // steps down to the sand
-  for (let s = 0; s < 3; s++) {
-    flat(way.x + s * 0.18, way.y + way.h + s * 0.2, way.w - s * 0.36, 0.2, ["#a98050", "#97703f", "#86602f"][s], 5.3 - s * 0.3, "rgba(60,40,20,.4)");
+  flat(way.x + way.w / 2 - 0.05, way.y, 0.1, start - way.y, "rgba(100,203,200,.35)", 5);
+  // ---- the boardwalk: grey, sun-bleached boards on beams, low to the ground
+  drawSoftShadow(way.x + way.w / 2, (start + end) / 2, way.w * 20, (end - start) * 17, 0.06);
+  flat(way.x - 0.12, start, way.w + 0.24, end - start, "#6c5d4b", 4.9);
+  const boards = Math.floor((end - start) / 0.4);
+  for (let j = 0; j < boards; j++) {
+    const y = start + j * 0.4;
+    const tone = (j * 5) % 3 === 0 ? "#a99a82" : j % 2 ? "#b8a98f" : "#c4b59a";
+    flat(way.x, y, way.w, 0.36, tone, 5.2, "rgba(60,48,34,.35)");
+    const cut = way.x + (((j * 37) % 23) / 23) * way.w;
+    line(isoPoint(cut, y, 5.4), isoPoint(cut, y + 0.36, 5.4), "rgba(60,48,34,.4)", 0.8);
+    if (j % 2 === 0) {
+      dot(isoPoint(way.x + 0.2, y + 0.18, 5.5), 0.6, "#5a4a37");
+      dot(isoPoint(way.x + way.w - 0.2, y + 0.18, 5.5), 0.6, "#5a4a37");
+    }
   }
+  flat(way.x + way.w / 2 - 0.3, start, 0.6, end - start, "rgba(255,246,222,.14)", 5.3); // the worn middle
+  flat(way.x - 0.1, start, 0.1, end - start, "#7b6b57", 5.5);
+  flat(way.x + way.w, start, 0.1, end - start, "#7b6b57", 5.5);
+  // a threshold plank where the boards meet the paving
+  flat(way.x - 0.12, start - 0.02, way.w + 0.24, 0.12, "#8b7a63", 5.5, "rgba(60,48,34,.4)");
+  // ---- sand over the edges: a wavy tongue on each side, so the way sits in the sand, not on it
+  const sandTone = "rgba(226,201,138,.96)";
+  for (const side of [-1, 1]) {
+    const edge = side < 0 ? way.x : way.x + way.w;
+    const pts = [];
+    for (let y = start + 0.1; y <= end + 0.5; y += 0.35) pts.push(isoPoint(edge + side * (0.45 - 0.2 * Math.sin(y * 1.3 + side) - 0.12 * Math.sin(y * 3.1)), y, 5.9));
+    for (let y = end + 0.5; y >= start + 0.1; y -= 0.35) pts.push(isoPoint(edge + side * 0.9, y, 5.9));
+    drawPlane(pts, sandTone, null);
+  }
+  // wind-blown patches across the boards and a deep drift over the end
+  [[0.2, 2.6, 1.0], [0.9, 5.1, 0.8], [1.8, 7.0, 0.9]].forEach(([dx, dy, size]) => {
+    const y = start + dy;
+    if (y > end - 1.2) return;
+    const cx = way.x + dx + 0.3;
+    const pts = [];
+    for (let a = 0; a < Math.PI * 2; a += 0.5) pts.push(isoPoint(cx + Math.cos(a) * size * 0.7, y + Math.sin(a) * size * 0.28, 5.7));
+    drawPlane(pts, "rgba(226,201,138,.55)", null);
+  });
+  const drift = [];
+  for (let x = way.x - 0.5; x <= way.x + way.w + 0.5; x += 0.25) drift.push(isoPoint(x, end - 1.5 + 0.5 * Math.sin(x * 2.4) + 0.2 * Math.sin(x * 5.7), 5.85));
+  for (let x = way.x + way.w + 0.5; x >= way.x - 0.5; x -= 0.25) drift.push(isoPoint(x, end + 0.6, 5.85));
+  drawPlane(drift, sandTone, null);
+  const fade = [];
+  for (let x = way.x - 0.5; x <= way.x + way.w + 0.5; x += 0.25) fade.push(isoPoint(x, end - 2.3 + 0.4 * Math.sin(x * 1.9), 5.8));
+  for (let x = way.x + way.w + 0.5; x >= way.x - 0.5; x -= 0.25) fade.push(isoPoint(x, end - 1.4 + 0.4 * Math.sin(x * 2.4), 5.8));
+  drawPlane(fade, "rgba(226,201,138,.5)", null);
 }
-
 
 // steps down from the promenade where the low wall is open
 function drawKerbSteps() {
@@ -246,7 +291,7 @@ export function drawBeachGround(t) {
   drawSandWash();
   drawShore(t);
   drawBeachDetails();
-  drawBoardwalk();
+  drawBeachWay();
   for (const shop of world.outdoorShops) {
     const base = shop.id === "surf-shop" ? "#b98b59" : "#c9a878";
     drawDeck(shop.x, shop.y, shop.w, shop.h, base);
@@ -254,7 +299,7 @@ export function drawBeachGround(t) {
   }
   drawKerbSteps();
   drawDormGround();
-  drawSpaceCaption(18.4, 32.5, "Beach", "#8b6645");
+  drawSpaceCaption(18.4, 34.5, "Beach", "#8b6645");
 }
 
 // ---- things that stand ----------------------------------------------------------------------------

@@ -83,7 +83,7 @@ export function drawCoastalMotion(t, environment) {
   ctx.save();
   ctx.lineCap = "round";
   for (let band = 0; band < 11; band++) {
-    const y = 32.55 + band * 0.9,
+    const y = 34.55 + band * 0.9,
       amplitude = 2.2 + Math.min(band, 5) * 0.7 + environment.sea * 2,
       alpha = 0.18 + Math.min(band, 5) * 0.07 - Math.max(0, band - 6) * 0.03;
     ctx.strokeStyle = `rgba(229,251,247,${alpha})`;
@@ -103,7 +103,7 @@ export function drawCoastalMotion(t, environment) {
     ctx.beginPath();
     for (let x = 0; x <= 58; x += 0.3) {
       const phase = x * 0.48 - (reducedMotion ? 0 : t * 0.0015 * (0.8 + environment.sea)) + ribbon * 1.7,
-        p = isoPoint(x, 32.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
+        p = isoPoint(x, 34.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
       if (x === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -111,11 +111,23 @@ export function drawCoastalMotion(t, environment) {
   }
   for (let i = 0; i < 11; i++) {
     const progress = reducedMotion ? i / 11 : (t * 0.000035 * (0.8 + environment.wind) + i / 11) % 1,
-      p = isoPoint(2 + i * 5.1, 32.25 + progress * 3.9, 8);
+      p = isoPoint(2 + i * 5.1, 34.25 + progress * 3.9, 8);
     ctx.fillStyle = `rgba(240,255,250,${0.3 * (1 - progress)})`;
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, 7 + progress * 5, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // sun glitter: short bright dashes that twinkle in turn (fixed places, nothing random)
+  for (let i = 0; i < 60; i++) {
+    const twinkle = reducedMotion ? 0.5 : Math.max(0, Math.sin(t * 0.0026 + i * 1.7)) * Math.max(0, Math.sin(t * 0.0011 + i * 0.6));
+    if (twinkle < 0.05) continue;
+    const p = isoPoint(-8 + ((i * 7.3) % 58), 36 + ((i * 3.7) % 9), 7);
+    ctx.strokeStyle = `rgba(255,255,240,${0.65 * twinkle})`;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 3 - twinkle * 2, p.y);
+    ctx.lineTo(p.x + 3 + twinkle * 2, p.y);
+    ctx.stroke();
   }
   ctx.restore();
 }
