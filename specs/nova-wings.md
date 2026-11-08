@@ -114,32 +114,37 @@ open to the south.
    Mercado first and the Hub as a second PR.
 3. **All entrances on the south side.** The tests of `walk-in` sample an entrance from the south.
    Entrances on another side would need different samples. The Learning Center has none of its own.
-4. **Tests of `walk-in` that this spec changes.** They are in a file of the previous spec, so the
-   change needs an exception that David confirms (as `walk-in` needs one for `world-api`). Four assume
-   one rectangle, one entrance or that every part is joined on all sides (checked against
-   `tests/test_walk_in.py` on 2026-11-08, the Node ones by running them in the browser):
-   - `test_the_places_split_the_whole_floor_between_them`: the floor is the bounding box of all parts,
-     and the areas must fill it. With the wings the box holds the open ground between them.
-   - `test_the_rooms_have_no_dead_corners_for_a_player_to_get_stuck_in`: the same box, one door
-     (`entrances[0]`), and "more than 40 % of the box is free".
-   - `test_the_roof_fades_with_the_real_roofs_module` (Node): it expects `(5, 5)`, "the ground west of
-     the building", to be outside, and it treats the west edge of every part after the first as a seam
-     inside the building. Both are the Learning Center now.
-   - `test_every_desk_is_reached_on_foot_from_outside_through_the_entrance` (Node): it counts only the
-     first entrance as the way in, but from the plaza in front of the Mercado the way to a desk now
-     leads through the Mercado.
-   Recommendation: take the floor of each wing instead of the box, look at all entrances, and move the
-   point and the seam loop; weaken no check. The new checks are in `tests/test_nova_wings.py` and
-   cover the same ground for every wing. Every other test of `walk-in` keeps passing as it is, because
-   the flat lists and the exports of `roofs.js` stay. Until the exception is confirmed the existing
-   tests are left as they are (the same rule as in `walk-in`); the two Python ones then fail, the two
-   Node ones fail on GitHub Actions.
+4. **Tests of `walk-in` that this spec changes.** They are in a file of the previous spec. Four assumed
+   one rectangle, one entrance or that every part is joined on all sides. David confirmed the exception
+   on 2026-11-08 for exactly these four, and they were changed in this PR (nothing else in `tests/`
+   was, apart from what `walk-in` changed):
+   - `test_the_places_split_the_whole_floor_between_them`: was the bounding box of all parts, which
+     holds the open ground between the wings. Now the floor of each wing (the box around its parts
+     without the walls along its edges), and every wing's places must fill it. For the Nova the floor
+     is the same box as before.
+   - `test_the_rooms_have_no_dead_corners_for_a_player_to_get_stuck_in`: was one box and one door
+     (`entrances[0]`). Now for the floor of each wing, from the entrances and openings that lead into
+     it, with the same rule as before (no cut-off spot at all, more than 40 % open).
+   - `test_the_roof_fades_with_the_real_roofs_module` (Node): `(5, 5)` is inside the Learning Center now,
+     so the point for "the ground west of the building" moved to `(1.5, 5)`; the seam loop only
+     takes the parts of the Nova wing as joined parts (the seams between the wings are checked in
+     `tests/test_nova_wings.py`).
+   - `test_every_desk_is_reached_on_foot_from_outside_through_the_entrance` (Node): every entrance
+     counts as the way in, not only the first (from the plaza in front of the Mercado the way to a desk
+     leads through the Mercado). The numbers it asks for (more than 300 checks, more than 20 through
+     an entrance) are unchanged.
+   No assertion was weakened and no threshold was changed in this PR. The `checked > 60` of
+   `test_world_paths.py` came with `walk-in` (69 checks there, 72 here). The new checks are in
+   `tests/test_nova_wings.py` and cover the same ground for every wing. Every other test of `walk-in`
+   keeps passing as it is, because the flat lists and the exports of `roofs.js` stay.
 5. **Order.** After `walk-in` is merged; before `nova-zones`, which then redraws the map around the
    finished building. `nova-zones` no longer decides what becomes of the Learning Center and the
    Mercado.
 6. **Reading `GET /api/world`.** The key `buildings` is gone. `test_the_api_serves_the_whole_world` in
-   `tests/test_world_api.py` reads it; that test is one of the seven `walk-in` already needs an
-   exception for.
+   `tests/test_world_api.py` (already adapted by `walk-in`) still asserts `data["buildings"]`, so it
+   fails with this spec. David's confirmation did not cover it. It needs one more edit, which the
+   owner of the PR has to confirm under the rule in `AGENTS.md` (the spec removes that data on
+   purpose): `data["buildings"]` becomes `data["nova"]["wings"]`, nothing else changes.
 
 ## Out of scope
 
