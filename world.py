@@ -23,7 +23,7 @@ START_ZONE = "campus"
 ZONES = {
     "campus": {
         "id": "campus", "name": "Nova Coast Campus", "sub": "CARCAVELOS OUTDOORS",
-        "width": 90, "height": 30, "minX": 1, "maxX": 41, "minY": 1.0, "maxY": 25.7,
+        "width": 90, "height": 33, "minX": 1, "maxX": 41, "minY": 1.0, "maxY": 27.7,
         "outdoor": True, "spawn": {"x": 21, "y": 18},
     },
 }
@@ -268,7 +268,7 @@ INTERIORS = {
 # Fixed data, the same on every start. The browser draws it and only walks round it.
 
 # the boardwalk from the plaza south to the sand: it has to stay free to walk
-BEACH_WAY = {"id": "beach-way", "label": "Beach Way", "x": 12.4, "y": 17.2, "w": 4.0, "h": 8.2}
+BEACH_WAY = {"id": "beach-way", "label": "Beach Way", "x": 12.4, "y": 17.2, "w": 4.0, "h": 10.2}
 
 # open-air pavilions on the sand. front: the free spot where the shop will be used later.
 SHOPS_OUTDOOR = [
@@ -281,21 +281,21 @@ SHOPS_OUTDOOR = [
 # things on the sand and in the water: positions only, nothing is drawn at random
 BEACH = {
     "loungers": [
-        {"x": 4.4, "y": 24.2, "color": "#ff7458"}, {"x": 6.2, "y": 24.2, "color": "#64cbc8"},
-        {"x": 32.8, "y": 24.2, "color": "#f5c95e"}, {"x": 34.4, "y": 24.2, "color": "#bce65f"},
+        {"x": 4.4, "y": 25.8, "color": "#ff7458"}, {"x": 6.2, "y": 25.8, "color": "#64cbc8"},
+        {"x": 32.8, "y": 25.8, "color": "#f5c95e"}, {"x": 34.4, "y": 25.8, "color": "#bce65f"},
     ],
-    "dunes": [{"x": 2.8, "y": 25.0, "r": 0.7}, {"x": 31.0, "y": 25.2, "r": 0.7}],
-    "volleyball": {"x1": 36.2, "x2": 39.8, "y": 24.4},
-    "tower": {"x": 1.8, "y": 22.0, "w": 1.1, "h": 1.1},
+    "dunes": [{"x": 2.8, "y": 27.0, "r": 0.7}, {"x": 31.0, "y": 27.2, "r": 0.7}],
+    "volleyball": {"x1": 36.2, "x2": 39.8, "y": 26.0},
+    "tower": {"x": 1.8, "y": 24.0, "w": 1.1, "h": 1.1},
     "footprints": [
-        {"x": round(16.9 + 0.62 * i, 2), "y": round(25.0 - 0.25 * (i % 2) - 0.05 * i, 2), "side": i % 2}
+        {"x": round(16.9 + 0.62 * i, 2), "y": round(26.8 - 0.25 * (i % 2) - 0.05 * i, 2), "side": i % 2}
         for i in range(8)
     ],
-    "shells": [[11.6, 25.0], [19.4, 25.1], [23.2, 25.2], [33.0, 25.3]],
-    "driftwood": [{"x": 9.0, "y": 25.2, "length": 1.6}, {"x": 26.5, "y": 25.3, "length": 1.2}],
-    "buoys": [[6.0, 27.4], [15.5, 28.1], [26.0, 27.6], [35.5, 28.2]],
-    "boats": [{"x": 9.5, "y": 28.4, "color": "#ff7458"}, {"x": 31.0, "y": 28.9, "color": "#f5c95e"}],
-    "gulls": [{"x": 12.0, "y": 24.0, "phase": 0.0}, {"x": 28.0, "y": 22.5, "phase": 2.1}, {"x": 20.0, "y": 25.0, "phase": 4.2}],
+    "shells": [[11.6, 27.0], [19.4, 27.1], [23.2, 27.2], [33.0, 27.3], [9.0, 25.4], [27.5, 25.6]],
+    "driftwood": [{"x": 9.0, "y": 27.1, "length": 1.6}, {"x": 26.5, "y": 27.2, "length": 1.2}],
+    "buoys": [[6.0, 29.4], [15.5, 30.1], [26.0, 29.6], [35.5, 30.2]],
+    "boats": [{"x": 9.5, "y": 30.4, "color": "#ff7458"}, {"x": 31.0, "y": 30.9, "color": "#f5c95e"}],
+    "gulls": [{"x": 12.0, "y": 26.0, "phase": 0.0}, {"x": 28.0, "y": 24.0, "phase": 2.1}, {"x": 20.0, "y": 27.0, "phase": 4.2}],
 }
 
 # The Dorm: a small building east of the Hub, entered like a wing of the Nova (same data shape, one
@@ -375,11 +375,11 @@ def _zone_colliders():
     # the arch at the start of the beach way, four lamps along it, two benches at the sand end
     solid.append(_circle("way-arch-west", 12.3, 17.5, 0.15, "Arch post", "prop"))
     solid.append(_circle("way-arch-east", 16.5, 17.5, 0.15, "Arch post", "prop"))
-    for i, y in enumerate((19.4, 22.4)):
+    for i, y in enumerate((19.4, 22.4, 25.4)):
         solid.append(_circle(f"way-lamp-west-{i}", 12.2, y, 0.12, "Lamp", "prop"))
         solid.append(_circle(f"way-lamp-east-{i}", 16.6, y, 0.12, "Lamp", "prop"))
-    solid.append(_rect("way-bench-west", 11.5, 23.5, 0.45, 1.3, "Bench", "prop"))
-    solid.append(_rect("way-bench-east", 17.0, 23.5, 0.45, 1.3, "Bench", "prop"))
+    solid.append(_rect("way-bench-west", 11.5, 25.5, 0.45, 1.3, "Bench", "prop"))
+    solid.append(_rect("way-bench-east", 17.0, 25.5, 0.45, 1.3, "Bench", "prop"))
     # the Surf Shop: counter, board rack, four posts of the awning
     solid.append(_rect("surf-counter", 6.8, 21.2, 3.6, 0.8, "Surf Shop counter", "prop"))
     solid.append(_rect("surf-rack", 5.9, 21.6, 0.5, 1.7, "Board rack", "prop"))

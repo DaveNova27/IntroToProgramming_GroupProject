@@ -98,7 +98,7 @@ function drawSandWash() {
 
 // ripples in the sand, a darker wet strip along the water, foam that comes in and goes out
 function drawShore(t) {
-  for (let j = 0; j < 9; j++) {
+  for (let j = 0; j < 13; j++) {
     for (let i = 0; i < 34; i++) {
       if ((i * 3 + j * 5) % 4 === 0) continue; // the ripples are not in a grid
       const x = 1.6 + i * 1.18 + (j % 2) * 0.6;
@@ -107,8 +107,8 @@ function drawShore(t) {
     }
   }
   const wet = [];
-  for (let x = 1.5; x <= 41.5; x += 0.9) wet.push(isoPoint(x, 25.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
-  for (let x = 41.5; x >= 1.5; x -= 0.9) wet.push(isoPoint(x, 26.05, 4.7));
+  for (let x = 1.5; x <= 41.5; x += 0.9) wet.push(isoPoint(x, 27.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
+  for (let x = 41.5; x >= 1.5; x -= 0.9) wet.push(isoPoint(x, 28.05, 4.7));
   drawPlane(wet, "rgba(120,98,60,.2)", null);
   for (let k = 0; k < 3; k++) {
     ctx.save();
@@ -118,7 +118,7 @@ function drawShore(t) {
     ctx.beginPath();
     for (let x = 1.5; x <= 41.5; x += 0.5) {
       const swell = 0.16 * Math.sin(x * 0.7 + clock(t) * 0.0018 - k * 0.8) + 0.1 * Math.sin(x * 1.9 + clock(t) * 0.0011);
-      const p = isoPoint(x, 25.92 - k * 0.2 + swell, 4.9);
+      const p = isoPoint(x, 27.92 - k * 0.2 + swell, 4.9);
       if (x === 1.5) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -217,7 +217,7 @@ export function drawBeachGround(t) {
     drawSoftShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w * 22, shop.h * 18, 0.1);
   }
   drawDormGround();
-  drawSpaceCaption(18.4, 25.5, "Beach", "#8b6645");
+  drawSpaceCaption(18.4, 27.5, "Beach", "#8b6645");
 }
 
 // ---- things that stand ----------------------------------------------------------------------------
@@ -641,8 +641,8 @@ export function beachActors(t) {
     if (c.id.startsWith("way-lamp")) add(c.x + c.y + 0.05, () => drawLamp(c.x, c.y, amount));
   }
   add(14.4 + 17.5 + 0.2, () => drawArch(amount));
-  add(11.5 + 23.5 + 1.3, () => drawCampusBench(11.5, 23.5, 1));
-  add(17.0 + 23.5 + 1.3, () => drawCampusBench(17.0, 23.5, 1));
+  add(11.5 + 25.5 + 1.3, () => drawCampusBench(11.5, 25.5, 1));
+  add(17.0 + 25.5 + 1.3, () => drawCampusBench(17.0, 25.5, 1));
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {

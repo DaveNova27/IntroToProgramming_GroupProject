@@ -48,7 +48,7 @@ export function drawTerrain(t) {
     let color = zone.floor || "#79aa67",
       depth = 4;
     if (zone.outdoor) {
-      if (y >= 26) {
+      if (y >= 28) {
         color = x % 5 === 0 ? "#448fa0" : "#3f899b";
         depth = 0;
       } else if (y >= 20) color = x % 4 === 0 ? "#e4c986" : "#dec27e";
@@ -57,7 +57,7 @@ export function drawTerrain(t) {
       else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
     } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
     drawTile(x, y, color, depth);
-    if (zone.outdoor && y === 25) {
+    if (zone.outdoor && y === 27) {
       const p = isoPoint(x + 0.5, y + 0.5, 5);
       ctx.strokeStyle = "rgba(255,255,255,.55)";
       ctx.lineWidth = 2;
