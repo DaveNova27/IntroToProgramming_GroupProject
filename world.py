@@ -80,6 +80,9 @@ SPACES = {
     "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 28.2, "y": 27.4},
     "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 8.6, "y": 27.55},
     "beachWay": {"id": "beachWay", "name": "Beach Way", "x": 14.4, "y": 21.0},
+    "fireside": {"id": "fireside", "name": "Fire Pit", "x": 22.8, "y": 30.9},
+    "shore": {"id": "shore", "name": "Shore", "x": 19.0, "y": 34.0},
+    "court": {"id": "court", "name": "Volleyball Court", "x": 38.0, "y": 33.2},
     "dorm": {"id": "dorm", "name": "Dorm", "x": 38.0, "y": 13.9},
     "lawn": {"id": "lawn", "name": "Student Lawn", "x": 35.5, "y": 19.9},
     "promenade": {"id": "promenade", "name": "Beach Promenade", "x": 30.5, "y": 22.15},
@@ -301,15 +304,16 @@ BEACH = {
     "iceCart": {"x": 33.4, "y": 21.9, "w": 1.5, "h": 0.9},
     "grassLine": {"y": 24.75, "from": 1.4, "to": 41.0, "gaps": [[11.6, 17.4], [24.8, 32.4]]},
     "volleyball": {"x1": 36.2, "x2": 39.8, "y": 30.2},
-    "tower": {"x": 1.8, "y": 31.0, "w": 1.1, "h": 1.1},
+    "tower": {"x": 1.5, "y": 30.3, "w": 1.6, "h": 1.6},
+    "rescueBoat": {"x": 1.6, "y": 32.6, "w": 1.8, "h": 0.95},
     "flags": [{"x": 4.2, "y": 30.2, "color": "#e24d3f"}, {"x": 5.1, "y": 30.4, "color": "#f5c95e"}],
     # flat on the sand, nobody is blocked by them: x, y, width, depth, colour, stripe colour
     "towels": [
-        {"x": 8.6, "y": 31.6, "w": 0.9, "h": 1.7, "color": "#ff7458", "stripe": "#ffffff"},
+        {"x": 8.6, "y": 31.6, "occupied": True, "w": 0.9, "h": 1.7, "color": "#ff7458", "stripe": "#ffffff"},
         {"x": 10.2, "y": 32.3, "w": 0.9, "h": 1.7, "color": "#64cbc8", "stripe": "#f5c95e"},
-        {"x": 19.4, "y": 30.6, "w": 0.9, "h": 1.7, "color": "#f5c95e", "stripe": "#ff7458"},
+        {"x": 19.4, "y": 30.6, "occupied": True, "w": 0.9, "h": 1.7, "color": "#f5c95e", "stripe": "#ff7458"},
         {"x": 21.2, "y": 31.6, "w": 0.9, "h": 1.7, "color": "#9a7bc1", "stripe": "#ffffff"},
-        {"x": 26.8, "y": 32.4, "w": 0.9, "h": 1.7, "color": "#bce65f", "stripe": "#31545b"},
+        {"x": 26.8, "y": 32.4, "occupied": True, "w": 0.9, "h": 1.7, "color": "#bce65f", "stripe": "#31545b"},
         {"x": 30.0, "y": 30.8, "w": 0.9, "h": 1.7, "color": "#ff7458", "stripe": "#64cbc8"},
     ],
     # beach umbrellas that stand alone: the post blocks, the canopy does not
@@ -337,6 +341,23 @@ BEACH = {
         {"x": 38.7, "y": 35.3, "r": 0.26, "block": False},
     ],
     "shower": {"x": 17.7, "y": 31.0},
+    # people on the beach (drawing only): who sits at the fire, who plays volleyball, a dog on the shore
+    "fireside": [[21.15, 29.2, 1, 0], [24.45, 29.2, -1, 0], [22.2, 27.55, 0, 1]],
+    "players": [
+        {"x": 37.2, "y": 29.0, "team": 0, "phase": 0.0}, {"x": 39.0, "y": 28.7, "team": 0, "phase": 2.0},
+        {"x": 37.9, "y": 31.5, "team": 1, "phase": 1.0}, {"x": 36.7, "y": 31.9, "team": 1, "phase": 3.0},
+    ],
+    "dog": {"x0": 6.0, "x1": 19.0, "y": 33.9},
+    "surfers": [
+        {"x0": 9.0, "x1": 22.0, "y": 37.6, "phase": 0.0, "color": "#ff7458"},
+        {"x0": 24.0, "x1": 37.0, "y": 38.6, "phase": 0.55, "color": "#64cbc8"},
+    ],
+    "paddlers": [{"x": 15.5, "y": 41.0, "phase": 0.0}, {"x": 31.0, "y": 42.2, "phase": 1.6}],
+    # flat rock shelves at both ends of the bay, with tide pools; a lighthouse on the east one
+    "rockShelves": [{"x": 1.2, "y": 35.0, "w": 3.6, "h": 1.6}, {"x": 38.2, "y": 35.2, "w": 3.8, "h": 2.8}],
+    "pools": [[2.0, 35.7], [3.5, 36.1], [39.3, 36.2], [40.6, 36.9]],
+    "crabs": [[2.7, 35.8], [39.9, 36.0]],
+    "lighthouse": {"x": 40.6, "y": 36.9},
     "kites": [{"x": 22.4, "y": 31.0, "color": "#ff7458", "phase": 0.0}, {"x": 31.6, "y": 31.6, "color": "#64cbc8", "phase": 2.4}],
     "swimmers": [{"x": 7.5, "y": 36.8, "phase": 0.0}, {"x": 21.5, "y": 37.6, "phase": 1.7}, {"x": 30.4, "y": 36.4, "phase": 3.1}],
     "footprints": [
@@ -489,6 +510,11 @@ def _zone_colliders():
     solid.append(_circle("net-post-east", net["x2"], net["y"], 0.12, "Net post", "prop"))
     tower = BEACH["tower"]
     solid.append(_rect("lifeguard-tower", tower["x"], tower["y"], tower["w"], tower["h"], "Lifeguard tower", "prop"))
+    solid.append(_rect("tower-stairs", tower["x"] + tower["w"], tower["y"], 0.5, tower["h"], "Stairs", "prop"))
+    boat = BEACH["rescueBoat"]
+    solid.append(_rect("rescue-boat", boat["x"], boat["y"], boat["w"], boat["h"], "Rescue boat", "prop"))
+    for i, towel in enumerate(t for t in BEACH["towels"] if t.get("occupied")):
+        solid.append(_rect(f"sunbather-{i}", towel["x"] + 0.05, towel["y"] + 0.05, towel["w"] - 0.1, towel["h"] - 0.1, "Sunbather", "prop"))
     # the Dorm: walls, furniture, and what stands at its door
     solid += [_rect(w["id"], w["x"], w["y"], w["w"], w["h"], "Wall", "wall") for w in DORM["walls"]]
     for item in DORM["interior"]["solid"]:

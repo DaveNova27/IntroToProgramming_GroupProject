@@ -117,6 +117,26 @@ export function drawCoastalMotion(t, environment) {
     ctx.ellipse(p.x, p.y, 7 + progress * 5, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  // wave sets rolling in: a crest that rises, turns white and breaks on the shore, a shaded face behind it
+  for (let k = 0; k < 6; k++) {
+    const progress = reducedMotion ? k / 6 : (t * 0.000052 * (0.75 + environment.sea) + k / 6) % 1;
+    const y = 43 - progress * 8.2; // far to the shore (the sea starts at y 35)
+    const rise = Math.sin(Math.min(1, progress * 1.15) * Math.PI);
+    ctx.lineCap = "round";
+    for (const [dy, alpha, width, color] of [[0.42, 0.1 + 0.1 * progress, 5 + progress * 5, "20,70,90"], [0, 0.18 + 0.55 * progress * progress, 1.3 + progress * 2.8, "255,255,255"]]) {
+      ctx.strokeStyle = `rgba(${color},${alpha})`;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      for (let x = -14; x <= 58; x += 0.4) {
+        const yy = y + dy + 0.28 * Math.sin(x * 0.42 + k * 2.3) + 0.12 * Math.sin(x * 1.3 + k);
+        const lift = 4 + 9 * rise * (0.7 + 0.3 * Math.sin(x * 0.33 + k * 1.7));
+        const p = isoPoint(x, yy, lift);
+        if (x === -14) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+  }
   // the sun's path on the water at sunset: orange dashes in a column, brighter the lower the sun
   const dusk = Math.max(0, Math.min(1, (lightingProfile(scene.clock).progress - 0.5) / 0.4));
   if (dusk > 0.02) {
