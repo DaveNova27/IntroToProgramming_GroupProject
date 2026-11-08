@@ -17,10 +17,10 @@ the beach way to the sea.
 | Place | What it is | New? |
 |---|---|---|
 | **Dorm** | a small student residence east of the Hub that can be **walked into**: one room with a bed. The place where a day starts and ends (the function is in its own section). | yes |
-| **Beach way** | a boardwalk from the plaza in front of the Nova south to the promenade and the sand, lined with lamps, planters, benches and signs | yes |
-| **Surf Shop** | an open-air pavilion on the beach way, west side: counter, awning, a rack of boards, a wetsuit rail | yes |
-| **Beach Cafe** | an open-air pavilion on the beach, east side: bar, awning, tables with parasols, string lights (replaces the Food Court) | yes |
-| **Beach** | sand with ripples and footprints, the promenade, loungers, dunes with grass, a shoreline with foam, the sea | changed a lot |
+| **Beach way** | a 4 tile wide boardwalk from the plaza in front of the Nova south to the sand, with an arch at its start, a few lamps and two benches at the sand end (kept sparse on purpose) | yes |
+| **Surf Shop** | an open-air pavilion on the sand, west of the way: counter, awning, a rack of boards, a wetsuit rail | yes |
+| **Beach Cafe** | an open-air pavilion on the sand, east of the stage: bar, awning, tables with parasols, string lights (replaces the Food Court) | yes |
+| **Beach** | a deeper strip of sand (from y 20, the old promenade and Event Square paving are gone) with ripples, footprints, a few loungers, dunes, a volleyball court, a lifeguard tower, a shoreline with foam, the sea | changed a lot |
 | **Plaza and courtyard** | the ground in front of the Nova, kept | no |
 
 The map **keeps its size**: `ZONES["campus"]` (ground 90 × 30, the walkable area, the spawn) does not
@@ -202,3 +202,7 @@ same request as the Open button, and the server decides as before (a request on 
 already opened day is refused and changes nothing). The new data is fixed on the server and only read
 by the browser. Names and labels are shown through `textContent`; no external asset and no
 `innerHTML` with data.
+
+## Built differently from the first draft
+
+After Felix saw the first build ("too crammed") the beach was thinned and widened: the sand now starts at y 20, the promenade, the Event Square paving and the signposts are gone, the beach way is 4 tiles wide with four lamps, the shops moved from the paving onto the sand, there are four loungers instead of seven, and the Student Lawn is shorter so that it no longer reaches the sand. The numbers in this spec that name a position are the ones in `world.py`.

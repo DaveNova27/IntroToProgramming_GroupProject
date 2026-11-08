@@ -242,7 +242,7 @@ def test_the_dorm_entrance_the_bed_and_the_spawn_are_free_for_a_real_sized_playe
 def test_the_beach_way_is_at_least_three_tiles_wide_and_free_to_walk():
     way = world.BEACH_WAY
     assert way["w"] >= 3
-    inner = [way["x"] + 0.4 + i * 0.2 for i in range(int((way["w"] - 0.8) / 0.2) + 1)]
+    inner = [way["x"] + 0.5 + i * 0.2 for i in range(int((way["w"] - 1.0) / 0.2) + 1)]
     y = way["y"]
     while y <= way["y"] + way["h"]:
         for x in inner:

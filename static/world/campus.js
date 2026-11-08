@@ -51,7 +51,7 @@ export function drawTerrain(t) {
       if (y >= 26) {
         color = x % 5 === 0 ? "#448fa0" : "#3f899b";
         depth = 0;
-      } else if (y >= 23) color = x % 4 === 0 ? "#e4c986" : "#dec27e";
+      } else if (y >= 20) color = x % 4 === 0 ? "#e4c986" : "#dec27e";
       else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18)
         color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
       else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
@@ -247,12 +247,12 @@ export function drawServiceLane() {
 }
 
 export function drawStudentLawn() {
-  drawGroundSlab(32.35, 17.15, 6.8, 5.1, "#83a774", 3);
+  drawGroundSlab(32.35, 17.15, 6.8, 2.7, "#83a774", 3);
   const patches = [
     [33.2, 18.2, "#e5c86f"],
-    [35.2, 20.4, "#ed7458"],
+    [35.2, 18.9, "#ed7458"],
     [37.25, 18.75, "#d8e8d0"],
-    [33.8, 21.25, "#64cbc8"],
+    [33.8, 19.0, "#64cbc8"],
   ];
   patches.forEach(([x, y, color], index) => {
     const p = isoPoint(x, y, 5);
@@ -268,57 +268,8 @@ export function drawStudentLawn() {
     ctx.globalAlpha = 1;
     if (index < 2) drawCampusBench(x + 0.35, y - 0.2, index);
   });
-  drawLinearPlanter(38.4, 17.55, 0.48, 4.15, 13);
-  drawSpaceCaption(32.75, 22.05, "Student Lawn", "#456549");
-}
-
-export function drawBeachPromenade(t) {
-  drawGroundSlab(2.1, 21.62, 37.2, 1.38, "#c2b39a", 5);
-  for (let x = 2.4; x < 39; x += 1.1) {
-    const a = isoPoint(x, 21.72, 7),
-      b = isoPoint(x, 22.88, 7);
-    ctx.strokeStyle = "rgba(91,72,53,.18)";
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-  for (let x = 5; x < 39; x += 5.4) {
-    const base = isoPoint(x, 22.15, 7),
-      top = isoPoint(x, 22.15, 35);
-    ctx.strokeStyle = "#31545b";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(base.x, base.y);
-    ctx.lineTo(top.x, top.y);
-    ctx.stroke();
-    ctx.fillStyle = "#f5c95e";
-    ctx.beginPath();
-    ctx.arc(top.x, top.y, 3 + Math.sin(t * 0.002 + x) * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  for (let x = 7.7, index = 0; x < 38; x += 7.6, index++)
-    drawWindFlag(x, 21.9, 48, index % 2 ? "#64cbc8" : "#ed7458", t + index * 190, environment, 0.58);
-  drawSpaceCaption(31.5, 22.8, "Beach Promenade", "#6d5944");
-}
-
-export function drawEventSquare() {
-  drawPavingInlay(17.05, 19.55, 7, 4.15, "#d9d2c4", 0.95);
-  const center = isoPoint(20.55, 21.45, 7);
-  ctx.save();
-  ctx.translate(center.x, center.y);
-  ctx.scale(1, 0.5);
-  for (let ring = 0; ring < 3; ring++) {
-    ctx.strokeStyle = ring === 1 ? WORLD_MATERIALS.coral : "rgba(49,84,91,.28)";
-    ctx.lineWidth = ring === 1 ? 2 : 1;
-    ctx.beginPath();
-    ctx.arc(0, 0, 28 + ring * 14, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.restore();
-  drawSpaceCaption(17.35, 23.3, "Event Square", WORLD_MATERIALS.coral);
+  drawLinearPlanter(38.4, 17.55, 0.48, 2.1, 13);
+  drawSpaceCaption(32.75, 19.75, "Student Lawn", "#456549");
 }
 
 export function drawCampusGroundPlan(t) {
@@ -329,8 +280,6 @@ export function drawCampusGroundPlan(t) {
   drawCafeTerrace();
   drawServiceLane();
   drawStudentLawn();
-  drawBeachPromenade(t);
-  drawEventSquare();
   drawBladeSign(8.6, 16.15, 32, "NOVA", WORLD_MATERIALS.coral);
   drawBladeSign(33.2, 16.15, 32, "COAST", WORLD_MATERIALS.lime);
   const routeA = isoPoint(7.2, 15.25, 8),

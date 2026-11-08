@@ -9,7 +9,6 @@ import { drawCampusBench } from "./campus.js";
 import { drawWindFlag, environmentalProfile, lightingProfile } from "./environment.js";
 import {
   drawBlock,
-  drawBladeSign,
   drawFacadeBandY,
   drawGroundSlab,
   drawPlane,
@@ -92,17 +91,18 @@ const flat = (x, y, w, h, fill, z = 5, stroke = null) =>
 // sand drifting over the paving in front of the beach, with a wavy edge
 function drawSandWash() {
   const points = [];
-  for (let x = 2.2; x <= 39.2; x += 0.9) points.push(isoPoint(x, 21.35 - 0.32 * Math.sin(x * 0.9) - 0.12 * Math.sin(x * 2.3), 4.6));
-  for (let x = 39.2; x >= 2.2; x -= 0.9) points.push(isoPoint(x, 21.7, 4.6));
+  for (let x = 1.2; x <= 41.4; x += 0.9) points.push(isoPoint(x, 19.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
+  for (let x = 41.4; x >= 1.2; x -= 0.9) points.push(isoPoint(x, 20.3, 4.6));
   drawPlane(points, "rgba(222,194,126,.62)", null);
 }
 
 // ripples in the sand, a darker wet strip along the water, foam that comes in and goes out
 function drawShore(t) {
-  for (let j = 0; j < 4; j++) {
+  for (let j = 0; j < 9; j++) {
     for (let i = 0; i < 34; i++) {
-      const x = 2.6 + i * 1.12 + (j % 2) * 0.55;
-      const y = 23.55 + j * 0.62 + ((i * 7) % 5) * 0.04;
+      if ((i * 3 + j * 5) % 4 === 0) continue; // the ripples are not in a grid
+      const x = 1.6 + i * 1.18 + (j % 2) * 0.6;
+      const y = 20.9 + j * 0.56 + ((i * 7) % 5) * 0.05;
       line(isoPoint(x, y, 4.8), isoPoint(x + 0.55, y + 0.02, 4.8), "#b79b5c", 0.8, 0.28);
     }
   }
@@ -217,7 +217,7 @@ export function drawBeachGround(t) {
     drawSoftShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w * 22, shop.h * 18, 0.1);
   }
   drawDormGround();
-  drawSpaceCaption(23.2, 25.45, "Beach", "#8b6645");
+  drawSpaceCaption(18.4, 25.5, "Beach", "#8b6645");
 }
 
 // ---- things that stand ----------------------------------------------------------------------------
@@ -312,13 +312,13 @@ function drawSurfShop(shop, amount) {
   ["#ff7458", "#64cbc8", "#f5c95e", "#bce65f", "#9a7bc1", "#ffffff"].forEach((color, i) => {
     drawSurfboard(rack.x + 0.2, rack.y + 0.2 + i * 0.27, 44 + (i % 3) * 5, color, -0.25);
   });
-  const railTop = isoPoint(12.45, 19.2, 52);
-  const railEnd = isoPoint(12.45, 20.5, 52);
+  const railTop = isoPoint(11.15, 21.5, 52);
+  const railEnd = isoPoint(11.15, 22.8, 52);
   line(railTop, railEnd, "#31545b", 2);
-  line(isoPoint(12.45, 19.2, 5), railTop, "#31545b", 2);
-  line(isoPoint(12.45, 20.5, 5), railEnd, "#31545b", 2);
+  line(isoPoint(11.15, 21.5, 5), railTop, "#31545b", 2);
+  line(isoPoint(11.15, 22.8, 5), railEnd, "#31545b", 2);
   ["#2f4d5a", "#ff7458", "#64cbc8"].forEach((color, i) => {
-    const p = isoPoint(12.45, 19.4 + i * 0.42, 52);
+    const p = isoPoint(11.15, 21.7 + i * 0.42, 52);
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(p.x - 4, p.y);
@@ -403,13 +403,13 @@ function drawBeachCafe(shop, t, amount) {
   drawBlock(cooler.x, cooler.y, cooler.width, cooler.height, 16, "#e9f4f2", dark("#64cbc8", 0.3), "#64cbc8");
   drawRaisedSlab(cooler.x - 0.02, cooler.y - 0.02, cooler.width + 0.04, cooler.height + 0.04, 19, 3, "#ffffff", "#b9c8c6", "#d4e0de");
   // stools in front of the bar
-  for (const x of [25.7, 26.5, 28.9, 29.7]) {
-    const p = isoPoint(x, 19.75, 16);
-    line(isoPoint(x, 19.75, 5), p, "#31545b", 2);
+  for (const x of [26.4, 27.2, 29.2, 30.0]) {
+    const p = isoPoint(x, 22.2, 16);
+    line(isoPoint(x, 22.2, 5), p, "#31545b", 2);
     oval(p, 5, 2.5, CORAL);
   }
   // the menu board under the awning
-  const m = isoPoint(27.3, 18.42, 54);
+  const m = isoPoint(28.1, 21.02, 54);
   roundedRectAt({ x: m.x, y: m.y - 8 }, 30, 18, "#22343a");
   ctx.fillStyle = "#e9f2ee";
   ctx.textAlign = "center";
@@ -640,37 +640,35 @@ export function beachActors(t) {
   for (const c of solid) {
     if (c.id.startsWith("way-lamp")) add(c.x + c.y + 0.05, () => drawLamp(c.x, c.y, amount));
   }
-  add(15.1 + 17.5 + 0.2, () => drawArch(amount));
-  add(13.3 + 19.5 + 1.3, () => drawCampusBench(12.7, 22.0, 1));
-  add(17.4 + 19.2 + 1.3, () => drawCampusBench(17.15, 19.2, 1));
-  add(12.9 + 17.2, () => drawBladeSign(12.9, 17.15, 36, "SURF", AQUA));
-  add(17.3 + 17.2, () => drawBladeSign(17.3, 17.15, 36, "CAFE", CORAL));
+  add(14.4 + 17.5 + 0.2, () => drawArch(amount));
+  add(11.5 + 23.5 + 1.3, () => drawCampusBench(11.5, 23.5, 1));
+  add(17.0 + 23.5 + 1.3, () => drawCampusBench(17.0, 23.5, 1));
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
       add(shop.x + shop.y + 1.0, () => drawSurfShop(shop, amount));
       for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y));
-      add(shop.x + shop.y + 0.4, () => drawAwning(7.9, 18.7, 4.6, 2.2, 66, "#2e8b8f", amount));
+      add(shop.x + shop.y + 0.4, () => drawAwning(6.5, 21.0, 4.4, 2.2, 66, "#2e8b8f", amount));
       add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 96, "SURF SHOP", AQUA));
     } else {
       add(shop.x + shop.y + 1.0, () => drawBeachCafe(shop, t, amount));
       for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, 68));
-      add(shop.x + shop.y + 0.4, () => drawAwning(24.7, 18.2, 5.8, 1.9, 68, CORAL, amount));
+      add(shop.x + shop.y + 0.4, () => drawAwning(25.3, 20.8, 5.8, 1.9, 68, CORAL, amount));
       add(shop.x + shop.y + 0.45, () => drawStringLights(t, amount));
       add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2 - 0.4, shop.y + 0.4, 98, "BEACH CAFE", CORAL));
       solid.filter((c) => c.id.startsWith("beach-table")).forEach((c, i) => {
         add(c.x + c.y + 0.1, () => drawBeachTable(c.x, c.y, i));
         add(c.x + c.y + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
       });
-      glowAt(add, 27.6, 19.9, amount);
+      glowAt(add, 28.2, 22.4, amount);
     }
   }
   world.beach.loungers.forEach((l, i) => add(l.x + l.y + 1.5, () => drawLounger(l, i)));
   world.beach.loungers.forEach((l, i) => {
-    if (i % 2 === 0) add(l.x + l.y + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
+    if (i % 2 === 1) add(l.x + l.y + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
   });
   world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
-  add(36 + 24.6 + 0.2, () => drawVolleyNet(t));
+  add(world.beach.volleyball.x1 + world.beach.volleyball.y + 0.2, () => drawVolleyNet(t));
   add(world.beach.tower.x + world.beach.tower.y + 1.2, () => drawLifeguardTower(t));
   world.beach.buoys.forEach(([x, y], i) => add(x + y, () => drawBuoy(x, y, t, i)));
   world.beach.boats.forEach((b, i) => add(b.x + b.y, () => drawBoat(b, t, i)));
