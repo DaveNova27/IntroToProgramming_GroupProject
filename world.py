@@ -1,8 +1,11 @@
-"""The campus as data: zones, doors, solid objects and room layouts.
+"""The campus as data: the zone, the Nova building, solid objects and the room layout.
 
 No rules, no database and no drawing in this file. The browser reads all of it
 from GET /api/world and only draws it. logic.py uses the zones to check where the
 player may stand.
+
+There is one zone, the campus. The Nova is a building on it: the player walks in
+through its entrance and the browser fades the roof out (spec walk-in).
 
 Units are map tiles, not money, so plain numbers are fine here.
 The layout comes from Felix Antes' project Nova Beach Ventures
@@ -14,70 +17,33 @@ START_ZONE = "campus"
 
 # ---- zones -----------------------------------------------------------------------
 # width/height: size of the drawn ground. minX..maxY: where a person may walk.
+# minY reaches up to the north wall of the Nova (the ground behind it is fenced off).
 
 ZONES = {
     "campus": {
         "id": "campus", "name": "Nova Coast Campus", "sub": "CARCAVELOS OUTDOORS",
-        "width": 90, "height": 30, "minX": 1, "maxX": 41, "minY": 7.5, "maxY": 25.7,
+        "width": 90, "height": 30, "minX": 1, "maxX": 41, "minY": 1.0, "maxY": 25.7,
         "outdoor": True, "spawn": {"x": 21, "y": 18},
-    },
-    "mercado": {
-        "id": "mercado", "name": "Mercado Supply Hall", "sub": "SUPPLY INTERIOR",
-        "width": 15, "height": 12, "minX": 1.2, "maxX": 13.8, "minY": 1.2, "maxY": 10.3,
-        "outdoor": False, "spawn": {"x": 7.5, "y": 8.8}, "floor": "#d8c79f", "accent": "#f5c95e",
-    },
-    "academy": {
-        "id": "academy", "name": "Academic Wing", "sub": "COURTYARD INTERIOR",
-        "width": 15, "height": 12, "minX": 1.2, "maxX": 13.8, "minY": 1.2, "maxY": 10.3,
-        "outdoor": False, "spawn": {"x": 7.5, "y": 8.8}, "floor": "#d7dad3", "accent": "#ff7b5b",
-    },
-    "hub": {
-        "id": "hub", "name": "Student Hub", "sub": "STUDENT INTERIOR",
-        "width": 15, "height": 12, "minX": 1.2, "maxX": 13.8, "minY": 1.2, "maxY": 10.3,
-        "outdoor": False, "spawn": {"x": 7.5, "y": 8.8}, "floor": "#cddbd5", "accent": "#64cbc8",
     },
 }
 
 
 # ---- places the player can use with E or a click ---------------------------------
-# kind "door" changes the zone. kind "panel" opens a screen in the browser ("action").
+# kind "panel" opens a screen in the browser ("action"). The three desks stand in the
+# atrium of the Nova. There are no doors: the Nova is entered by walking in.
 
 LOCATIONS = {
-    "marketDoor": {
-        "zone": "campus", "x": 7, "y": 15.2, "kind": "door", "label": "Enter Mercado Supply Hall",
-        "targetZone": "mercado", "color": "#f5c95e", "title": "MERCADO", "sub": "ENTER",
-    },
-    "academyDoor": {
-        "zone": "campus", "x": 20, "y": 12.2, "kind": "door", "label": "Enter the Academic Wing",
-        "targetZone": "academy", "color": "#ff7b5b", "title": "ACADEMIC WING", "sub": "ENTER",
-    },
-    "hubDoor": {
-        "zone": "campus", "x": 34.5, "y": 14.2, "kind": "door", "label": "Enter the Student Hub",
-        "targetZone": "hub", "color": "#64cbc8", "title": "STUDENT HUB", "sub": "ENTER",
-    },
     "supplier": {
-        "zone": "mercado", "x": 7.5, "y": 4.2, "kind": "panel", "action": "stock", "label": "Order stock",
+        "zone": "campus", "x": 20.7, "y": 4.1, "kind": "panel", "action": "stock", "label": "Order stock",
         "color": "#f5c95e", "title": "SUPPLY DESK", "sub": "ORDER DESK",
     },
-    "marketExit": {
-        "zone": "mercado", "x": 7.5, "y": 9.8, "kind": "door", "label": "Back outside",
-        "targetZone": "campus", "spawn": {"x": 7, "y": 16.8}, "color": "#f5c95e", "title": "CAMPUS", "sub": "EXIT",
-    },
     "stand": {
-        "zone": "academy", "x": 7.25, "y": 3.72, "kind": "panel", "action": "prices", "label": "Set your prices",
-        "color": "#ff7b5b", "title": "SNACK STAND", "sub": "SNACK STAND",
-    },
-    "academyExit": {
-        "zone": "academy", "x": 7.5, "y": 9.8, "kind": "door", "label": "Back outside",
-        "targetZone": "campus", "spawn": {"x": 20, "y": 13.8}, "color": "#ff7b5b", "title": "CAMPUS", "sub": "EXIT",
+        "zone": "campus", "x": 15.4, "y": 4.4, "kind": "panel", "action": "prices", "label": "Set your prices",
+        "color": "#ff7b5b", "title": "CAFE COUNTER", "sub": "CAFE",
     },
     "board": {
-        "zone": "hub", "x": 10.5, "y": 5.2, "kind": "panel", "action": "dashboard", "label": "Open the dashboard",
-        "color": "#67b7d1", "title": "VENTURE BOARD", "sub": "RESULTS",
-    },
-    "hubExit": {
-        "zone": "hub", "x": 7.5, "y": 9.8, "kind": "door", "label": "Back outside",
-        "targetZone": "campus", "spawn": {"x": 34.5, "y": 15.8}, "color": "#64cbc8", "title": "CAMPUS", "sub": "EXIT",
+        "zone": "campus", "x": 23.7, "y": 4.1, "kind": "panel", "action": "dashboard", "label": "Open the dashboard",
+        "color": "#67b7d1", "title": "STUDENT CENTRAL", "sub": "RESULTS",
     },
 }
 
@@ -87,25 +53,19 @@ LOCATIONS = {
 BUILDINGS = {
     "library": {"id": "learning-center", "x": 2.2, "y": 3.25, "w": 8.4, "h": 5.15, "label": "Learning Center"},
     "mercado": {"id": "mercado-building", "x": 3.15, "y": 8.85, "w": 8.25, "h": 4.45, "label": "Mercado Supply Hall"},
-    "academicWest": {"id": "academic-west", "x": 12.2, "y": 3.1, "w": 6.2, "h": 5.7, "label": "Academic Wing"},
-    "academicCentre": {"id": "academic-centre", "x": 18.2, "y": 3.55, "w": 5.8, "h": 5.15, "label": "Academic Wing"},
-    "academicEast": {"id": "academic-east", "x": 23.8, "y": 3.05, "w": 6.3, "h": 5.75, "label": "Academic Wing"},
-    "studentHub": {"id": "student-hub", "x": 30.05, "y": 5.05, "w": 9.2, "h": 6.15, "label": "Student Hub"},
 }
 
 PLANTERS = [
-    {"id": "academic-planter-west", "x": 13.1, "y": 8.95, "w": 4.2, "h": 0.62, "z": 13},
-    {"id": "academic-planter-east", "x": 24.6, "y": 8.95, "w": 4.35, "h": 0.62, "z": 13},
+    {"id": "academic-planter-west", "x": 13.1, "y": 9.45, "w": 6.9, "h": 0.62, "z": 13},
+    {"id": "academic-planter-east", "x": 26.0, "y": 9.45, "w": 6.9, "h": 0.62, "z": 13},
     {"id": "library-planter", "x": 3.05, "y": 8.58, "w": 2.55, "h": 0.55, "z": 12},
     {"id": "mercado-planter", "x": 4.05, "y": 13.36, "w": 2.35, "h": 0.52, "z": 11},
-    {"id": "hub-planter-west", "x": 31.05, "y": 11.35, "w": 3.15, "h": 0.58, "z": 12},
-    {"id": "hub-planter-east", "x": 36.15, "y": 11.35, "w": 2.15, "h": 0.58, "z": 12},
 ]
 
 # palm trees: x, y, size
 TREES = [
-    [2, 8, 0.9], [5, 14, 0.8], [11, 19, 0.82], [14, 22, 0.9], [18, 10, 0.72], [25, 12, 0.76], [29, 19, 0.88],
-    [32, 9, 0.83], [39, 12, 0.92], [37, 19, 0.8], [6, 21, 0.75], [24, 22, 0.72], [40, 21, 0.86],
+    [2, 8, 0.9], [5, 14, 0.8], [11, 19, 0.82], [14, 22, 0.9], [25, 12, 0.76], [29, 19, 0.88],
+    [37, 9, 0.83], [39, 12, 0.92], [37, 19, 0.8], [6, 21, 0.75], [24, 22, 0.72], [40, 21, 0.86],
 ]
 
 TERRACE_TABLES = [
@@ -126,78 +86,94 @@ SPACES = {
 }
 
 
-# ---- the rooms --------------------------------------------------------------------
-# areas: labelled floor areas. solid: furniture. route: the marked way in.
-# activities: where people stand or sit in the room, and what they do there.
+# ---- the Nova ----------------------------------------------------------------------
+# One big building north of the courtyard, where the three academic wings stood.
+# parts: the footprint, three joined blocks (z = wall height in drawing units).
+# walls: wall pieces as solid rectangles, written with the openings left out.
+# entrances: the openings in the walls.
+# Stylised after the real Nova SBE in Carcavelos (white volumes, flat roofs, a glass-roofed
+# atrium in the middle). The whole floor inside is open to walk on.
+
+NOVA = {
+    "id": "nova", "label": "Nova", "wall": 0.5,
+    "parts": [
+        {"id": "west", "x": 11.5, "y": 1.2, "w": 7.5, "h": 8.0, "z": 78},
+        {"id": "atrium", "x": 19.0, "y": 1.2, "w": 8.0, "h": 8.0, "z": 96, "glassRoof": True},
+        {"id": "east", "x": 27.0, "y": 1.2, "w": 6.5, "h": 8.0, "z": 78},
+    ],
+    "walls": [
+        {"id": "nova-north-wall", "x": 11.5, "y": 1.2, "w": 22.0, "h": 0.5, "side": "north"},
+        {"id": "nova-west-wall", "x": 11.5, "y": 1.2, "w": 0.5, "h": 8.0, "side": "west"},
+        {"id": "nova-east-wall", "x": 33.0, "y": 1.2, "w": 0.5, "h": 8.0, "side": "east"},
+        {"id": "nova-south-wall-west", "x": 11.5, "y": 8.7, "w": 9.5, "h": 0.5, "side": "south"},
+        {"id": "nova-south-wall-east", "x": 25.0, "y": 8.7, "w": 8.5, "h": 0.5, "side": "south"},
+    ],
+    "entrances": [{"id": "main", "x": 21.0, "y": 8.7, "width": 4.0, "side": "south"}],
+}
+
+# ---- the rooms inside the Nova -----------------------------------------------------
+# Keyed by the zone they are in: the only rooms are those inside the Nova on the campus.
+# areas: the floor, split into labelled places (together they cover all of it); labelAt is
+# where the name is written on the floor.
+# solid: furniture, placed so that wide aisles stay open everywhere. Counters and shelves
+# stand against the north and west walls, where the camera sees their fronts.
+# route: the marked way in. activities: where people stand or sit, and what they do there.
+# Cafe, Merchandise and the Print Corner are places only: no rule works there yet.
 
 INTERIORS = {
-    "academy": {
-        "name": "Academic Wing",
+    "campus": {
+        "name": "Nova",
+        "floor": "#e9e7e1",
         "areas": [
-            {"id": "service", "label": "Snack Stand", "x": 5.65, "y": 2.15, "w": 4.3, "h": 0.85, "color": "#ff7b5b"},
-            {"id": "study", "label": "Study Commons", "x": 1.7, "y": 5.25, "w": 4.4, "h": 3.9, "color": "#d2a66c"},
-            {"id": "quiet", "label": "Quiet Tables", "x": 9.25, "y": 3.7, "w": 3.75, "h": 3.1, "color": "#64cbc8"},
+            {"id": "cafe", "label": "Cafe", "x": 12.0, "y": 1.7, "w": 7.0, "h": 7.0, "color": "#ff7b5b", "labelAt": {"x": 12.4, "y": 4.7}},
+            {"id": "atrium", "label": "Atrium", "x": 19.0, "y": 1.7, "w": 8.0, "h": 7.0, "color": "#64cbc8", "labelAt": {"x": 19.4, "y": 5.0}},
+            {"id": "merch", "label": "Merchandise", "x": 27.0, "y": 1.7, "w": 6.0, "h": 3.3, "color": "#bce65f", "labelAt": {"x": 27.6, "y": 3.1}},
+            {"id": "print", "label": "Print Corner", "x": 27.0, "y": 5.0, "w": 6.0, "h": 3.7, "color": "#9a7bc1", "labelAt": {"x": 27.5, "y": 5.85}},
         ],
         "solid": [
-            {"id": "stand-counter", "x": 5.65, "y": 2.15, "w": 4.3, "h": 0.85, "label": "Snack stand counter", "kind": "counter"},
-            {"id": "pastry-display", "x": 5.8, "y": 3.05, "w": 1.15, "h": 0.65, "label": "Display", "kind": "counter"},
-            {"id": "academy-table-west", "x": 2.1, "y": 5.65, "w": 3.5, "h": 0.75, "label": "Communal table", "kind": "furniture"},
-            {"id": "academy-table-east", "x": 9.9, "y": 4.2, "w": 3, "h": 0.75, "label": "Quiet study table", "kind": "furniture"},
-            {"id": "academy-lounge", "x": 2.2, "y": 7.25, "w": 2.5, "h": 1.85, "label": "Study lounge", "kind": "furniture"},
-            {"id": "academy-plant", "r": 0.38, "x": 11.8, "y": 7.2, "label": "Planter", "kind": "prop"},
+            # Every gap between two pieces is either shut (at most 0.5, less than a person) or at least
+            # 1.4 wide, so that walking by hand and clicking to walk both find their way.
+            # cafe: shelves and counter against the north wall (the barista stands between them), tables
+            {"id": "cafe-shelf", "x": 12.5, "y": 1.7, "w": 6.5, "h": 0.6, "label": "Cafe shelves", "kind": "furniture"},
+            {"id": "cafe-counter", "x": 12.5, "y": 2.8, "w": 6.5, "h": 0.85, "label": "Cafe counter", "kind": "counter"},
+            {"id": "cafe-table-1", "x": 12.5, "y": 5.4, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
+            {"id": "cafe-table-2", "x": 14.8, "y": 5.4, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
+            {"id": "cafe-table-3", "x": 13.4, "y": 7.55, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
+            {"id": "cafe-table-4", "x": 15.6, "y": 7.55, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
+            {"id": "cafe-plant-west", "r": 0.38, "x": 12.65, "y": 8.15, "label": "Planter", "kind": "prop"},
+            # atrium: the two desks under the gallery, the staircase, benches and planters
+            {"id": "supply-counter", "x": 19.45, "y": 2.2, "w": 2.25, "h": 0.85, "label": "Supply desk", "kind": "counter"},
+            {"id": "student-counter", "x": 22.2, "y": 2.2, "w": 3.0, "h": 0.85, "label": "Student Central", "kind": "counter"},
+            {"id": "staircase", "x": 25.2, "y": 1.9, "w": 1.5, "h": 2.9, "label": "Staircase", "kind": "furniture"},
+            {"id": "atrium-bench-west", "x": 19.5, "y": 5.9, "w": 1.8, "h": 0.5, "label": "Bench", "kind": "furniture"},
+            {"id": "atrium-bench-east", "x": 24.7, "y": 5.9, "w": 1.8, "h": 0.5, "label": "Bench", "kind": "furniture"},
+            {"id": "atrium-plant-west", "r": 0.45, "x": 19.6, "y": 8.2, "label": "Planter", "kind": "prop"},
+            {"id": "atrium-plant-east", "r": 0.45, "x": 25.9, "y": 8.2, "label": "Planter", "kind": "prop"},
+            {"id": "column-west-1", "r": 0.18, "x": 19.0, "y": 3.2, "label": "Column", "kind": "prop"},
+            {"id": "column-west-2", "r": 0.18, "x": 19.0, "y": 7.6, "label": "Column", "kind": "prop"},
+            {"id": "column-east-1", "r": 0.18, "x": 27.0, "y": 5.3, "label": "Column", "kind": "prop"},
+            {"id": "column-east-2", "r": 0.18, "x": 27.0, "y": 8.1, "label": "Column", "kind": "prop"},
+            # merchandise: a shelf wall on the north wall, a display table and a rack on the east wall
+            {"id": "merch-shelf", "x": 27.2, "y": 1.7, "w": 5.3, "h": 0.5, "label": "Merchandise shelf", "kind": "furniture"},
+            {"id": "merch-table", "x": 28.2, "y": 3.7, "w": 1.9, "h": 0.8, "label": "Display table", "kind": "furniture"},
+            {"id": "merch-rack", "x": 31.5, "y": 3.5, "w": 1.5, "h": 0.6, "label": "Merchandise rack", "kind": "furniture"},
+            # print corner: three printers in a row, a planter closes the row
+            {"id": "printer-1", "x": 28.4, "y": 6.9, "w": 0.9, "h": 0.7, "label": "Printer", "kind": "prop"},
+            {"id": "printer-2", "x": 29.8, "y": 6.9, "w": 0.9, "h": 0.7, "label": "Printer", "kind": "prop"},
+            {"id": "printer-3", "x": 31.2, "y": 6.9, "w": 0.9, "h": 0.7, "label": "Printer", "kind": "prop"},
+            {"id": "print-plant", "r": 0.4, "x": 32.55, "y": 7.25, "label": "Planter", "kind": "prop"},
         ],
-        "route": [{"x": 7.5, "y": 8.8}, {"x": 7.5, "y": 7.25}, {"x": 7.2, "y": 5.7}, {"x": 7.25, "y": 4.15}],
+        "route": [{"x": 23.0, "y": 8.4}, {"x": 23.0, "y": 5.8}, {"x": 23.7, "y": 4.1}],
         "activities": [
-            {"x": 7.25, "y": 3.6, "pose": "service", "role": "service", "facing": {"x": 0, "y": -1}, "label": "Serving"},
-            {"x": 7.2, "y": 4.25, "pose": "phone", "facing": {"x": 0, "y": -1}, "label": "Ordering"},
-            {"x": 6.75, "y": 4.72, "pose": "idle", "facing": {"x": 0.4, "y": -1}, "label": "Queueing"},
-            {"x": 4.7, "y": 6.55, "pose": "sit", "facing": {"x": 1, "y": -0.2}, "label": "Eating"},
-            {"x": 10.65, "y": 5.25, "pose": "sit", "facing": {"x": -1, "y": 0.2}, "label": "Studying"},
-            {"x": 4.9, "y": 7.65, "pose": "chat", "facing": {"x": -1, "y": 0}, "label": "Group study"},
-        ],
-    },
-    "mercado": {
-        "name": "Mercado Supply Hall",
-        "areas": [
-            {"id": "stock", "label": "Dry Stock", "x": 1.65, "y": 1.8, "w": 4.9, "h": 5.8, "color": "#f5c95e"},
-            {"id": "dispatch", "label": "Order & Dispatch", "x": 5.9, "y": 3.45, "w": 3.3, "h": 2.2, "color": "#ff8060"},
-            {"id": "cold", "label": "Cold Storage", "x": 9.35, "y": 1.7, "w": 3.85, "h": 3.2, "color": "#64cbc8"},
-        ],
-        "solid": [
-            {"id": "shelf-north", "x": 2.05, "y": 2.45, "w": 4, "h": 0.62, "label": "Market shelving", "kind": "furniture"},
-            {"id": "shelf-west", "x": 2.1, "y": 6.55, "w": 3.6, "h": 0.62, "label": "Market shelving", "kind": "furniture"},
-            {"id": "cold-room", "x": 9.7, "y": 2.05, "w": 3.15, "h": 2.25, "label": "Cold store", "kind": "room"},
-            {"id": "shelf-east", "x": 10.1, "y": 6.1, "w": 2.8, "h": 0.62, "label": "Market shelving", "kind": "furniture"},
-            {"id": "supply-counter", "x": 6.4, "y": 3.78, "w": 2.2, "h": 0.82, "label": "Supply desk", "kind": "counter"},
-            {"id": "mercado-plant", "r": 0.35, "x": 7.6, "y": 7.7, "label": "Planter", "kind": "prop"},
-        ],
-        "route": [{"x": 7.5, "y": 8.8}, {"x": 8.45, "y": 8.25}, {"x": 8.45, "y": 6.4}, {"x": 7.55, "y": 5.45}, {"x": 7.5, "y": 5.02}],
-        "activities": [
-            {"x": 7.45, "y": 3.5, "pose": "service", "role": "service", "facing": {"x": 0, "y": 1}, "label": "Preparing order"},
-            {"x": 7.5, "y": 4.9, "pose": "phone", "facing": {"x": 0, "y": -1}, "label": "Confirming order"},
-            {"x": 6.95, "y": 5.35, "pose": "idle", "facing": {"x": 0.3, "y": -1}, "label": "Waiting"},
-            {"x": 4.75, "y": 3.55, "pose": "browse", "facing": {"x": -1, "y": -0.3}, "label": "Checking stock"},
-            {"x": 10.3, "y": 5.35, "pose": "browse", "facing": {"x": 0.5, "y": -1}, "label": "Restocking"},
-            {"x": 4.9, "y": 7.55, "pose": "repair", "role": "technician", "facing": {"x": -1, "y": -0.2}, "label": "Moving crates"},
-        ],
-    },
-    "hub": {
-        "name": "Student Hub",
-        "areas": [
-            {"id": "venture", "label": "Venture Studio", "x": 8.45, "y": 2.4, "w": 4.6, "h": 3.5, "color": "#bce65f"},
-            {"id": "social", "label": "Student Lounge", "x": 1.65, "y": 6.15, "w": 11.4, "h": 3.15, "color": "#9a7bc1"},
-        ],
-        "solid": [
-            {"id": "venture-desk", "x": 9.55, "y": 4.78, "w": 1.9, "h": 0.82, "label": "Venture desk", "kind": "counter"},
-            {"id": "hub-lounge-west", "x": 2.15, "y": 7, "w": 2.5, "h": 1.85, "label": "Student lounge", "kind": "furniture"},
-            {"id": "hub-lounge-east", "x": 9.8, "y": 6.1, "w": 2.5, "h": 1.85, "label": "Student lounge", "kind": "furniture"},
-            {"id": "hub-plant", "r": 0.38, "x": 7.8, "y": 6.9, "label": "Planter", "kind": "prop"},
-        ],
-        "route": [{"x": 7.5, "y": 8.8}, {"x": 6.8, "y": 8.25}, {"x": 6.55, "y": 6.7}, {"x": 6.65, "y": 5.65}],
-        "activities": [
-            {"x": 10.45, "y": 4.45, "pose": "phone", "facing": {"x": 0, "y": 1}, "label": "Reviewing finances"},
-            {"x": 4.8, "y": 7.7, "pose": "sit", "facing": {"x": -1, "y": 0}, "label": "Student club meeting"},
-            {"x": 9.25, "y": 8.35, "pose": "chat", "facing": {"x": 1, "y": -0.2}, "label": "Networking"},
+            {"x": 14.8, "y": 2.52, "pose": "service", "role": "service", "facing": {"x": 0, "y": 1}, "label": "Serving coffee"},
+            {"x": 13.9, "y": 4.4, "pose": "phone", "facing": {"x": 0.3, "y": -1}, "label": "Ordering"},
+            {"x": 13.8, "y": 6.6, "pose": "sit", "facing": {"x": 0.2, "y": -1}, "label": "Eating"},
+            {"x": 15.3, "y": 6.6, "pose": "sit", "facing": {"x": -0.2, "y": -1}, "label": "Studying"},
+            {"x": 23.7, "y": 1.97, "pose": "service", "role": "service", "facing": {"x": 0, "y": 1}, "label": "Helping a student"},
+            {"x": 22.0, "y": 7.2, "pose": "chat", "facing": {"x": 1, "y": 0}, "label": "Meeting"},
+            {"x": 29.4, "y": 2.95, "pose": "browse", "facing": {"x": 0, "y": -1}, "label": "Browsing"},
+            {"x": 31.6, "y": 4.6, "pose": "browse", "facing": {"x": 0, "y": -1}, "label": "Looking at shirts"},
+            {"x": 30.0, "y": 6.2, "pose": "repair", "role": "technician", "facing": {"x": 0, "y": 1}, "label": "Refilling paper"},
         ],
     },
 }
@@ -234,25 +210,29 @@ def _campus_colliders():
     ]
     solid += [_circle(f"terrace-table-{i}", x, y, 0.36, "Terrace table", "prop") for i, (x, y) in enumerate(TERRACE_TABLES)]
     solid += [_circle(f"tree-{i}", x, y, 0.27, "Palm tree", "prop") for i, (x, y, _) in enumerate(TREES)]
-    return solid
+    return solid + _nova_colliders()
 
 
-def _room_colliders(zone_id):
-    solid = [
-        _rect("north-wall", 0, 0, 15, 1, "Wall", "wall"),
-        _rect("west-wall", 0, 0, 1, 12, "Wall", "wall"),
-    ]
-    for item in INTERIORS[zone_id]["solid"]:
+def _nova_colliders():
+    solid = [_rect(wall["id"], wall["x"], wall["y"], wall["w"], wall["h"], "Wall", "wall") for wall in NOVA["walls"]]
+    for item in INTERIORS["campus"]["solid"]:
         if "r" in item:
             solid.append(_circle(item["id"], item["x"], item["y"], item["r"], item["label"], item["kind"]))
         else:
             solid.append(_rect(item["id"], item["x"], item["y"], item["w"], item["h"], item["label"], item["kind"]))
+    # nobody walks behind the buildings: the ground north of y 7.5 is closed off beside the Nova
+    solid += [
+        _rect("north-west-fence", 0, 0, 11.5, 7.5, "Fence", "boundary"),
+        _rect("north-east-fence", 33.5, 0, 10.5, 7.5, "Fence", "boundary"),
+    ]
     return solid
 
 
 def colliders(zone_id):
-    """Everything solid in one zone."""
-    return _campus_colliders() if zone_id == "campus" else _room_colliders(zone_id)
+    """Everything solid in one zone: the buildings, the walls and furniture of the Nova, the props."""
+    if zone_id not in ZONES:
+        raise KeyError(zone_id)
+    return _campus_colliders()
 
 
 def start_player():
@@ -271,5 +251,6 @@ def world_view():
         "planters": PLANTERS,
         "trees": TREES,
         "spaces": SPACES,
+        "nova": NOVA,
         "interiors": INTERIORS,
     }

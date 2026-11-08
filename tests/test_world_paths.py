@@ -80,7 +80,7 @@ def test_every_door_and_desk_can_be_reached_from_anywhere(tmp_path):
     )
     assert done.returncode == 0, done.stderr
     result = json.loads(done.stdout)
-    assert result["checked"] > 100
+    assert result["checked"] > 60  # spec walk-in: three desks on one campus give fewer checks (69)
     assert result["problems"] == []
 
 

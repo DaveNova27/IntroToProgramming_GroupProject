@@ -14,7 +14,7 @@ overridable day context, no randomness without the seed).
 |---|---|
 | Our solo project | Only a starting point. Shops, rules and map are decided fresh by the group. |
 | What we take from Felix | Character control, the people (look and animation), the design, the smooth camera. |
-| Map | Decided: Felix' 2.5D world instead of the three.js map. Walk 2D inside the Nova, click to go outside, see the Nova from outside, walk to the Beach Cafe. Map size and Nova design are redone. |
+| Map | Decided: Felix' 2.5D world instead of the three.js map. Changed 2026-11-08 (Felix, after David's memo): one continuous map, no room screens. One big Nova building that the player walks into; the whole roof fades out so the rooms and the weather can be seen. The day starts and ends at the Dorm; the way to the beach leads to the Surf Shop and the Beach Cafe outside. The Nova is stylised after the real campus. |
 | Backend | Rules are rewritten in our own backend (Python + Flask + SQLite). Felix' `core.js` is only a reference. The browser decides no rule. |
 | Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
 | Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Decided on 2026-11-05: Cafe (coffee, cake, bagel), Surf Shop (surfboard, wetsuit, surf lesson), Merchandise (hoodie, t-shirt, cap), Beach Cafe (beer, coke zero, sandwich). The Cafe is open from the start. Prices and steps are placeholders in `shop-unlock`. |
@@ -50,7 +50,7 @@ characters and the camera. Still to come from this table: shop data, weather and
 
 ## 3. New spec list
 
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`.
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`. New on 2026-11-08, issues still to be opened: `walk-in` and `day-cycle`; the text of `nova-zones` (#28) has to be replaced by the new one below.
 
 Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
 L = logic. Effort: S small, M medium, L large.
@@ -69,7 +69,8 @@ L = logic. Effort: S small, M medium, L large.
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `nova-zones` | V | M | world-core, world-api | Three zones: Nova inside (2D, rooms, doors), Nova outside, beach with the Beach Cafe spot. Clicking a door or marker changes zone. Smaller map size. | Final art, shops, weather |
+| `walk-in` | V and L | L | world-core, world-api, world-art | Added 2026-11-08. One big Nova building on the campus map: the player walks in through an entrance, the whole roof fades out, the rooms show, and sky and weather stay visible. Replaces the three room zones; their three desks move into the Nova (the whole floor inside is open to walk on). Cafe, Merchandise and a Print Corner with three printers as places (no rule). The Nova is stylised after the real campus. Changes seven tests of `world-api` and one number in `test_world_paths` (100 to 60), exception confirmed by David on 2026-11-08 (see its spec). | Dorm, beach way, outdoor shops, day cycle, weather effects, final art |
+| `nova-zones` | V | M | walk-in | Rewritten 2026-11-08. The outdoor map around the Nova: the Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside, the beach. Smaller map size. Decides what becomes of the old outdoor buildings. | Final art, shop rules, weather |
 | `nova-design` | V | L | nova-zones | Look of the Nova (inside and outside) and the beach: tiles, walls, colours, details. Replaces #11 `campus-look`. | Rules, new mechanics |
 
 ### Phase 3: shops
@@ -89,7 +90,8 @@ L = logic. Effort: S small, M medium, L large.
 | `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
 | `popularity` (#13) | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer. Depends on real sales. Felix' `momentum` is the model. |
 | `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
-| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. |
+| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. Drawn over the whole scene, also over the roofless Nova interior (`walk-in`). |
+| `day-cycle` | L and V | M | outlook, nova-zones | Added 2026-11-08. The day starts at the Dorm and ends there: "End the day" at the Dorm opens the day-end screen (the `outlook` evening report), the next day begins at the Dorm. The dashboard button stays a second way. The position decides no rule: the server still takes the end of the day as a plain request. |
 | `staff` (#20) | L | M | shop-process | Employees do the same actions as the player: one refills, one sells. Wage in cents. Jobs and places are data per shop, the level limits the number. |
 | `outfits` (#21) | L | S | shop-unlock | Optional. The look is an option of `drawPersonFigure`. |
 
@@ -160,7 +162,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 
 | Person | First spec | Why |
 |---|---|---|
-| Felix | `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
+| Felix | `walk-in`, then `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
 | David | `shop-unlock` | Python rules and API, close to the current `logic.py` and `app.py`. |
 | Christopher | `day-context` | Independent of the map. |
 | Gregor | `badges` | Independent and small. |

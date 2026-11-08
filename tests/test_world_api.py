@@ -39,9 +39,9 @@ def is_blocked(x, y, solid, radius=0.28):
 
 def test_the_api_serves_the_whole_world():
     data = app.app.test_client().get("/api/world").get_json()
-    assert set(data["zones"]) == {"campus", "mercado", "academy", "hub"}
+    assert set(data["zones"]) == {"campus"}  # spec walk-in: one zone, the Nova is a building on it
     assert set(data["colliders"]) == set(data["zones"])
-    assert set(data["interiors"]) == {"mercado", "academy", "hub"}
+    assert set(data["interiors"]) == {"campus"}  # the rooms are inside the Nova, on the campus
     assert data["buildings"] and data["planters"] and data["trees"] and data["spaces"]
 
 
@@ -53,22 +53,29 @@ def test_every_location_is_inside_its_zone():
 
 
 def test_every_door_leads_to_a_zone_with_a_free_place_to_stand():
-    doors = [loc for loc in world.LOCATIONS.values() if loc["kind"] == "door"]
-    assert len(doors) == 6
-    for door in doors:
-        target = world.ZONES[door["targetZone"]]
-        spawn = door.get("spawn", target["spawn"])
-        assert target["minX"] <= spawn["x"] <= target["maxX"]
-        assert target["minY"] <= spawn["y"] <= target["maxY"]
-        assert not is_blocked(spawn["x"], spawn["y"], world.colliders(target["id"]))
+    # spec walk-in: the six doors are gone. The same check for the new way in: the spawn is free,
+    # and every entrance of the Nova leads to free ground in the doorway, outside and inside.
+    assert not [loc for loc in world.LOCATIONS.values() if loc["kind"] == "door"]
+    zone = world.ZONES["campus"]
+    solid = world.colliders("campus")
+    spawn = zone["spawn"]
+    assert zone["minX"] <= spawn["x"] <= zone["maxX"]
+    assert zone["minY"] <= spawn["y"] <= zone["maxY"]
+    assert not is_blocked(spawn["x"], spawn["y"], solid)
+    assert world.NOVA["entrances"]
+    for entrance in world.NOVA["entrances"]:
+        x = entrance["x"] + entrance["width"] / 2
+        for y in (entrance["y"] - 0.6, entrance["y"] + world.NOVA["wall"] / 2, entrance["y"] + world.NOVA["wall"] + 0.6):
+            assert zone["minX"] <= x <= zone["maxX"]
+            assert zone["minY"] <= y <= zone["maxY"]
+            assert not is_blocked(x, y, solid)
 
 
 def test_every_room_has_a_way_out():
+    # spec walk-in: the rooms are inside the Nova on the campus; the way out is an entrance
     for zone_id in world.INTERIORS:
-        assert any(
-            loc["zone"] == zone_id and loc["kind"] == "door" and loc["targetZone"] == "campus"
-            for loc in world.LOCATIONS.values()
-        )
+        assert zone_id in world.ZONES
+        assert any(entrance["width"] >= 2 for entrance in world.NOVA["entrances"])
 
 
 def test_the_only_desks_are_stock_prices_and_dashboard():
@@ -85,10 +92,10 @@ def test_a_new_run_starts_at_the_spawn():
 
 def test_the_position_survives_a_restart(tmp_path):
     path = tmp_path / "run.db"
-    state = logic.move_player(logic.new_state(), "academy", 7.25, 5.5)
+    state = logic.move_player(logic.new_state(), "campus", 23.25, 5.5)
     db.save(state, path)
     assert db.load(path) == state
-    assert db.load(path)["player"] == {"zone": "academy", "x": 7.25, "y": 5.5}
+    assert db.load(path)["player"] == {"zone": "campus", "x": 23.25, "y": 5.5}
 
 
 def test_a_save_from_before_the_world_still_loads(tmp_path):
@@ -100,17 +107,18 @@ def test_a_save_from_before_the_world_still_loads(tmp_path):
 
 
 def test_the_api_saves_the_position(run_on_disk):
-    response = app.app.test_client().post("/api/player", json={"zone": "hub", "x": 7.5, "y": 8.8})
+    response = app.app.test_client().post("/api/player", json={"zone": "campus", "x": 23.5, "y": 7.25})
     assert response.status_code == 200
-    assert response.get_json()["state"]["player"] == {"zone": "hub", "x": 7.5, "y": 8.8}
-    assert db.load(run_on_disk)["player"] == {"zone": "hub", "x": 7.5, "y": 8.8}
+    assert response.get_json()["state"]["player"] == {"zone": "campus", "x": 23.5, "y": 7.25}
+    assert db.load(run_on_disk)["player"] == {"zone": "campus", "x": 23.5, "y": 7.25}
 
 
 def test_a_new_run_puts_the_player_back_at_the_spawn(run_on_disk, monkeypatch):
     real_save_new_run = db.save_new_run
     monkeypatch.setattr(app.db, "save_new_run", lambda state: real_save_new_run(state, run_on_disk))
     client = app.app.test_client()
-    client.post("/api/player", json={"zone": "hub", "x": 7.5, "y": 8.8})
+    client.post("/api/player", json={"zone": "campus", "x": 23.5, "y": 7.25})
+    assert db.load(run_on_disk)["player"] == {"zone": "campus", "x": 23.5, "y": 7.25}  # it really moved
     client.post("/api/new-run", json={"confirm": True})
     assert db.load(run_on_disk)["player"] == world.start_player()
 
@@ -125,7 +133,7 @@ def test_a_saved_zone_that_no_longer_exists_starts_at_the_spawn(tmp_path):
 
 def test_moving_changes_nothing_but_the_position():
     state = logic.buy(logic.new_state(), "coffee", 5)
-    moved = logic.move_player(state, "mercado", 7.5, 8.8)
+    moved = logic.move_player(state, "campus", 23.5, 7.25)
     assert {k: v for k, v in moved.items() if k != "player"} == {k: v for k, v in state.items() if k != "player"}
     assert state["player"] == world.start_player()
 
@@ -134,7 +142,7 @@ def test_the_position_can_move_after_the_last_day():
     state = logic.new_state()
     state["day"] = logic.LAST_DAY + 1
     assert logic.is_finished(state)
-    assert logic.move_player(state, "hub", 7.5, 8.8)["player"]["zone"] == "hub"
+    assert logic.move_player(state, "campus", 23.5, 7.25)["player"] == {"zone": "campus", "x": 23.5, "y": 7.25}
 
 
 # ---- Check 3: a crafted position is refused and changes nothing ---------------

@@ -2,9 +2,11 @@
 // Walking and the camera are only for showing. Every rule stays on the server.
 
 import { inReach, locationsHere, nearestLocation } from "./locations.js";
+import { novaIsOpen } from "./nova.js";
 import { findPath } from "./paths.js";
 import { nearestFreePoint, pointBlocked, resolveMovement } from "./physics.js";
 import { drawWorld } from "./render.js";
+import { areaAt, insideParts, stepRoof } from "./roofs.js";
 import {
   PLAYER_RADIUS,
   WALK_SPEED,
@@ -13,6 +15,7 @@ import {
   canvas,
   canvasWorldPoint,
   ctx,
+  reducedMotion,
   scene,
   world,
 } from "./scene.js";
@@ -52,30 +55,33 @@ function safePoint(point, zone = activeZone()) {
   return nearestFreePoint(point, zone, world.colliders[zone.id], PLAYER_RADIUS);
 }
 
-// ---- zones ---------------------------------------------------------------------------
+// ---- the place and the roof ----------------------------------------------------------
 
-function renderZone() {
+// The name of the place in the banner, and the chips: outside, or in the Nova.
+// Only written to the page when it changes.
+let shownPlace = "";
+
+function renderPlace() {
   const zone = activeZone();
-  $("#zone-name").textContent = zone.name;
-  $("#zone-sub").textContent = zone.sub;
-  document.querySelectorAll("[data-zone]").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.zone === zone.id);
+  const area = scene.inNova ? areaAt(scene.player, world.interiors.campus.areas) : null;
+  const name = scene.inNova ? (area ? area.label : world.nova.label) : zone.name;
+  const sub = scene.inNova ? world.nova.label.toUpperCase() : zone.sub;
+  const place = `${scene.inNova}:${name}`;
+  if (place === shownPlace) return;
+  shownPlace = place;
+  $("#zone-name").textContent = name;
+  $("#zone-sub").textContent = sub;
+  document.querySelectorAll("[data-place]").forEach((chip) => {
+    chip.classList.toggle("active", (chip.dataset.place === "nova") === scene.inNova);
   });
 }
 
-function changeZone(zoneId, spawn) {
-  const zone = world.zones[zoneId];
-  scene.zoneId = zoneId;
-  scene.player = safePoint(spawn || zone.spawn, zone);
-  camera.x = scene.player.x;
-  camera.y = scene.player.y;
-  route = [];
-  pendingUse = null;
-  renderZone();
-  savePlayer();
-  const shell = $(".shell");
-  shell.classList.add("zone-transition");
-  setTimeout(() => shell.classList.remove("zone-transition"), 420);
+// Is the player under the roof, and how far has the roof faded. `instant`: no fade (a new
+// start, or the saved position after loading).
+function updateRoof(dt, instant = false) {
+  scene.inNova = insideParts(scene.player, world.nova.parts);
+  scene.roof = stepRoof(scene.roof, scene.inNova, dt, reducedMotion || instant);
+  renderPlace();
 }
 
 // a new run, or the saved position after loading
@@ -87,15 +93,14 @@ function placePlayer({ zone, x, y }) {
   route = [];
   pendingUse = null;
   savedSpot = `${zone}:${x.toFixed(2)}:${y.toFixed(2)}`;
-  renderZone();
+  updateRoof(0, true);
 }
 
 function use(id) {
   const loc = world.locations[id];
   route = [];
   pendingUse = null;
-  if (loc.kind === "door") changeZone(loc.targetZone, loc.spawn);
-  else useLocation(loc.action);
+  useLocation(loc.action);
 }
 
 // ---- input ---------------------------------------------------------------------------
@@ -116,14 +121,10 @@ function onClick(event) {
   if (scene.preview || inputBlocked()) return;
   window.focus();
   const point = canvasWorldPoint(event);
-  const hit = locationsHere().find(([, loc]) => {
-    // a door stands upright: a click on its picture lands about one tile behind its base
-    const lift = loc.kind === "door" ? 1.05 : 0;
-    return (
-      Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH ||
-      Math.hypot(point.x + lift - loc.x, point.y + lift - loc.y) < CLICK_REACH
-    );
-  });
+  // the desks stand inside the Nova and are only drawn while its roof is gone: a click on the
+  // closed roof must not pick one
+  const places = novaIsOpen() ? locationsHere() : [];
+  const hit = places.find(([, loc]) => Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH);
   if (!hit) {
     pendingUse = null;
     return walkTo(point);
@@ -228,13 +229,12 @@ function walk(dt) {
 }
 
 function moveCamera(dt) {
-  const zone = activeZone();
   camera.x += (scene.player.x - camera.x) * Math.min(1, dt * 4.8);
   camera.y += (scene.player.y - camera.y) * Math.min(1, dt * 4.8);
   let zoom;
   if (scene.preview) zoom = Math.max(0.42, Math.min(0.7, canvas.clientWidth / 1400));
-  else if (zone.outdoor) zoom = Math.max(0.72, Math.min(1.08, canvas.clientWidth / 1080));
-  else zoom = Math.max(0.94, Math.min(1.24, canvas.clientWidth / 850));
+  else if (!scene.inNova) zoom = Math.max(0.72, Math.min(1.08, canvas.clientWidth / 1080));
+  else zoom = Math.max(0.8, Math.min(1.1, canvas.clientWidth / 1100)); // closer inside, and the whole hall still fits
   camera.zoom += (zoom - camera.zoom) * Math.min(1, dt * 3.5);
 }
 
@@ -252,6 +252,7 @@ function loop(t) {
   lastTime = t;
   scene.time = t;
   walk(dt);
+  updateRoof(dt);
   updateWalkers(dt);
   moveCamera(dt);
   renderHint();
