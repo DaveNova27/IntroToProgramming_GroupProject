@@ -424,14 +424,18 @@ def _zone_colliders():
     solid.append(_rect("way-bench-west", 11.9, 32.0, 0.45, 1.3, "Bench", "prop"))
     solid.append(_rect("way-bench-east", 16.5, 32.0, 0.45, 1.3, "Bench", "prop"))
     # the Surf Shop: counter, board rack, four posts of the awning
+    solid.append(_rect("surf-wall-north", 5.8, 26.0, 5.1, 0.2, "Wall", "wall"))
+    solid.append(_rect("surf-wall-west", 5.8, 26.2, 0.2, 1.2, "Wall", "wall"))
     solid.append(_rect("surf-counter", 6.8, 26.2, 3.6, 0.8, "Surf Shop counter", "prop"))
-    solid.append(_rect("surf-rack", 5.9, 26.6, 0.5, 1.7, "Board rack", "prop"))
-    for i, (x, y) in enumerate(((6.7, 26.1), (10.5, 26.1), (6.7, 28.1), (10.5, 28.1))):
+    solid.append(_rect("surf-rack", 6.05, 26.6, 0.5, 1.7, "Board rack", "prop"))
+    for i, (x, y) in enumerate(((6.0, 27.5), (10.75, 27.5))):
         solid.append(_circle(f"surf-post-{i}", x, y, 0.12, "Post", "prop"))
     # the Beach Cafe: bar, cooler, posts and three tables
+    solid.append(_rect("cafe-wall-north", 25.0, 25.7, 6.6, 0.2, "Wall", "wall"))
+    solid.append(_rect("cafe-wall-west", 25.0, 25.9, 0.2, 1.2, "Wall", "wall"))
     solid.append(_rect("cafe-bar", 25.6, 26.0, 5.2, 0.8, "Beach Cafe bar", "prop"))
     solid.append(_rect("cafe-cooler", 31.1, 26.0, 0.7, 0.5, "Cooler", "prop"))
-    for i, (x, y) in enumerate(((25.5, 25.9), (30.9, 25.9), (25.5, 27.5), (30.9, 27.5))):
+    for i, (x, y) in enumerate(((25.3, 27.0), (31.4, 27.0), (25.3, 28.5), (31.4, 28.5))):
         solid.append(_circle(f"cafe-post-{i}", x, y, 0.12, "Post", "prop"))
     for i, x in enumerate((26.2, 28.5, 30.8)):
         solid.append(_circle(f"beach-table-{i}", x, 28.2, 0.36, "Beach table", "prop"))
