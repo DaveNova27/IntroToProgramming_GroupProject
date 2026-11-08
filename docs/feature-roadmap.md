@@ -50,7 +50,7 @@ characters and the camera. Still to come from this table: shop data, weather and
 
 ## 3. New spec list
 
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`. New on 2026-11-08, issues still to be opened: `walk-in` and `day-cycle`; the text of `nova-zones` (#28) has to be replaced by the new one below.
+Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`. New on 2026-11-08, issues still to be opened: `walk-in`, `nova-wings` and `day-cycle`; the text of `nova-zones` (#28) has to be replaced by the new one below.
 
 Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
 L = logic. Effort: S small, M medium, L large.
@@ -70,7 +70,8 @@ L = logic. Effort: S small, M medium, L large.
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
 | `walk-in` | V and L | L | world-core, world-api, world-art | Added 2026-11-08. One big Nova building on the campus map: the player walks in through an entrance, the whole roof fades out, the rooms show, and sky and weather stay visible. Replaces the three room zones; their three desks move into the Nova (the whole floor inside is open to walk on). Cafe, Merchandise and a Print Corner with three printers as places (no rule). The Nova is stylised after the real campus. Needs an exception for seven tests of `world-api` and one number in `test_world_paths` (see its spec). | Dorm, beach way, outdoor shops, day cycle, weather effects, final art |
-| `nova-zones` | V | M | walk-in | Rewritten 2026-11-08. The outdoor map around the Nova: the Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside, the beach. Smaller map size. Decides what becomes of the old outdoor buildings. | Final art, shop rules, weather |
+| `nova-wings` | V and L | L | walk-in | Added 2026-11-08 (draft, waiting for the team). The Nova gets more wings: the Learning Center and the Mercado Supply Hall become wings that can be walked into, a Student Hub is added, all joined by openings. Each wing has its own roof that fades when the player is in it (a wing that hides another one makes it fade too). Entrances on the south side. Needs an exception for four tests of `walk-in` (see its spec). | Dorm, beach way, outdoor shops, day cycle, moving desks, who works where, upper floor, final art |
+| `nova-zones` | V | M | nova-wings | Rewritten 2026-11-08. The outdoor map around the Nova: the Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside, the beach. Smaller map size. The old outdoor buildings are settled by `nova-wings`. | Final art, shop rules, weather |
 | `nova-design` | V | L | nova-zones | Look of the Nova (inside and outside) and the beach: tiles, walls, colours, details. Replaces #11 `campus-look`. | Rules, new mechanics |
 
 ### Phase 3: shops
@@ -126,6 +127,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 | `world-api` | Zone id from a whitelist. Check the position on the server (finite, inside the zone bounds). No rule may depend on the position the browser sends. |
 | `day-context` | The seed lives on the server and is never sent to the browser (it would let players predict the weather). The override works only locally or by config switch. |
 | `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
+| `nova-wings` | The zone id stays on the whitelist and the position check on the server must hold every wing. No rule reads the position. The new wing data is fixed on the server. Labels through `textContent`. |
 | `nova-zones` | A zone change that affects the state is validated on the server (known door, allowed target). |
 | `nova-design` | Assets only. Names and labels shown through `textContent`. |
 | `shop-unlock` | Server checks cash, shop id and level. A shop that is locked, or a product or staff place not yet reached, cannot be used by a crafted request. Prices come from the server only. Test the locked case. |
@@ -162,7 +164,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 
 | Person | First spec | Why |
 |---|---|---|
-| Felix | `walk-in`, then `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
+| Felix | `walk-in`, then `nova-wings`, then `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
 | David | `shop-unlock` | Python rules and API, close to the current `logic.py` and `app.py`. |
 | Christopher | `day-context` | Independent of the map. |
 | Gregor | `badges` | Independent and small. |
