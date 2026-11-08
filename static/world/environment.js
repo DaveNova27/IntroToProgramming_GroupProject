@@ -83,7 +83,7 @@ export function drawCoastalMotion(t, environment) {
   ctx.save();
   ctx.lineCap = "round";
   for (let band = 0; band < 5; band++) {
-    const y = 27.55 + band * 0.78,
+    const y = 32.55 + band * 0.78,
       amplitude = 2.2 + band * 0.7 + environment.sea * 2,
       alpha = 0.18 + band * 0.07;
     ctx.strokeStyle = `rgba(229,251,247,${alpha})`;
@@ -103,7 +103,7 @@ export function drawCoastalMotion(t, environment) {
     ctx.beginPath();
     for (let x = 0; x <= 58; x += 0.3) {
       const phase = x * 0.48 - (reducedMotion ? 0 : t * 0.0015 * (0.8 + environment.sea)) + ribbon * 1.7,
-        p = isoPoint(x, 27.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
+        p = isoPoint(x, 32.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
       if (x === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -111,7 +111,7 @@ export function drawCoastalMotion(t, environment) {
   }
   for (let i = 0; i < 11; i++) {
     const progress = reducedMotion ? i / 11 : (t * 0.000035 * (0.8 + environment.wind) + i / 11) % 1,
-      p = isoPoint(2 + i * 5.1, 27.25 + progress * 3.9, 8);
+      p = isoPoint(2 + i * 5.1, 32.25 + progress * 3.9, 8);
     ctx.fillStyle = `rgba(240,255,250,${0.3 * (1 - progress)})`;
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, 7 + progress * 5, 1.4, 0, 0, Math.PI * 2);

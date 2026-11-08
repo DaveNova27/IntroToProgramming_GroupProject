@@ -23,7 +23,7 @@ START_ZONE = "campus"
 ZONES = {
     "campus": {
         "id": "campus", "name": "Nova Coast Campus", "sub": "CARCAVELOS OUTDOORS",
-        "width": 90, "height": 33, "minX": 1, "maxX": 41, "minY": 1.0, "maxY": 27.7,
+        "width": 90, "height": 38, "minX": 1, "maxX": 41, "minY": 1.0, "maxY": 32.7,
         "outdoor": True, "spawn": {"x": 21, "y": 18},
     },
 }
@@ -63,6 +63,8 @@ TREES = [
     [40, 21, 0.86],
     # spec nova-zones: a palm each side of the start of the beach way, two near the Dorm
     [10.4, 18.9, 0.9], [18.8, 18.5, 0.84], [34.4, 15.2, 0.8], [40.4, 15.0, 0.88],
+    # and a few on the promenade, between the paving and the dunes
+    [3.2, 22.6, 0.92], [22.9, 20.9, 0.84], [33.2, 23.0, 0.9],
 ]
 
 TERRACE_TABLES = [
@@ -75,8 +77,8 @@ SPACES = {
     "courtyard": {"id": "courtyard", "name": "Academic Courtyard", "x": 20.1, "y": 12.75},
     "terrace": {"id": "terrace", "name": "Cafe Terrace", "x": 17.55, "y": 14.25},
     "service": {"id": "service", "name": "Service Lane", "x": 8.4, "y": 18.25},
-    "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 28.2, "y": 22.4},
-    "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 8.6, "y": 22.55},
+    "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 28.2, "y": 27.4},
+    "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 8.6, "y": 27.55},
     "beachWay": {"id": "beachWay", "name": "Beach Way", "x": 14.4, "y": 21.0},
     "dorm": {"id": "dorm", "name": "Dorm", "x": 38.0, "y": 13.9},
     "lawn": {"id": "lawn", "name": "Student Lawn", "x": 35.5, "y": 19.9},
@@ -268,34 +270,67 @@ INTERIORS = {
 # Fixed data, the same on every start. The browser draws it and only walks round it.
 
 # the boardwalk from the plaza south to the sand: it has to stay free to walk
-BEACH_WAY = {"id": "beach-way", "label": "Beach Way", "x": 12.4, "y": 17.2, "w": 4.0, "h": 10.2}
+BEACH_WAY = {"id": "beach-way", "label": "Beach Way", "x": 12.4, "y": 17.2, "w": 4.0, "h": 14.0}
 
 # open-air pavilions on the sand. front: the free spot where the shop will be used later.
 SHOPS_OUTDOOR = [
-    {"id": "surf-shop", "label": "Surf Shop", "x": 5.8, "y": 21.0, "w": 5.1, "h": 2.4,
-     "front": {"x": 8.6, "y": 22.55}},
-    {"id": "beach-cafe", "label": "Beach Cafe", "x": 25.0, "y": 20.7, "w": 6.6, "h": 3.0,
-     "front": {"x": 28.2, "y": 22.4}},
+    {"id": "surf-shop", "label": "Surf Shop", "x": 5.8, "y": 26.0, "w": 5.1, "h": 2.4,
+     "front": {"x": 8.6, "y": 27.55}},
+    {"id": "beach-cafe", "label": "Beach Cafe", "x": 25.0, "y": 25.7, "w": 6.6, "h": 3.0,
+     "front": {"x": 28.2, "y": 27.4}},
 ]
 
-# things on the sand and in the water: positions only, nothing is drawn at random
+# things on the sand and in the water: positions only, the same on every start.
+# The paving ends at y 24.5; the dune ridge and the sand start at y 25, the sea at y 33.
 BEACH = {
+    "sandFrom": 25.0,
+    "seaFrom": 33.0,
     "loungers": [
-        {"x": 4.4, "y": 25.8, "color": "#ff7458"}, {"x": 6.2, "y": 25.8, "color": "#64cbc8"},
-        {"x": 32.8, "y": 25.8, "color": "#f5c95e"}, {"x": 34.4, "y": 25.8, "color": "#bce65f"},
+        {"x": 4.4, "y": 30.6, "color": "#ff7458"}, {"x": 6.2, "y": 30.6, "color": "#64cbc8"},
+        {"x": 32.8, "y": 30.6, "color": "#f5c95e"}, {"x": 34.4, "y": 30.6, "color": "#bce65f"},
     ],
-    "dunes": [{"x": 2.8, "y": 27.0, "r": 0.7}, {"x": 31.0, "y": 27.2, "r": 0.7}],
-    "volleyball": {"x1": 36.2, "x2": 39.8, "y": 26.0},
-    "tower": {"x": 1.8, "y": 24.0, "w": 1.1, "h": 1.1},
+    # the dune ridge between the promenade and the sand: three mounds that block, grass in a line
+    "dunes": [{"x": 3.0, "y": 24.9, "r": 0.7}, {"x": 35.5, "y": 25.0, "r": 0.7}, {"x": 39.2, "y": 25.3, "r": 0.7}],
+    "grassLine": {"y": 24.75, "from": 1.4, "to": 41.0, "gaps": [[11.6, 17.4], [24.8, 32.4]]},
+    "volleyball": {"x1": 36.2, "x2": 39.8, "y": 31.0},
+    "tower": {"x": 1.8, "y": 29.0, "w": 1.1, "h": 1.1},
+    "flags": [{"x": 4.0, "y": 29.8, "color": "#e24d3f"}, {"x": 4.9, "y": 30.0, "color": "#f5c95e"}],
+    # flat on the sand, nobody is blocked by them: x, y, width, depth, colour, stripe colour
+    "towels": [
+        {"x": 8.6, "y": 31.0, "w": 0.9, "h": 1.7, "color": "#ff7458", "stripe": "#ffffff"},
+        {"x": 10.2, "y": 31.5, "w": 0.9, "h": 1.7, "color": "#64cbc8", "stripe": "#f5c95e"},
+        {"x": 19.4, "y": 29.6, "w": 0.9, "h": 1.7, "color": "#f5c95e", "stripe": "#ff7458"},
+        {"x": 21.2, "y": 30.2, "w": 0.9, "h": 1.7, "color": "#9a7bc1", "stripe": "#ffffff"},
+        {"x": 26.8, "y": 31.2, "w": 0.9, "h": 1.7, "color": "#bce65f", "stripe": "#31545b"},
+        {"x": 30.0, "y": 29.8, "w": 0.9, "h": 1.7, "color": "#ff7458", "stripe": "#64cbc8"},
+    ],
+    # beach umbrellas that stand alone: the post blocks, the canopy does not
+    "umbrellas": [
+        {"x": 9.9, "y": 30.6, "color": "#ff7458"}, {"x": 20.6, "y": 29.2, "color": "#64cbc8"},
+        {"x": 28.9, "y": 30.8, "color": "#f5c95e"},
+    ],
+    "sandcastle": {"x": 23.8, "y": 31.6},
+    # benches on the promenade, facing the sea
+    "benches": [[4.6, 23.9], [8.4, 23.9], [25.4, 23.9], [36.6, 23.9]],
+    # rocks at the two ends of the bay, in the wash of the waves
+    "rocks": [
+        {"x": 2.7, "y": 32.5, "r": 0.5, "block": True}, {"x": 1.7, "y": 32.9, "r": 0.34, "block": False},
+        {"x": 3.5, "y": 33.2, "r": 0.28, "block": False},
+        {"x": 39.5, "y": 32.4, "r": 0.5, "block": True}, {"x": 40.5, "y": 33.0, "r": 0.34, "block": False},
+        {"x": 38.7, "y": 33.3, "r": 0.26, "block": False},
+    ],
+    "shower": {"x": 17.2, "y": 29.4},
+    "kites": [{"x": 22.0, "y": 29.0, "color": "#ff7458", "phase": 0.0}, {"x": 31.0, "y": 31.0, "color": "#64cbc8", "phase": 2.4}],
+    "swimmers": [{"x": 7.5, "y": 34.8, "phase": 0.0}, {"x": 21.5, "y": 35.6, "phase": 1.7}, {"x": 30.4, "y": 34.4, "phase": 3.1}],
     "footprints": [
-        {"x": round(16.9 + 0.62 * i, 2), "y": round(26.8 - 0.25 * (i % 2) - 0.05 * i, 2), "side": i % 2}
+        {"x": round(16.9 + 0.62 * i, 2), "y": round(31.8 - 0.25 * (i % 2) - 0.05 * i, 2), "side": i % 2}
         for i in range(8)
     ],
-    "shells": [[11.6, 27.0], [19.4, 27.1], [23.2, 27.2], [33.0, 27.3], [9.0, 25.4], [27.5, 25.6]],
-    "driftwood": [{"x": 9.0, "y": 27.1, "length": 1.6}, {"x": 26.5, "y": 27.2, "length": 1.2}],
-    "buoys": [[6.0, 29.4], [15.5, 30.1], [26.0, 29.6], [35.5, 30.2]],
-    "boats": [{"x": 9.5, "y": 30.4, "color": "#ff7458"}, {"x": 31.0, "y": 30.9, "color": "#f5c95e"}],
-    "gulls": [{"x": 12.0, "y": 26.0, "phase": 0.0}, {"x": 28.0, "y": 24.0, "phase": 2.1}, {"x": 20.0, "y": 27.0, "phase": 4.2}],
+    "shells": [[11.6, 32.0], [19.4, 32.1], [23.2, 32.2], [33.0, 32.3], [9.0, 30.4], [27.5, 30.6]],
+    "driftwood": [{"x": 9.0, "y": 32.1, "length": 1.6}, {"x": 26.5, "y": 32.2, "length": 1.2}],
+    "buoys": [[6.0, 36.4], [15.5, 37.1], [26.0, 36.6], [35.5, 37.2]],
+    "boats": [{"x": 9.5, "y": 37.0, "color": "#ff7458"}, {"x": 31.0, "y": 37.4, "color": "#f5c95e"}],
+    "gulls": [{"x": 12.0, "y": 31.0, "phase": 0.0}, {"x": 28.0, "y": 29.0, "phase": 2.1}, {"x": 20.0, "y": 32.0, "phase": 4.2}],
 }
 
 # The Dorm: a small building east of the Hub, entered like a wing of the Nova (same data shape, one
@@ -375,28 +410,38 @@ def _zone_colliders():
     # the arch at the start of the beach way, four lamps along it, two benches at the sand end
     solid.append(_circle("way-arch-west", 12.3, 17.5, 0.15, "Arch post", "prop"))
     solid.append(_circle("way-arch-east", 16.5, 17.5, 0.15, "Arch post", "prop"))
-    for i, y in enumerate((19.4, 22.4, 25.4)):
+    for i, y in enumerate((19.4, 22.4, 25.4, 28.4)):
         solid.append(_circle(f"way-lamp-west-{i}", 12.2, y, 0.12, "Lamp", "prop"))
         solid.append(_circle(f"way-lamp-east-{i}", 16.6, y, 0.12, "Lamp", "prop"))
-    solid.append(_rect("way-bench-west", 11.5, 25.5, 0.45, 1.3, "Bench", "prop"))
-    solid.append(_rect("way-bench-east", 17.0, 25.5, 0.45, 1.3, "Bench", "prop"))
+    solid.append(_rect("way-bench-west", 11.5, 30.5, 0.45, 1.3, "Bench", "prop"))
+    solid.append(_rect("way-bench-east", 17.0, 30.5, 0.45, 1.3, "Bench", "prop"))
     # the Surf Shop: counter, board rack, four posts of the awning
-    solid.append(_rect("surf-counter", 6.8, 21.2, 3.6, 0.8, "Surf Shop counter", "prop"))
-    solid.append(_rect("surf-rack", 5.9, 21.6, 0.5, 1.7, "Board rack", "prop"))
-    for i, (x, y) in enumerate(((6.7, 21.1), (10.5, 21.1), (6.7, 23.1), (10.5, 23.1))):
+    solid.append(_rect("surf-counter", 6.8, 26.2, 3.6, 0.8, "Surf Shop counter", "prop"))
+    solid.append(_rect("surf-rack", 5.9, 26.6, 0.5, 1.7, "Board rack", "prop"))
+    for i, (x, y) in enumerate(((6.7, 26.1), (10.5, 26.1), (6.7, 28.1), (10.5, 28.1))):
         solid.append(_circle(f"surf-post-{i}", x, y, 0.12, "Post", "prop"))
     # the Beach Cafe: bar, cooler, posts and three tables
-    solid.append(_rect("cafe-bar", 25.6, 21.0, 5.2, 0.8, "Beach Cafe bar", "prop"))
-    solid.append(_rect("cafe-cooler", 31.1, 21.0, 0.7, 0.5, "Cooler", "prop"))
-    for i, (x, y) in enumerate(((25.5, 20.9), (30.9, 20.9), (25.5, 22.5), (30.9, 22.5))):
+    solid.append(_rect("cafe-bar", 25.6, 26.0, 5.2, 0.8, "Beach Cafe bar", "prop"))
+    solid.append(_rect("cafe-cooler", 31.1, 26.0, 0.7, 0.5, "Cooler", "prop"))
+    for i, (x, y) in enumerate(((25.5, 25.9), (30.9, 25.9), (25.5, 27.5), (30.9, 27.5))):
         solid.append(_circle(f"cafe-post-{i}", x, y, 0.12, "Post", "prop"))
     for i, x in enumerate((26.2, 28.5, 30.8)):
-        solid.append(_circle(f"beach-table-{i}", x, 23.2, 0.36, "Beach table", "prop"))
+        solid.append(_circle(f"beach-table-{i}", x, 28.2, 0.36, "Beach table", "prop"))
     # the beach
     for i, lounger in enumerate(BEACH["loungers"]):
         solid.append(_rect(f"lounger-{i}", lounger["x"], lounger["y"], 0.8, 1.5, "Lounger", "prop"))
     for i, dune in enumerate(BEACH["dunes"]):
         solid.append(_circle(f"dune-{i}", dune["x"], dune["y"], dune["r"], "Dune", "prop"))
+    for i, umbrella in enumerate(BEACH["umbrellas"]):
+        solid.append(_circle(f"umbrella-{i}", umbrella["x"], umbrella["y"], 0.15, "Beach umbrella", "prop"))
+    for i, rock in enumerate(r for r in BEACH["rocks"] if r["block"]):
+        solid.append(_circle(f"rock-{i}", rock["x"], rock["y"], rock["r"], "Rock", "prop"))
+    for i, (x, y) in enumerate(BEACH["benches"]):
+        solid.append(_rect(f"promenade-bench-{i}", x, y, 1.4, 0.42, "Bench", "prop"))
+    castle = BEACH["sandcastle"]
+    solid.append(_circle("sandcastle", castle["x"], castle["y"], 0.4, "Sandcastle", "prop"))
+    shower = BEACH["shower"]
+    solid.append(_circle("beach-shower", shower["x"], shower["y"], 0.15, "Beach shower", "prop"))
     net = BEACH["volleyball"]
     solid.append(_circle("net-post-west", net["x1"], net["y"], 0.12, "Net post", "prop"))
     solid.append(_circle("net-post-east", net["x2"], net["y"], 0.12, "Net post", "prop"))

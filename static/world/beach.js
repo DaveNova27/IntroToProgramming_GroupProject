@@ -91,24 +91,24 @@ const flat = (x, y, w, h, fill, z = 5, stroke = null) =>
 // sand drifting over the paving in front of the beach, with a wavy edge
 function drawSandWash() {
   const points = [];
-  for (let x = 1.2; x <= 41.4; x += 0.9) points.push(isoPoint(x, 19.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
-  for (let x = 41.4; x >= 1.2; x -= 0.9) points.push(isoPoint(x, 20.3, 4.6));
+  for (let x = 1.2; x <= 41.4; x += 0.9) points.push(isoPoint(x, 24.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
+  for (let x = 41.4; x >= 1.2; x -= 0.9) points.push(isoPoint(x, 25.3, 4.6));
   drawPlane(points, "rgba(222,194,126,.62)", null);
 }
 
 // ripples in the sand, a darker wet strip along the water, foam that comes in and goes out
 function drawShore(t) {
-  for (let j = 0; j < 13; j++) {
+  for (let j = 0; j < 12; j++) {
     for (let i = 0; i < 34; i++) {
       if ((i * 3 + j * 5) % 4 === 0) continue; // the ripples are not in a grid
       const x = 1.6 + i * 1.18 + (j % 2) * 0.6;
-      const y = 20.9 + j * 0.56 + ((i * 7) % 5) * 0.05;
+      const y = 25.9 + j * 0.56 + ((i * 7) % 5) * 0.05;
       line(isoPoint(x, y, 4.8), isoPoint(x + 0.55, y + 0.02, 4.8), "#b79b5c", 0.8, 0.28);
     }
   }
   const wet = [];
-  for (let x = 1.5; x <= 41.5; x += 0.9) wet.push(isoPoint(x, 27.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
-  for (let x = 41.5; x >= 1.5; x -= 0.9) wet.push(isoPoint(x, 28.05, 4.7));
+  for (let x = 1.5; x <= 41.5; x += 0.9) wet.push(isoPoint(x, 32.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
+  for (let x = 41.5; x >= 1.5; x -= 0.9) wet.push(isoPoint(x, 33.05, 4.7));
   drawPlane(wet, "rgba(120,98,60,.2)", null);
   for (let k = 0; k < 3; k++) {
     ctx.save();
@@ -118,7 +118,7 @@ function drawShore(t) {
     ctx.beginPath();
     for (let x = 1.5; x <= 41.5; x += 0.5) {
       const swell = 0.16 * Math.sin(x * 0.7 + clock(t) * 0.0018 - k * 0.8) + 0.1 * Math.sin(x * 1.9 + clock(t) * 0.0011);
-      const p = isoPoint(x, 27.92 - k * 0.2 + swell, 4.9);
+      const p = isoPoint(x, 32.92 - k * 0.2 + swell, 4.9);
       if (x === 1.5) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -127,8 +127,29 @@ function drawShore(t) {
   }
 }
 
+// a soft strip of heaped sand along the promenade, and a line of dried seaweed left by the tide
+function drawDuneStrip() {
+  const strip = [];
+  for (let x = 1.2; x <= 41.4; x += 0.8) strip.push(isoPoint(x, 24.55 + 0.22 * Math.sin(x * 0.8) + 0.1 * Math.sin(x * 2.3), 5.2));
+  for (let x = 41.4; x >= 1.2; x -= 0.8) strip.push(isoPoint(x, 25.35 + 0.18 * Math.sin(x * 0.6), 5.2));
+  drawPlane(strip, "rgba(241,222,168,.7)", null);
+  for (let x = 1.6; x <= 41; x += 0.37) {
+    const y = 31.35 + 0.35 * Math.sin(x * 0.45) + 0.12 * Math.sin(x * 2.1);
+    if ((Math.round(x * 100) % 5) % 2 === 0) continue; // broken: it is not a ruler line
+    dot(isoPoint(x, y, 5.1), 0.9, (Math.round(x * 10) % 3) ? "#6f6a45" : "#8a6f43", 0.55);
+  }
+}
+
+function drawTowel(t) {
+  flat(t.x - 0.04, t.y - 0.04, t.w + 0.08, t.h + 0.08, "rgba(90,70,40,.18)", 5.2);
+  flat(t.x, t.y, t.w, t.h, t.color, 5.6, "rgba(40,50,50,.25)");
+  for (const f of [0.22, 0.42, 0.78]) flat(t.x, t.y + t.h * f, t.w, 0.1, t.stripe, 5.8);
+}
+
 function drawBeachDetails() {
   const beach = world.beach;
+  drawDuneStrip();
+  beach.towels.forEach(drawTowel);
   beach.footprints.forEach(({ x, y, side }) => {
     const p = isoPoint(x + (side ? 0.12 : -0.12), y, 4.9);
     oval(p, 2.6, 1.2, "#a58a52", 0.5);
@@ -217,7 +238,7 @@ export function drawBeachGround(t) {
     drawSoftShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w * 22, shop.h * 18, 0.1);
   }
   drawDormGround();
-  drawSpaceCaption(18.4, 27.5, "Beach", "#8b6645");
+  drawSpaceCaption(18.4, 32.5, "Beach", "#8b6645");
 }
 
 // ---- things that stand ----------------------------------------------------------------------------
@@ -312,13 +333,13 @@ function drawSurfShop(shop, amount) {
   ["#ff7458", "#64cbc8", "#f5c95e", "#bce65f", "#9a7bc1", "#ffffff"].forEach((color, i) => {
     drawSurfboard(rack.x + 0.2, rack.y + 0.2 + i * 0.27, 44 + (i % 3) * 5, color, -0.25);
   });
-  const railTop = isoPoint(11.15, 21.5, 52);
-  const railEnd = isoPoint(11.15, 22.8, 52);
+  const railTop = isoPoint(11.15, 26.5, 52);
+  const railEnd = isoPoint(11.15, 27.8, 52);
   line(railTop, railEnd, "#31545b", 2);
-  line(isoPoint(11.15, 21.5, 5), railTop, "#31545b", 2);
-  line(isoPoint(11.15, 22.8, 5), railEnd, "#31545b", 2);
+  line(isoPoint(11.15, 26.5, 5), railTop, "#31545b", 2);
+  line(isoPoint(11.15, 27.8, 5), railEnd, "#31545b", 2);
   ["#2f4d5a", "#ff7458", "#64cbc8"].forEach((color, i) => {
-    const p = isoPoint(11.15, 21.7 + i * 0.42, 52);
+    const p = isoPoint(11.15, 26.7 + i * 0.42, 52);
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(p.x - 4, p.y);
@@ -404,12 +425,12 @@ function drawBeachCafe(shop, t, amount) {
   drawRaisedSlab(cooler.x - 0.02, cooler.y - 0.02, cooler.width + 0.04, cooler.height + 0.04, 19, 3, "#ffffff", "#b9c8c6", "#d4e0de");
   // stools in front of the bar
   for (const x of [26.4, 27.2, 29.2, 30.0]) {
-    const p = isoPoint(x, 22.2, 16);
-    line(isoPoint(x, 22.2, 5), p, "#31545b", 2);
+    const p = isoPoint(x, 27.2, 16);
+    line(isoPoint(x, 27.2, 5), p, "#31545b", 2);
     oval(p, 5, 2.5, CORAL);
   }
   // the menu board under the awning
-  const m = isoPoint(28.1, 21.02, 54);
+  const m = isoPoint(28.1, 26.02, 54);
   roundedRectAt({ x: m.x, y: m.y - 8 }, 30, 18, "#22343a");
   ctx.fillStyle = "#e9f2ee";
   ctx.textAlign = "center";
@@ -629,6 +650,164 @@ function drawMailbox() {
   ctx.fillRect(p.x - 2.5, p.y - 20.5, 5, 1.2);
 }
 
+// ---- the beach's own character: grass, umbrellas, castle, rocks, flags, shower, kites, swimmers -------
+
+// beach grass on the dune ridge: clumps that lean with the wind, a few small yellow flowers
+function drawGrassClump(x, y, t, index) {
+  const p = isoPoint(x, y, 5);
+  oval({ x: p.x, y: p.y + 1 }, 6, 2.2, "rgba(120,100,60,.25)");
+  const wind = environmentalProfile(scene.clock, scene.day, t).wind;
+  for (let k = -3; k <= 3; k++) {
+    const sway = Math.sin(clock(t) * 0.0022 + index * 0.9 + k * 0.5) * (1.4 + wind * 2.4);
+    const tall = 10 + ((index * 5 + k * 3 + 9) % 5) * 2.2;
+    line({ x: p.x + k * 1.3, y: p.y }, { x: p.x + k * 2.3 + sway, y: p.y - tall }, k % 2 ? "#7fa357" : "#a3bf72", 1.3);
+  }
+  if (index % 4 === 1) dot({ x: p.x + 3, y: p.y - 9 }, 1.5, SUN);
+}
+
+function grassClumps() {
+  const g = world.beach.grassLine;
+  const out = [];
+  let i = 0;
+  for (let x = g.from; x <= g.to; x += 0.62) {
+    i += 1;
+    if (g.gaps.some(([a, b]) => x > a && x < b)) continue;
+    out.push({ x: x + ((i * 7) % 3) * 0.08, y: g.y + 0.25 * Math.sin(x * 0.8) + ((i * 5) % 3) * 0.09, index: i });
+  }
+  return out;
+}
+
+function drawStandingUmbrella(u) {
+  const base = isoPoint(u.x, u.y, 5);
+  oval({ x: base.x + 14, y: base.y + 5 }, 30, 10, "rgba(20,40,46,.14)");
+  drawParasol(u.x, u.y, u.color);
+}
+
+function drawSandcastle(c) {
+  const tone = ["#e6cc8c", "#b99a58", "#cfb270"];
+  oval(isoPoint(c.x + 0.4, c.y + 0.4, 5), 22, 8, "rgba(90,70,40,.18)");
+  drawBlock(c.x - 0.45, c.y - 0.45, 0.9, 0.9, 8, ...tone);
+  for (const [dx, dy] of [[-0.5, -0.5], [0.26, -0.5], [-0.5, 0.26], [0.26, 0.26]]) {
+    drawBlock(c.x + dx, c.y + dy, 0.24, 0.24, 20, ...tone);
+    drawBlock(c.x + dx + 0.05, c.y + dy + 0.05, 0.14, 0.14, 25, ...tone);
+  }
+  drawBlock(c.x - 0.2, c.y - 0.2, 0.4, 0.4, 26, ...tone);
+  const top = isoPoint(c.x, c.y, 26);
+  line(top, { x: top.x, y: top.y - 14 }, "#8a6f43", 1.2);
+  ctx.fillStyle = CORAL;
+  ctx.beginPath();
+  ctx.moveTo(top.x, top.y - 14);
+  ctx.lineTo(top.x + 6, top.y - 11.5);
+  ctx.lineTo(top.x, top.y - 9);
+  ctx.closePath();
+  ctx.fill();
+  // a bucket and a spade next to it
+  const b = isoPoint(c.x + 0.95, c.y + 0.1, 5);
+  ctx.fillStyle = AQUA;
+  ctx.beginPath();
+  ctx.moveTo(b.x - 4, b.y - 8);
+  ctx.lineTo(b.x + 4, b.y - 8);
+  ctx.lineTo(b.x + 3, b.y);
+  ctx.lineTo(b.x - 3, b.y);
+  ctx.closePath();
+  ctx.fill();
+  oval({ x: b.x, y: b.y - 8 }, 4, 1.4, "#3aa8a4");
+  line({ x: b.x + 7, y: b.y - 1 }, { x: b.x + 12, y: b.y - 9 }, SUN, 1.6);
+}
+
+// a rock in the wash of the waves, with foam that pulses round it
+function drawRock(r, t, index) {
+  const p = isoPoint(r.x, r.y, 5);
+  const s = r.r * 42;
+  const pulse = 0.5 + 0.5 * Math.sin(clock(t) * 0.0021 + index * 1.7);
+  oval({ x: p.x, y: p.y + 2 }, s * 1.45 + pulse * 3, s * 0.72 + pulse * 1.2, "rgba(255,255,255,.55)", 0.5 + 0.2 * pulse);
+  oval({ x: p.x, y: p.y + 1 }, s * 1.15, s * 0.55, "#4d5658");
+  const g = ctx.createRadialGradient(p.x - s * 0.3, p.y - s * 0.8, 1, p.x, p.y - s * 0.3, s * 1.2);
+  g.addColorStop(0, "#9a9a90");
+  g.addColorStop(1, "#5d6462");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y - s * 0.3, s, s * 0.82, 0, 0, Math.PI * 2);
+  ctx.fill();
+  oval({ x: p.x - s * 0.3, y: p.y - s * 0.62 }, s * 0.32, s * 0.2, "rgba(255,255,255,.28)");
+  ctx.fillStyle = "rgba(60,90,70,.55)"; // green weed on the wet side
+  ctx.beginPath();
+  ctx.ellipse(p.x + s * 0.2, p.y + s * 0.12, s * 0.7, s * 0.2, 0, 0, Math.PI);
+  ctx.fill();
+}
+
+// the red and yellow flags next to the lifeguard tower
+function drawBeachFlag(f, t) {
+  line(isoPoint(f.x, f.y, 5), isoPoint(f.x, f.y, 54), "#e9e3d4", 2);
+  drawWindFlag(f.x, f.y, 52, f.color, t, environmentalProfile(scene.clock, scene.day, t), 0.6);
+}
+
+function drawShower(sh) {
+  const base = isoPoint(sh.x, sh.y, 5);
+  oval({ x: base.x, y: base.y + 1 }, 10, 4, "rgba(90,110,120,.3)");
+  oval({ x: base.x, y: base.y + 1 }, 6, 2.4, "rgba(100,203,200,.5)"); // a puddle
+  line(base, isoPoint(sh.x, sh.y, 64), "#8aa6ad", 2.4);
+  line(isoPoint(sh.x, sh.y, 64), isoPoint(sh.x - 0.2, sh.y, 68), "#8aa6ad", 2.4);
+  const head = isoPoint(sh.x - 0.3, sh.y, 66);
+  oval(head, 4.4, 1.8, "#31545b");
+  line({ x: head.x - 2, y: head.y + 2 }, { x: head.x - 2.6, y: head.y + 9 }, "rgba(100,203,200,.55)", 0.8);
+  line({ x: head.x + 2, y: head.y + 2 }, { x: head.x + 2.6, y: head.y + 9 }, "rgba(100,203,200,.55)", 0.8);
+  line(isoPoint(sh.x, sh.y, 40), isoPoint(sh.x + 0.15, sh.y, 40), "#31545b", 3);
+}
+
+// a kite, flying on a string from the sand
+function drawKite(k, t) {
+  const time = clock(t) * 0.0009 + k.phase;
+  const anchor = isoPoint(k.x, k.y, 8);
+  const p = isoPoint(k.x + 1.9 + 0.5 * Math.sin(time), k.y - 2.6 + 0.4 * Math.cos(time * 1.3), 132 + 9 * Math.sin(time * 1.4));
+  const tilt = 0.25 * Math.sin(time * 1.9);
+  ctx.save();
+  ctx.strokeStyle = "rgba(60,60,60,.55)";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(anchor.x, anchor.y);
+  ctx.quadraticCurveTo((anchor.x + p.x) / 2 - 8, (anchor.y + p.y) / 2 + 14, p.x, p.y + 8);
+  ctx.stroke();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(tilt);
+  ctx.fillStyle = k.color;
+  ctx.beginPath();
+  ctx.moveTo(0, -11);
+  ctx.lineTo(8, -1);
+  ctx.lineTo(0, 10);
+  ctx.lineTo(-8, -1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.75)";
+  ctx.beginPath();
+  ctx.moveTo(0, -11);
+  ctx.lineTo(8, -1);
+  ctx.lineTo(0, -1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = SUN;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  for (let i = 1; i <= 5; i++) ctx.lineTo(Math.sin(time * 3 + i) * 3.2, 10 + i * 5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// a swimmer: head, one arm that strokes, rings in the water
+function drawSwimmer(sw, t) {
+  const time = clock(t) * 0.0014 + sw.phase;
+  const x = sw.x + 0.5 * Math.sin(time * 0.6);
+  const p = isoPoint(x, sw.y + 0.2 * Math.sin(time), 2);
+  const bob = Math.sin(time * 2) * 1.2;
+  oval({ x: p.x, y: p.y + 3 }, 13 + Math.sin(time * 2) * 1.5, 4.4, "rgba(255,255,255,.3)");
+  oval({ x: p.x, y: p.y + 1 }, 7, 2.4, "rgba(30,90,110,.25)");
+  const stroke = Math.sin(time * 3);
+  line({ x: p.x + 2, y: p.y - 2 + bob }, { x: p.x + 8 + stroke * 3, y: p.y - 6 - stroke * 3 + bob }, "#c98a62", 2.2);
+  oval({ x: p.x, y: p.y - 3 + bob }, 3.2, 3.4, "#d99a70");
+  oval({ x: p.x - 0.4, y: p.y - 4.6 + bob }, 3.3, 2.2, sw.phase > 2 ? "#2f4d5a" : "#7a4b2a");
+}
+
 // ---- everything that stands, sorted with the rest of the scene -------------------------------------
 
 export function beachActors(t) {
@@ -641,26 +820,26 @@ export function beachActors(t) {
     if (c.id.startsWith("way-lamp")) add(c.x + c.y + 0.05, () => drawLamp(c.x, c.y, amount));
   }
   add(14.4 + 17.5 + 0.2, () => drawArch(amount));
-  add(11.5 + 25.5 + 1.3, () => drawCampusBench(11.5, 25.5, 1));
-  add(17.0 + 25.5 + 1.3, () => drawCampusBench(17.0, 25.5, 1));
+  add(11.5 + 30.5 + 1.3, () => drawCampusBench(11.5, 30.5, 1));
+  add(17.0 + 30.5 + 1.3, () => drawCampusBench(17.0, 30.5, 1));
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
       add(shop.x + shop.y + 1.0, () => drawSurfShop(shop, amount));
       for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y));
-      add(shop.x + shop.y + 0.4, () => drawAwning(6.5, 21.0, 4.4, 2.2, 66, "#2e8b8f", amount));
+      add(shop.x + shop.y + 0.4, () => drawAwning(6.5, 26.0, 4.4, 2.2, 66, "#2e8b8f", amount));
       add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 96, "SURF SHOP", AQUA));
     } else {
       add(shop.x + shop.y + 1.0, () => drawBeachCafe(shop, t, amount));
       for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, 68));
-      add(shop.x + shop.y + 0.4, () => drawAwning(25.3, 20.8, 5.8, 1.9, 68, CORAL, amount));
+      add(shop.x + shop.y + 0.4, () => drawAwning(25.3, 25.8, 5.8, 1.9, 68, CORAL, amount));
       add(shop.x + shop.y + 0.45, () => drawStringLights(t, amount));
       add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2 - 0.4, shop.y + 0.4, 98, "BEACH CAFE", CORAL));
       solid.filter((c) => c.id.startsWith("beach-table")).forEach((c, i) => {
         add(c.x + c.y + 0.1, () => drawBeachTable(c.x, c.y, i));
         add(c.x + c.y + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
       });
-      glowAt(add, 28.2, 22.4, amount);
+      glowAt(add, 28.2, 27.4, amount);
     }
   }
   world.beach.loungers.forEach((l, i) => add(l.x + l.y + 1.5, () => drawLounger(l, i)));
@@ -668,6 +847,15 @@ export function beachActors(t) {
     if (i % 2 === 1) add(l.x + l.y + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
   });
   world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
+  grassClumps().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
+  world.beach.benches.forEach(([x, y]) => add(x + y + 0.6, () => drawCampusBench(x, y, 0)));
+  world.beach.umbrellas.forEach((u) => add(u.x + u.y + 1.2, () => drawStandingUmbrella(u)));
+  add(world.beach.sandcastle.x + world.beach.sandcastle.y + 0.6, () => drawSandcastle(world.beach.sandcastle));
+  world.beach.rocks.forEach((r, i) => add(r.x + r.y + 0.3, () => drawRock(r, t, i)));
+  world.beach.flags.forEach((f) => add(f.x + f.y + 0.2, () => drawBeachFlag(f, t)));
+  add(world.beach.shower.x + world.beach.shower.y + 0.3, () => drawShower(world.beach.shower));
+  world.beach.swimmers.forEach((sw) => add(sw.x + sw.y, () => drawSwimmer(sw, t)));
+  world.beach.kites.forEach((k) => add(200, () => drawKite(k, t)));
   add(world.beach.volleyball.x1 + world.beach.volleyball.y + 0.2, () => drawVolleyNet(t));
   add(world.beach.tower.x + world.beach.tower.y + 1.2, () => drawLifeguardTower(t));
   world.beach.buoys.forEach(([x, y], i) => add(x + y, () => drawBuoy(x, y, t, i)));

@@ -48,16 +48,18 @@ export function drawTerrain(t) {
     let color = zone.floor || "#79aa67",
       depth = 4;
     if (zone.outdoor) {
-      if (y >= 28) {
-        color = x % 5 === 0 ? "#448fa0" : "#3f899b";
+      if (y >= 33) {
+        // shallow, light water along the shore, deeper and darker further out
+        const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b"][Math.min(y - 33, 4)];
+        color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
         depth = 0;
-      } else if (y >= 20) color = x % 4 === 0 ? "#e4c986" : "#dec27e";
+      } else if (y >= 25) color = y >= 32 ? "#d3b575" : x % 4 === 0 ? "#e4c986" : "#dec27e";
       else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18)
         color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
       else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
     } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
     drawTile(x, y, color, depth);
-    if (zone.outdoor && y === 27) {
+    if (zone.outdoor && y === 32) {
       const p = isoPoint(x + 0.5, y + 0.5, 5);
       ctx.strokeStyle = "rgba(255,255,255,.55)";
       ctx.lineWidth = 2;
