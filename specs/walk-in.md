@@ -1,6 +1,6 @@
 # Walking into the Nova (`walk-in`, issue to be opened)
 
-DRAFT: to be agreed with the team before any code is written. Decisions from Felix on 2026-11-08,
+BUILT on branch `walk-in`, waiting for the team's review. Decisions from Felix on 2026-11-08,
 after David's voice memo (weather visible from inside, the day starts and ends at the Dorm, the
 shops and printers inside the Nova, the Surf Shop and the Beach Cafe outside).
 
@@ -25,26 +25,36 @@ This is the first of the specs that rebuild the world (see the roadmap, phase 2)
 
 - `ZONES` keeps one zone, `campus`. Its walkable bounds grow to the north so the whole Nova fits.
   The spawn stays `(21, 18)`, outdoors on the plaza; the Dorm spawn comes with `nova-zones`.
-- `BUILDINGS["nova"]` is a new kind of building with:
+- `NOVA` (next to `BUILDINGS`, because those are solid blocks) is the new kind of building. It holds:
   - `parts`: a list of rectangles `{x, y, w, h, z}` (tiles, z = wall height). Together they are the
-    footprint: one atrium block in the middle and two long wings ("fingers") pointing towards the
-    sea (south). Placeholder size: about 22 × 9 tiles, the space of today's three academic wings.
-    The plaza, the courtyard and the food court stay free.
+    footprint: one atrium block in the middle (taller, with the glass roof) and a wing on each side.
+    Size: 22 × 8 tiles, so the floor inside is 21 × 7 tiles, where the three academic wings stood
+    and north of them. In this first form the wings are plain blocks; longer "fingers" towards the
+    sea come with `nova-zones`. The plaza, the courtyard and the food court stay free.
   - `walls`: wall pieces as solid rectangles with the openings left out, written as data like
     `solid` is today. At least one `entrances` entry (`{x, y, width, side}`) on the plaza side, wide
     enough for the player (at least 2 tiles). Openings between the atrium and the wings.
-  - `interior`: the same format as today's room layouts: `areas`, `solid`, `route`,
-    `activities`, in campus coordinates, plus `floor`.
-- The other buildings (Learning Center, the three academic wings, Mercado, Student Hub on the outdoor
-  map) stay as they are for now; `nova-zones` decides what becomes of them. The three desks stand
-  in the atrium: "Order stock" (supply desk), "Set your prices" (cafe counter), "Open the dashboard"
-  (Student Central). They keep their ids and `action`s.
+  - the rooms are in `INTERIORS["campus"]` (keyed by the zone they are in): the same format as
+    today's room layouts (`areas`, `solid`, `route`, `activities`, in campus coordinates), plus
+    `floor`.
+- The three academic wings are replaced by the Nova. The Student Hub is removed as well: it stood
+  east of the Nova and, seen from the camera, hid the Print Corner. Learning Center and Mercado stay
+  as outdoor buildings for now; `nova-zones` decides what becomes of them. The three desks stand
+  inside: "Order stock" (supply desk) and "Open the dashboard" (Student Central) in the atrium, "Set
+  your prices" (cafe counter) in the Cafe. They keep their ids and `action`s.
+- The whole floor inside is open to walk on. The labelled areas split it between them (Cafe in the
+  west, Atrium in the middle, **Merchandise** and the **Print Corner** in the east wing). Counters and
+  shelves stand against the north and west walls, where the camera sees their fronts, and every gap
+  between two pieces is either shut (at most 0.5 tiles, less than a person) or at least 1.4 wide, so
+  that walking by hand and clicking to walk both find their way and nobody gets stuck. The atrium has a
+  gallery with a glass balustrade along its north wall, reached by a staircase (drawing only: the
+  upper floor is not walkable). The areas have their own floors (timber, polished stone, carpet,
+  concrete) and the light falls through the windows in the north wall and moves with the time of day.
 - Inside the Nova, as data and drawing only (no rule): labelled floor areas for the **Cafe**, the
   **Merchandise** shop and a **Print Corner** with three printers (solid props). Who serves there,
   stock on a shelf and refilling paper and ink are later specs (`shop-walk`, `shop-art`, and a new
   spec for the printers, roadmap section 6 idea 9).
-- `world_view()` sends `interiors` keyed by building id (`"nova"`), plus the building list with
-  `parts`, `walls` and `entrances`.
+- `world_view()` sends `interiors` (keyed `"campus"`) and `nova` with `parts`, `walls` and `entrances`.
 - `colliders("campus")` contains the walls and the interior solids. `colliders` for the removed
   zones is gone.
 
@@ -94,23 +104,26 @@ brands) are our own: Cafe, Merchandise, Print Corner.
 
 ## Decide (my recommendations)
 
-1. **Tests that name the removed zones.** Eight tests in `tests/test_world_api.py` name zones or
-   doors that no longer exist: `test_the_api_serves_the_whole_world`,
+1. **Tests that name the removed zones.** Seven tests in `tests/test_world_api.py` name zones or
+   doors that no longer exist and fail: `test_the_api_serves_the_whole_world`,
    `test_every_door_leads_to_a_zone_with_a_free_place_to_stand` (counts six doors),
    `test_every_room_has_a_way_out`, `test_the_position_survives_a_restart` (zone `academy`),
-   `test_the_api_saves_the_position` and `test_a_new_run_puts_the_player_back_at_the_spawn` (zone
-   `hub`), `test_moving_changes_nothing_but_the_position` (zone `mercado`) and
-   `test_the_position_can_move_after_the_last_day` (zone `hub`). `tests/` may not be edited, so this
-   needs an exception that David confirms (as for PR #7). Recommendation: change only the zone
-   names and the door count to the new data, weaken no check, and add the new checks in
-   `tests/test_walk_in.py`. The alternative, keeping the three room zones until `nova-zones`,
-   leaves two half-working systems side by side and is not recommended.
+   `test_the_api_saves_the_position` (zone `hub`), `test_moving_changes_nothing_but_the_position`
+   (zone `mercado`) and `test_the_position_can_move_after_the_last_day` (zone `hub`). One more only
+   runs where Node is installed (GitHub Actions): `test_every_door_and_desk_can_be_reached_from_anywhere`
+   in `tests/test_world_paths.py` asks for more than 100 checks, and three desks on the campus give
+   75. `tests/` may not be edited, so this needs an exception that David confirms (as for PR #7).
+   Recommendation: change only the zone names, the door count and that number to the new data,
+   weaken no check, and keep the new checks in `tests/test_walk_in.py`. (`test_world_art.py` needs no
+   change because the rooms are keyed by the zone `campus`.) The alternative, keeping the three
+   room zones until `nova-zones`, leaves two half-working systems side by side and is not
+   recommended. Until the exception is confirmed the existing tests are left as they are.
 2. **One PR for the mechanism and the Nova.** The mechanism needs a real building to be tested, and a
    throwaway building would mean doing the work twice. So the Nova's first form comes in this
    spec (shape, walls, atrium, three desks, areas), and its detailed look stays in `nova-design`.
-3. **Which outdoor buildings go.** Recommendation: none in this spec; the Nova is added next to
-   them and the old room entrances disappear with the old zones. `nova-zones` redraws the outdoor
-   map (Dorm, beach way, Surf Shop, Beach Cafe) and decides about the rest.
+3. **Which outdoor buildings go.** The three academic wings (the Nova takes their place) and the
+   Student Hub (it hid the Print Corner). Learning Center and Mercado stay. `nova-zones` redraws the
+   outdoor map (Dorm, beach way, Surf Shop, Beach Cafe) and decides about the rest.
 4. **The whole roof at once.** Decided by Felix, no per-room roofs.
 5. **Printers.** Drawn and placed, without a rule. Decided by Felix to be included.
 
@@ -124,12 +137,15 @@ changes no rule, and no rule may read it.
 
 ## Done when
 
-1. `uv run pytest` passes. Only the eight tests of "Decide" 1 changed (zone names and door count),
-   and the change is explained in the PR. New checks are in `tests/test_walk_in.py`.
+1. `uv run pytest` passes. Only the tests named in "Decide" 1 changed (zone names, door count and
+   the number of checks), and the change is explained in the PR. New checks are in
+   `tests/test_walk_in.py`.
 2. The data is complete and consistent: one zone `campus`; the Nova has parts, walls with at least
    one entrance at least 2 tiles wide, and an interior; every location lies inside the zone; no
-   wall or solid covers an entrance or the spawn; the three desks stand inside the atrium and keep
-   their ids and actions.
+   wall or solid covers an entrance or the spawn; the three desks stand inside (two in the atrium,
+   one in the Cafe) and keep their ids and actions. The areas split the whole floor, people stand on
+   free ground, and no free spot inside is cut off: it can be walked to from the entrance, and the
+   grid of `paths.js` finds a way to it as well.
 3. A test runs the real `paths.js` and `physics.js` with Node on the data from `world.py`: from many
    places on the campus, every desk and every door-less entrance can be reached, and the way never
    walks through a wall (the existing `test_world_paths.py` style).

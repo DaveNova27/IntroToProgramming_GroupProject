@@ -9,43 +9,46 @@ import {
   lightingProfile,
 } from "./environment.js";
 import { drawLocation, locationsHere } from "./locations.js";
+import { drawNovaGround, novaActors, novaIsOpen } from "./nova.js";
 import { drawPlayer } from "./player.js";
-import { roomActors } from "./rooms.js";
-import { activeZone, camera, canvas, ctx, isoPoint, scene } from "./scene.js";
+import { camera, canvas, ctx, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
 
 export function drawWorld(t) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   ctx.clearRect(0, 0, w, h);
-  const zone = activeZone();
   const light = lightingProfile(scene.clock);
   const environment = environmentalProfile(scene.clock, scene.day, t);
 
+  // one open sky over the whole campus: it also shows from inside the Nova, whose roof fades out
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, zone.outdoor ? light.top : "#122d36");
-  sky.addColorStop(1, zone.outdoor ? light.bottom : "#34505a");
+  sky.addColorStop(0, light.top);
+  sky.addColorStop(1, light.bottom);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
-  if (zone.outdoor) drawSkyMotion(t, environment, w, h);
+  drawSkyMotion(t, environment, w, h);
 
   const center = isoPoint(camera.x, camera.y);
   ctx.save();
   ctx.translate(w / 2 - center.x * camera.zoom, h / 2 - center.y * camera.zoom);
   ctx.scale(camera.zoom, camera.zoom);
   drawTerrain(t);
-  if (zone.outdoor) {
-    drawCoastalMotion(t, environment);
-    drawCampusGroundPlan(t);
-  }
+  drawCoastalMotion(t, environment);
+  drawCampusGroundPlan(t);
+  drawNovaGround();
 
+  // the desks stand inside the Nova: they show only while the roof is gone
+  const places = novaIsOpen() ? locationsHere() : [];
   const actors = [
-    ...(zone.outdoor ? [...campusActors(t), ...walkerActors(t)] : roomActors(t)),
-    ...locationsHere().map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
+    ...campusActors(t),
+    ...novaActors(t),
+    ...walkerActors(t),
+    ...places.map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
     { depth: scene.player.x + scene.player.y, draw: () => drawPlayer(t) },
   ];
   actors.sort((a, b) => a.depth - b.depth).forEach((actor) => actor.draw());
   ctx.restore();
 
-  if (zone.outdoor) drawAmbientLighting(light, w, h);
+  drawAmbientLighting(light, w, h);
 }

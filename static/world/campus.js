@@ -206,7 +206,7 @@ export function drawAcademicCourtyard(t) {
   for (let i = 0; i < 4; i++) drawLinearPlanter(12.95 + i * 4.65, 12.94, 1.45, 0.68, 14);
   drawCampusBench(13.35, 11.8);
   drawCampusBench(24.8, 11.75);
-  drawSpaceCaption(13.05, 9.75, "Academic Courtyard", "#31545b");
+  drawSpaceCaption(22.3, 10.95, "Academic Courtyard", "#31545b");
   const pulse = 2 + Math.sin(t * 0.002) * 0.7,
     p = isoPoint(20.1, 12.72, 9);
   ctx.fillStyle = `rgba(100,203,200,${0.12 + pulse * 0.015})`;
@@ -350,7 +350,6 @@ export function drawCampusGroundPlan(t) {
   drawStudentLawn();
   drawBeachPromenade(t);
   drawEventSquare();
-  drawColumnLine(11.95, 8.75, 18.2, 12, 27, "x", "#365861");
   drawBladeSign(8.6, 16.15, 32, "NOVA", WORLD_MATERIALS.coral);
   drawBladeSign(33.2, 16.15, 32, "COAST", WORLD_MATERIALS.lime);
   const routeA = isoPoint(7.2, 15.25, 8),
@@ -481,42 +480,6 @@ export function drawCanopy(x, y, w, h, z = 31, baseZ = 0) {
   });
 }
 
-export function drawCampusWestWing(t) {
-  const { x, y, w, h } = world.buildings.academicWest;
-  drawCampusWing(x, y, w, h, 90, { glass: "#245761", roofGarden: true, slats: true });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(13.25, 3.6, 112, "#ed7458", t, environment, 0.86);
-}
-
-export function drawCampusCentreWing(t) {
-  const { x, y, w, h } = world.buildings.academicCentre;
-  drawCampusWing(x, y, w, h, 70, { glass: "#2b6670", accent: "#f2c85f" });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(24.8, 3.5, 133, "#f5c95e", t + 180, environment, 0.86);
-}
-
-export function drawCampusEastWing(t) {
-  const { x, y, w, h } = world.buildings.academicEast;
-  drawCampusWing(x, y, w, h, 111, { glass: "#214e5b", slats: true, roofGarden: true, accent: "#ed7458" });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(29.1, 4.15, 119, "#64cbc8", t + 340, environment, 0.86);
-}
-
-export function drawCampusBridgeAndIdentity() {
-  const bridgeA = isoPoint(17.8, 5.6, 60),
-    bridgeB = isoPoint(24.25, 5.6, 60);
-  ctx.strokeStyle = "#e8e8e2";
-  ctx.lineWidth = 14;
-  ctx.beginPath();
-  ctx.moveTo(bridgeA.x, bridgeA.y);
-  ctx.lineTo(bridgeB.x, bridgeB.y);
-  ctx.stroke();
-  ctx.strokeStyle = "#315c65";
-  ctx.lineWidth = 8;
-  ctx.stroke();
-  drawWorldLabel(21.2, 8.55, 127, "NOVA COAST CAMPUS", "#f5c95e");
-}
-
 export function drawLibrary() {
   const { x, y, w, h } = world.buildings.library;
   drawCampusWing(x, y, w, h, 73, { glass: "#285d67", slats: true, roofGarden: true, accent: "#64cbc8" });
@@ -527,12 +490,6 @@ export function drawMercadoExterior() {
   const { x, y, w, h } = world.buildings.mercado;
   drawCampusWing(x, y, w, h, 58, { glass: "#2b555b", slats: true, accent: "#f5c95e" });
   drawWorldLabel(7.3, 13.15, 74, "MERCADO SUPPLY", "#f5c95e");
-}
-
-export function drawStudentHub() {
-  const { x, y, w, h } = world.buildings.studentHub;
-  drawCampusWing(x, y, w, h, 84, { glass: "#225762", roofGarden: true, accent: "#ff7458", slats: true });
-  drawWorldLabel(34.65, 10.95, 100, "STUDENT HUB", "#ff7458");
 }
 
 export function architecturalForegroundActors() {
@@ -561,14 +518,10 @@ export function architecturalForegroundActors() {
       actors.push({ depth: sx + slice + y + h + 0.025, draw: () => drawLinearPlanter(sx, y, slice, h, z) });
     }
   };
-  addCanopy(12, 8.25, 18.3, 1.15, 31, 3.05);
-  addColumns(12.3, 9.36, 17.7, 11, 30);
   addCanopy(9.8, 6.75, 3.1, 1.2, 28, 1.55);
   addColumns(2.55, 8.42, 7.7, 7, 27);
   addCanopy(10.75, 10.4, 2.1, 1.4, 26, 1.05);
   addColumns(3.45, 13.27, 7.55, 6, 25);
-  addCanopy(29.25, 8.15, 2.2, 1.25, 29, 1.1);
-  addColumns(30.35, 11.17, 8.45, 8, 28);
   world.planters.forEach((planter) => addPlanter(planter.x, planter.y, planter.w, planter.h, planter.z));
   return actors;
 }
@@ -639,11 +592,6 @@ export function campusActors(t) {
   return [
     { depth: buildingDepth(world.buildings.library), draw: () => drawLibrary() },
     { depth: buildingDepth(world.buildings.mercado), draw: () => drawMercadoExterior() },
-    { depth: buildingDepth(world.buildings.academicWest), draw: () => drawCampusWestWing(t) },
-    { depth: 29.9, draw: () => drawCampusBridgeAndIdentity() },
-    { depth: buildingDepth(world.buildings.academicCentre), draw: () => drawCampusCentreWing(t) },
-    { depth: buildingDepth(world.buildings.academicEast), draw: () => drawCampusEastWing(t) },
-    { depth: buildingDepth(world.buildings.studentHub), draw: () => drawStudentHub() },
     { depth: 46.98, draw: () => drawBeachStage(t) },
     ...architecturalForegroundActors(),
     ...world.trees.map((tree, i) => ({

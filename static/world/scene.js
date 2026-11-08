@@ -31,6 +31,8 @@ export const scene = {
   facing: { x: 0, y: 1 },
   walking: false,
   preview: false, // the small live window on the dashboard
+  roof: 1, // opacity of the Nova's roof: 1 = closed, 0 = gone (see roofs.js)
+  inNova: false, // the player stands under the Nova's roof
 };
 
 export const activeZone = () => world.zones[scene.zoneId];

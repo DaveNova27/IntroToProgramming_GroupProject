@@ -48,11 +48,11 @@ Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`
 |---|---|---|
 | Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`, `unlock_shop`, `buy_upgrade`. The shops and products are data tables (`SHOPS`, `CATALOGUE`). A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
 | Storage | `db.py` | SQLite, one run (day, cash, products, shops, player, history). An old save without shops still loads. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
-| World data | `world.py` | The campus as data: zones, doors, desks, solid objects, room layouts. No rules and no drawing. |
+| World data | `world.py` | The campus as data: the zone, the Nova building (parts, walls, entrance), desks, solid objects, room layouts. No rules and no drawing. |
 | Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`, `/api/shop/unlock`, `/api/shop/upgrade`. Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
 | View switch | `static/views.js` | One campus iframe that is never reloaded: full screen (the default), or over the "Campus live" window of the dashboard page (`#dashboard`). Dashboard as a slide-in panel over the campus. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
-| Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, doors between the zones, light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
+| Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, walking into the Nova (the roof fades out and the rooms show), light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
 | Shared | `static/common.js` | `$`, `esc`, `fmt`, `fmtSigned`, `toast`, product emoji and colours. |
 
 The browser never decides a rule: it sends the action, the server answers with
@@ -75,6 +75,7 @@ animate that answer.
 | `world-api.md` | `world-api` | The campus as data in `world.py`, player position in the state |
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
+| `walk-in.md` | `walk-in` | One big Nova building: walk in, the roof fades out; replaces the room zones; the three desks inside |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 
@@ -98,7 +99,8 @@ tracked in the GitHub Issues (label `spec`).
 - The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
 - Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
-- The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.
+- The Nova has its first form (22 × 8 tiles: white blocks, glass-roofed atrium with a gallery, Cafe, Merchandise, Print Corner; the whole floor inside can be walked on). The Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside are `nova-zones`; its look is `nova-design`.
+- Cafe, Merchandise and the three printers in the Nova are places only: no rule works there yet.
 - A trading day only moves the light and then shows its result. The old map's truck, queues and live ticker went with three.js; customers on the map are the spec `guests`.
 - The passers-by are decoration: they cause no sale.
 - Water in the courtyard basin is not solid: people can walk through it.
