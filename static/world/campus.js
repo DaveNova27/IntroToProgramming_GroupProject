@@ -7,19 +7,14 @@ import {
   WORLD_MATERIALS,
   drawBladeSign,
   drawBlock,
-  drawColumnLine,
   drawConcreteSeams,
-  drawFacadeBandX,
-  drawFacadeBandY,
   drawGroundSlab,
   drawLinearPlanter,
   drawPavingInlay,
   drawPlane,
   drawRaisedSlab,
-  drawSoftShadow,
   drawSpaceCaption,
   drawTile,
-  drawTimberScreen,
   drawWorldLabel,
   mixColor,
 } from "./primitives.js";
@@ -395,121 +390,9 @@ export function drawRoofLights(x, y, w, h, z) {
     }
 }
 
-export function drawCampusWing(x, y, w, h, z, options = {}) {
-  const white = options.white || WORLD_MATERIALS.chalk,
-    side = options.side || "#aebbb6",
-    shadow = options.shadow || WORLD_MATERIALS.chalkShade;
-  drawSoftShadow(x + w * 0.55, y + h * 0.62, Math.max(36, w * 12), Math.max(13, h * 5), 0.2);
-  drawBlock(x - 0.16, y - 0.12, w + 0.32, h + 0.24, 8, "#d6d5ce", "#8d9b97", "#abb3ae");
-  drawBlock(x, y, w, h, z, white, side, shadow);
-  const levels = Math.max(1, Math.floor((z - 18) / 27));
-  for (let level = 0; level < levels; level++) {
-    const low = 14 + level * 27,
-      high = Math.min(z - 9, low + 15);
-    if (high > low) {
-      drawFacadeBandY(
-        x + 0.28,
-        y + h + 0.015,
-        w - 0.56,
-        low,
-        high,
-        options.glass || "#285761",
-        Math.max(3, Math.round(w)),
-      );
-      drawFacadeBandX(
-        x + w + 0.015,
-        y + 0.25,
-        h - 0.5,
-        low,
-        high,
-        options.glassDark || "#204650",
-        Math.max(2, Math.round(h)),
-      );
-    }
-  }
-  drawRaisedSlab(x - 0.18, y - 0.18, w + 0.36, h + 0.36, z + 4, 5, "#fbf8ef", "#9eaaa6", "#bdc4bf");
-  const capA = isoPoint(x - 0.18, y + h + 0.18, z + 5),
-    capB = isoPoint(x + w + 0.18, y + h + 0.18, z + 5);
-  ctx.strokeStyle = "rgba(255,255,255,.72)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(capA.x, capA.y);
-  ctx.lineTo(capB.x, capB.y);
-  ctx.stroke();
-  drawRoofLights(x + 0.45, y + 0.4, w - 0.9, h - 0.8, z + 4);
-  if (options.slats)
-    drawTimberScreen(
-      x + 0.35,
-      y + h + 0.04,
-      w - 0.7,
-      13,
-      Math.min(z - 8, 72),
-      Math.max(5, Math.round(w * 1.4)),
-    );
-  if (options.roofGarden)
-    drawRoofGarden(x + 0.55, y + 0.45, Math.max(1, w - 1.1), Math.max(0.7, h - 1), z + 4);
-  if (options.accent) {
-    const a = isoPoint(x + w * 0.12, y + h + 0.05, Math.min(z - 7, 46)),
-      b = isoPoint(x + w * 0.42, y + h + 0.05, Math.min(z - 7, 46));
-    ctx.strokeStyle = options.accent;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-}
-
-export function drawCanopy(x, y, w, h, z = 31, baseZ = 0) {
-  drawRaisedSlab(x, y, w, h, z + 4, 5, "#f5f3ea", "#aeb9b5", "#c5cac5");
-  const posts = [
-    [x + 0.2, y + 0.2],
-    [x + w - 0.2, y + 0.2],
-    [x + 0.2, y + h - 0.2],
-    [x + w - 0.2, y + h - 0.2],
-  ];
-  ctx.strokeStyle = "#31545b";
-  ctx.lineWidth = 2;
-  posts.forEach(([px, py]) => {
-    const a = isoPoint(px, py, baseZ),
-      b = isoPoint(px, py, z);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  });
-}
-
-export function drawLibrary() {
-  const { x, y, w, h } = world.buildings.library;
-  drawCampusWing(x, y, w, h, 73, { glass: "#285d67", slats: true, roofGarden: true, accent: "#64cbc8" });
-  drawWorldLabel(6.4, 8.05, 88, "LEARNING CENTER", "#64cbc8");
-}
-
-export function drawMercadoExterior() {
-  const { x, y, w, h } = world.buildings.mercado;
-  drawCampusWing(x, y, w, h, 58, { glass: "#2b555b", slats: true, accent: "#f5c95e" });
-  drawWorldLabel(7.3, 13.15, 74, "MERCADO SUPPLY", "#f5c95e");
-}
-
+// the low planters along the facades (the Learning Center, the Mercado and the Hub draw their own fronts)
 export function architecturalForegroundActors() {
   const actors = [];
-  const addCanopy = (x, y, w, h, z, maxSlice = 3) => {
-    const slices = Math.max(1, Math.ceil(w / maxSlice)),
-      slice = w / slices;
-    for (let index = 0; index < slices; index++) {
-      const sx = x + index * slice;
-      actors.push({ depth: sx + slice + y + h + 0.015, draw: () => drawCanopy(sx, y, slice, h, z) });
-    }
-  };
-  const addColumns = (x, y, length, count, z, axis = "x", color = "#244b54") => {
-    for (let index = 0; index < count; index++) {
-      const amount = count === 1 ? 0.5 : index / (count - 1),
-        px = x + (axis === "x" ? length * amount : 0),
-        py = y + (axis === "y" ? length * amount : 0);
-      actors.push({ depth: px + py + 0.02, draw: () => drawColumnLine(px, py, 0, 1, z, axis, color) });
-    }
-  };
   const addPlanter = (x, y, w, h, z, maxSlice = 1.15) => {
     const slices = Math.max(1, Math.ceil(w / maxSlice)),
       slice = w / slices;
@@ -518,10 +401,6 @@ export function architecturalForegroundActors() {
       actors.push({ depth: sx + slice + y + h + 0.025, draw: () => drawLinearPlanter(sx, y, slice, h, z) });
     }
   };
-  addCanopy(9.8, 6.75, 3.1, 1.2, 28, 1.55);
-  addColumns(2.55, 8.42, 7.7, 7, 27);
-  addCanopy(10.75, 10.4, 2.1, 1.4, 26, 1.05);
-  addColumns(3.45, 13.27, 7.55, 6, 25);
   world.planters.forEach((planter) => addPlanter(planter.x, planter.y, planter.w, planter.h, planter.z));
   return actors;
 }
@@ -587,11 +466,7 @@ export function drawBeachStage(t) {
 
 export function campusActors(t) {
   const environment = environmentalProfile(scene.clock, scene.day, t);
-  const buildingDepth = (building) =>
-    Math.max(building.x, Math.min(building.x + building.w, scene.player.x)) + building.y + building.h + 0.02;
   return [
-    { depth: buildingDepth(world.buildings.library), draw: () => drawLibrary() },
-    { depth: buildingDepth(world.buildings.mercado), draw: () => drawMercadoExterior() },
     { depth: 46.98, draw: () => drawBeachStage(t) },
     ...architecturalForegroundActors(),
     ...world.trees.map((tree, i) => ({

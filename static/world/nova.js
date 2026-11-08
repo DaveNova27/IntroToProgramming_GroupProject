@@ -1,10 +1,12 @@
-// The Nova: one big building on the campus map (spec walk-in). While the player is inside, the
-// roof fades out and the two walls that face the camera sink to a low rim, so the rooms show.
+// The Nova: one big building on the campus map, made of four wings (specs walk-in and nova-wings).
+// While the player is in a wing, its roof fades out and the walls that would hide the rooms sink to a
+// low rim, so the rooms show. Every wing has its own roof; a wing that stands in front of another one
+// fades with it (`fadesWith` in the data).
 // Stylised after the real Nova SBE in Carcavelos: long white volumes with flat roofs and a thick
 // edge, dark glass fronts, slim white columns under a deep canopy, and an atrium with a glass roof.
 // Only for showing: no rule reads any of this.
 
-import { drawRoofLights } from "./campus.js";
+import { drawRoofGarden, drawRoofLights } from "./campus.js";
 import { drawWindFlag, environmentalProfile } from "./environment.js";
 import {
   drawBlock,
@@ -16,23 +18,35 @@ import {
   drawWorldLabel,
 } from "./primitives.js";
 import { GALLERY_Z, drawInteriorFloor, drawInteriorWayfinding, roomActors } from "./rooms.js";
-import { ctx, isoPoint, scene, world } from "./scene.js";
+import { ctx, isoPoint, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 // colours estimated from photographs of the real campus
 const WHITE = { top: "#f7f7f4", south: "#e4e5e2", east: "#c9cdd0" };
 const GLASS = "#2a5573";
 const GLASS_EAST = "#234a64";
 const GLASS_LIGHT = "#3a6d8c";
-const RIM = 9; // height of a front wall while the roof is gone
+const RIM = 9; // height of a front wall while its roof is gone
 const SLICE = 2.5; // longest piece of wall drawn at once, so people sort correctly around it
-const OPEN_BELOW = 0.98; // the rooms are drawn while the roof is thinner than this
 
-export const novaIsOpen = () => scene.roof < OPEN_BELOW;
+// what makes each wing recognisable (the data says where it is, this says how it looks)
+const LOOK = {
+  nova: {},
+  "learning-center": { accent: "#64cbc8", garden: true, label: "LEARNING CENTER" },
+  mercado: { accent: "#f5c95e", label: "MERCADO SUPPLY" },
+  hub: { accent: "#ff7b5b", glassy: true, label: "STUDENT HUB" },
+};
 
-const zAt = (x, y) => world.nova.parts.find((p) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h)?.z ?? 78;
+export const novaIsOpen = () => wingIsOpen("nova");
 
-function bounds() {
-  const { parts } = world.nova;
+const wingParts = (wingId) => world.nova.parts.filter((part) => part.wing === wingId);
+const covers = (p, x, y) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h;
+const zAt = (wingId, x, y) => {
+  const parts = wingParts(wingId);
+  return (parts.find((p) => covers(p, x, y)) ?? parts[0])?.z ?? 78;
+};
+
+function wingBounds(wingId) {
+  const parts = wingParts(wingId);
   const x = Math.min(...parts.map((p) => p.x));
   const y = Math.min(...parts.map((p) => p.y));
   return { x, y, w: Math.max(...parts.map((p) => p.x + p.w)) - x, h: Math.max(...parts.map((p) => p.y + p.h)) - y };
@@ -41,11 +55,17 @@ function bounds() {
 // ---- ground: shadow, plinth, floor and the signs on the floor -----------------------------
 
 export function drawNovaGround() {
-  const b = bounds();
-  drawSoftShadow(b.x + b.w / 2, b.y + b.h * 0.8, 600, 160, 0.17);
-  drawBlock(b.x - 0.25, b.y - 0.2, b.w + 0.5, b.h + 0.4, 3, "#dcdbd5", "#8d9b97", "#abb3ae");
-  drawInteriorFloor();
-  if (novaIsOpen()) drawInteriorWayfinding();
+  const wings = world.nova.wings.map((wing) => wing.id);
+  for (const id of wings) {
+    const b = wingBounds(id);
+    drawSoftShadow(b.x + b.w / 2, b.y + b.h * 0.8, b.w * 27, b.h * 20, 0.17);
+  }
+  for (const id of wings) {
+    const b = wingBounds(id);
+    drawBlock(b.x - 0.25, b.y - 0.2, b.w + 0.5, b.h + 0.4, 3, "#dcdbd5", "#8d9b97", "#abb3ae");
+  }
+  for (const id of wings) drawInteriorFloor(id);
+  for (const id of wings) if (wingIsOpen(id)) drawInteriorWayfinding(id);
 }
 
 // ---- walls --------------------------------------------------------------------------------
@@ -56,13 +76,21 @@ function drawWallSlice(wall, x, y, w, h, z) {
   if (wall.side === "north") drawFacadeBandY(x, y + h + 0.015, w, 0, 4, "#aab2b5", 1);
   if (wall.side === "west") drawFacadeBandX(x + w + 0.015, y, h, 0, 4, "#aab2b5", 1);
   if (z < 40) return;
-  const bands = wall.side === "north" || wall.side === "west" ? [[0.52, 0.86, GLASS_LIGHT]] : [[0.12, 0.48, GLASS], [0.58, 0.88, GLASS]];
+  const back = wall.side === "north" || wall.side === "west";
+  const glassy = LOOK[wall.wing]?.glassy;
+  let bands = back ? [[0.52, 0.86, GLASS_LIGHT]] : [[0.12, 0.48, GLASS], [0.58, 0.88, GLASS]];
+  if (glassy) bands = [[0.14, 0.9, back ? GLASS_LIGHT : GLASS]];
   for (const [low, high, color] of bands) {
     if (wall.side === "north" || wall.side === "south") {
       drawFacadeBandY(x + 0.12, y + h + 0.015, w - 0.24, z * low, z * high, color, Math.max(2, Math.round(w * 1.4)));
     } else {
       drawFacadeBandX(x + w + 0.015, y + 0.12, h - 0.24, z * low, z * high, wall.side === "east" ? GLASS_EAST : color, Math.max(2, Math.round(h * 1.4)));
     }
+  }
+  // a coloured line along the top of the facade that faces the plaza
+  const accent = LOOK[wall.wing]?.accent;
+  if (accent && wall.side === "south" && wall.wing !== "nova" && z > 50) {
+    drawFacadeBandY(x, y + h + 0.02, w, z - 11, z - 8, accent, 1);
   }
 }
 
@@ -87,12 +115,23 @@ function drawGallery(wall, x0, x1) {
   if (x1 > split) drawRaisedSlab(Math.max(x0, split), inner, x1 - Math.max(x0, split), 0.2, GALLERY_Z, 5, WHITE.top, WHITE.east, WHITE.south);
 }
 
+// How far up is a wall? A front wall (south, east) hides its own wing, so it sinks to a rim when that
+// roof is gone. A wall can also hide another wing behind it (`hides`), like the west wall of the Nova
+// hides the Learning Center. A back wall that hides nothing stays full height.
+function wallHeight(wall, full) {
+  const front = wall.side === "south" || wall.side === "east";
+  const hides = wall.hides ?? (front ? [wall.wing] : []);
+  if (!hides.length) return full;
+  const closed = Math.min(...hides.map(roofOf));
+  return RIM + (full - RIM) * closed;
+}
+
 // A wall is cut at the seams between the parts of the building, so that no slice reaches over two
 // parts with different heights: [start, length] pieces along the wall.
 function wallSegments(wall, alongX) {
   const start = alongX ? wall.x : wall.y;
   const end = start + (alongX ? wall.w : wall.h);
-  const seams = world.nova.parts
+  const seams = wingParts(wall.wing)
     .flatMap((p) => (alongX ? [p.x, p.x + p.w] : [p.y, p.y + p.h]))
     .filter((at) => at > start + 1e-9 && at < end - 1e-9);
   const cuts = [...new Set([start, ...seams.sort((a, b) => a - b), end])];
@@ -101,10 +140,9 @@ function wallSegments(wall, alongX) {
 
 function wallActors() {
   const actors = [];
-  const atrium = world.nova.parts.find((part) => part.glassRoof);
+  const atrium = wingParts("nova").find((part) => part.glassRoof);
   for (const wall of world.nova.walls) {
     const alongX = wall.w >= wall.h;
-    const front = wall.side === "south" || wall.side === "east";
     for (const [from, length] of wallSegments(wall, alongX)) {
       const count = Math.max(1, Math.ceil(length / SLICE));
       const size = length / count;
@@ -124,9 +162,8 @@ function wallActors() {
         actors.push({
           depth,
           draw: () => {
-            const full = zAt(cx, cy);
-            drawWallSlice(wall, x, y, w, h, front ? RIM + (full - RIM) * scene.roof : full);
-            if (wall.side === "north" && atrium && x < atrium.x + atrium.w && x + w > atrium.x && scene.roof < OPEN_BELOW) {
+            drawWallSlice(wall, x, y, w, h, wallHeight(wall, zAt(wall.wing, cx, cy)));
+            if (wall.wing === "nova" && wall.side === "north" && atrium && x < atrium.x + atrium.w && x + w > atrium.x && wingIsOpen("nova")) {
               drawGallery(wall, Math.max(x, atrium.x), Math.min(x + w, atrium.x + atrium.w));
             }
           },
@@ -137,39 +174,57 @@ function wallActors() {
   return actors;
 }
 
-// ---- the canopy and its columns in front of the entrance side -----------------------------
+// ---- the canopy and its columns in front of the entrance side of the main block -------------
 
 const CANOPY_Y = 9.25;
 const CANOPY_DEPTH = 1.1;
 const CANOPY_Z = 72;
 const COLUMNS = [12.2, 15.8, 19.4, 26.6, 30.2, 33.0];
 
-function canopyActors() {
-  const b = bounds();
-  const actors = [];
-  const slices = Math.ceil(b.w / 3);
-  const size = b.w / slices;
-  for (let i = 0; i < slices; i++) {
-    const x = b.x + i * size;
-    actors.push({
-      depth: x + size / 2 + CANOPY_Y + 0.02,
-      draw: () => {
-        // the canopy is part of the roof: it fades with it, so that it does not hide the floor
-        if (scene.roof < 0.02) return;
-        ctx.save();
-        ctx.globalAlpha = scene.roof;
-        drawRaisedSlab(x, CANOPY_Y, size, CANOPY_DEPTH, CANOPY_Z, 5, WHITE.top, WHITE.east, WHITE.south);
-        ctx.restore();
-      },
-    });
+// The canopy runs along the main block, but not where another wing stands in front of it.
+function canopySpans() {
+  const b = wingBounds("nova");
+  let spans = [[b.x, b.x + b.w]];
+  const blockers = world.nova.parts.filter(
+    (p) => p.wing !== "nova" && p.y < CANOPY_Y + CANOPY_DEPTH && p.y + p.h > CANOPY_Y && p.x + p.w > b.x && p.x < b.x + b.w,
+  );
+  for (const p of blockers) {
+    spans = spans
+      .flatMap(([from, to]) => [[from, Math.min(to, p.x)], [Math.max(from, p.x + p.w), to]])
+      .filter(([from, to]) => to - from > 0.05);
   }
-  for (const x of COLUMNS) {
+  return spans;
+}
+
+function canopyActors() {
+  const actors = [];
+  const spans = canopySpans();
+  for (const [from, to] of spans) {
+    const slices = Math.ceil((to - from) / 3);
+    const size = (to - from) / slices;
+    for (let i = 0; i < slices; i++) {
+      const x = from + i * size;
+      actors.push({
+        depth: x + size / 2 + CANOPY_Y + 0.02,
+        draw: () => {
+          // the canopy is part of the roof: it fades with it, so that it does not hide the floor
+          const roof = roofOf("nova");
+          if (roof < 0.02) return;
+          ctx.save();
+          ctx.globalAlpha = roof;
+          drawRaisedSlab(x, CANOPY_Y, size, CANOPY_DEPTH, CANOPY_Z, 5, WHITE.top, WHITE.east, WHITE.south);
+          ctx.restore();
+        },
+      });
+    }
+  }
+  for (const x of COLUMNS.filter((column) => spans.some(([from, to]) => column > from && column < to))) {
     const y = CANOPY_Y + CANOPY_DEPTH - 0.15;
     actors.push({
       depth: x + y + 0.02,
       draw: () => {
         ctx.save();
-        ctx.globalAlpha = 0.35 + 0.65 * scene.roof;
+        ctx.globalAlpha = 0.35 + 0.65 * roofOf("nova");
         drawBlock(x - 0.1, y - 0.1, 0.2, 0.2, CANOPY_Z - 4, "#ffffff", WHITE.east, WHITE.south);
         ctx.restore();
       },
@@ -178,7 +233,7 @@ function canopyActors() {
   return actors;
 }
 
-// ---- the roof -------------------------------------------------------------------------------
+// ---- the roofs -------------------------------------------------------------------------------
 
 function drawAtriumRoof(a, wingTop) {
   // the taller block above the wings: a glass band, then the thick white edge, then the glass roof
@@ -217,32 +272,45 @@ function drawAtriumRoof(a, wingTop) {
   }
 }
 
-function drawNovaRoof(t) {
-  if (scene.roof < 0.01) return;
-  const { parts } = world.nova;
-  const wings = parts.filter((p) => !p.glassRoof);
+function drawWingRoof(wing, t) {
+  const opacity = roofOf(wing.id);
+  if (opacity < 0.01) return;
+  const look = LOOK[wing.id] ?? {};
+  const parts = wingParts(wing.id);
+  const plain = parts.filter((p) => !p.glassRoof);
   const atrium = parts.find((p) => p.glassRoof);
   ctx.save();
-  ctx.globalAlpha = scene.roof;
-  for (const part of wings) {
+  ctx.globalAlpha = opacity;
+  for (const part of plain) {
     drawRaisedSlab(part.x - 0.2, part.y - 0.2, part.w + 0.4, part.h + 0.4, part.z + 6, 7, WHITE.top, WHITE.east, WHITE.south);
-    drawRoofLights(part.x + 0.7, part.y + 0.7, part.w - 1.4, part.h - 1.4, part.z + 6);
+    if (look.garden) drawRoofGarden(part.x + 0.55, part.y + 0.45, part.w - 1.1, part.h - 1.0, part.z + 6);
+    else drawRoofLights(part.x + 0.7, part.y + 0.7, part.w - 1.4, part.h - 1.4, part.z + 6);
   }
   if (atrium) {
-    drawAtriumRoof(atrium, Math.max(...wings.map((p) => p.z)) + 6);
+    drawAtriumRoof(atrium, Math.max(...plain.map((p) => p.z)) + 6);
     const environment = environmentalProfile(scene.clock, scene.day, t);
     drawWindFlag(atrium.x + 0.7, atrium.y + 0.8, atrium.z + 14, "#ed7458", t, environment, 0.86);
     drawWindFlag(atrium.x + atrium.w - 0.7, atrium.y + 0.8, atrium.z + 14, "#64cbc8", t + 260, environment, 0.86);
   }
-  drawWorldLabel(23, 10.6, 118, "NOVA COAST CAMPUS", "#f5c95e");
+  if (wing.id === "nova") {
+    drawWorldLabel(23, 10.6, 118, "NOVA COAST CAMPUS", "#f5c95e");
+  } else if (look.label) {
+    const b = wingBounds(wing.id);
+    drawWorldLabel(b.x + b.w / 2, b.y + b.h + 0.1, Math.max(...parts.map((p) => p.z)) + 16, look.label, look.accent);
+  }
   ctx.restore();
 }
+
+// A roof is drawn after every wall piece and every person under it, and before what stands in front.
+const roofDepth = (wingId) => {
+  const b = wingBounds(wingId);
+  return b.x + b.w + b.y + b.h + 1;
+};
 
 // ---- everything of the Nova that is sorted with the rest of the scene -----------------------
 
 export function novaActors(t) {
-  // the roof is drawn after every wall piece and every person under it (their depths stay below 40)
-  const actors = [...wallActors(), ...canopyActors(), { depth: 45, draw: () => drawNovaRoof(t) }];
-  if (novaIsOpen()) actors.push(...roomActors(t));
+  const actors = [...wallActors(), ...canopyActors(), ...roomActors(t)];
+  for (const wing of world.nova.wings) actors.push({ depth: roofDepth(wing.id), draw: () => drawWingRoof(wing, t) });
   return actors;
 }

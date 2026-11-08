@@ -51,6 +51,34 @@ def floor():
     return x0, y0, x1, y1
 
 
+def wing_floors():
+    """The walkable floor of every wing (spec nova-wings): the box around the parts of the wing, without
+    the thickness of the walls that run along its edges. Written from the parts and the walls only."""
+    wall = world.NOVA["wall"]
+    near = lambda a, b: abs(a - b) < 1e-9  # noqa: E731
+    floors = {}
+    for wing in world.NOVA["wings"]:
+        parts = [p for p in world.NOVA["parts"] if p["wing"] == wing["id"]]
+        x0 = min(p["x"] for p in parts)
+        y0 = min(p["y"] for p in parts)
+        x1 = max(p["x"] + p["w"] for p in parts)
+        y1 = max(p["y"] + p["h"] for p in parts)
+        along_x = [w for w in world.NOVA["walls"] if w["w"] > w["h"] and w["x"] < x1 and w["x"] + w["w"] > x0]
+        along_y = [w for w in world.NOVA["walls"] if w["h"] >= w["w"] and w["y"] < y1 and w["y"] + w["h"] > y0]
+        floors[wing["id"]] = (
+            x0 + (wall if any(near(w["x"], x0) for w in along_y) else 0),
+            y0 + (wall if any(near(w["y"], y0) for w in along_x) else 0),
+            x1 - (wall if any(near(w["x"] + w["w"], x1) for w in along_y) else 0),
+            y1 - (wall if any(near(w["y"] + w["h"], y1) for w in along_x) else 0),
+        )
+    return floors
+
+
+def gaps():
+    """Every way through a wall: the entrances and the openings between the wings."""
+    return world.NOVA["entrances"] + world.NOVA.get("openings", [])
+
+
 def inside(rect, x, y):
     return rect["x"] <= x <= rect["x"] + rect["w"] and rect["y"] <= y <= rect["y"] + rect["h"]
 
@@ -164,21 +192,24 @@ def test_the_three_desks_stand_in_the_atrium_and_keep_their_ids_and_actions():
 
 
 def test_the_places_split_the_whole_floor_between_them():
-    x0, y0, x1, y1 = floor()
-    areas = world.INTERIORS["campus"]["areas"]
-    for area in areas:
-        assert x0 <= area["x"] and area["x"] + area["w"] <= x1 + 1e-9, area["id"]
-        assert y0 <= area["y"] and area["y"] + area["h"] <= y1 + 1e-9, area["id"]
-    assert sum(a["w"] * a["h"] for a in areas) == pytest.approx((x1 - x0) * (y1 - y0))
-    for index, a in enumerate(areas):
-        for b in areas[index + 1:]:
-            apart = (
-                a["x"] + a["w"] <= b["x"] + 1e-9 or b["x"] + b["w"] <= a["x"] + 1e-9
-                or a["y"] + a["h"] <= b["y"] + 1e-9 or b["y"] + b["h"] <= a["y"] + 1e-9
-            )
-            assert apart, (a["id"], b["id"])
-    for area in areas:  # the name on the floor lies inside its own place
-        assert inside(area, area["labelAt"]["x"], area["labelAt"]["y"]), area["id"]
+    # spec nova-wings: the floor of each wing instead of one box around the whole building
+    all_areas = world.INTERIORS["campus"]["areas"]
+    for wing, (x0, y0, x1, y1) in wing_floors().items():
+        areas = [a for a in all_areas if a["wing"] == wing]
+        assert areas, wing
+        for area in areas:
+            assert x0 <= area["x"] and area["x"] + area["w"] <= x1 + 1e-9, area["id"]
+            assert y0 <= area["y"] and area["y"] + area["h"] <= y1 + 1e-9, area["id"]
+        assert sum(a["w"] * a["h"] for a in areas) == pytest.approx((x1 - x0) * (y1 - y0)), wing
+        for index, a in enumerate(areas):
+            for b in areas[index + 1:]:
+                apart = (
+                    a["x"] + a["w"] <= b["x"] + 1e-9 or b["x"] + b["w"] <= a["x"] + 1e-9
+                    or a["y"] + a["h"] <= b["y"] + 1e-9 or b["y"] + b["h"] <= a["y"] + 1e-9
+                )
+                assert apart, (a["id"], b["id"])
+        for area in areas:  # the name on the floor lies inside its own place
+            assert inside(area, area["labelAt"]["x"], area["labelAt"]["y"]), area["id"]
 
 
 def test_the_people_in_the_rooms_stand_on_free_ground_or_behind_a_counter():
@@ -191,32 +222,44 @@ def test_the_people_in_the_rooms_stand_on_free_ground_or_behind_a_counter():
 
 
 def test_the_rooms_have_no_dead_corners_for_a_player_to_get_stuck_in():
-    """Every spot inside that a player can stand on can be walked to from the entrance."""
-    x0, y0, x1, y1 = floor()
+    """Every spot inside that a player can stand on can be walked to from a way in. Spec nova-wings:
+    for the floor of each wing, from the entrances and the openings that lead into it."""
     solid = world.colliders("campus")
     step = 0.2
-    columns = int((x1 - x0) / step) + 1
-    rows = int((y1 - y0) / step) + 1
-    free = {
-        (c, r)
-        for c in range(columns)
-        for r in range(rows)
-        if not is_blocked(x0 + c * step, y0 + r * step, solid)
-    }
-    door = world.NOVA["entrances"][0]
-    start = (round((door["x"] + door["width"] / 2 - x0) / step), rows - 1)
-    assert start in free
-    seen = {start}
-    todo = deque([start])
-    while todo:
-        c, r = todo.popleft()
-        for n in ((c + 1, r), (c - 1, r), (c, r + 1), (c, r - 1)):
-            if n in free and n not in seen:
-                seen.add(n)
-                todo.append(n)
-    cut_off = sorted(free - seen)
-    assert not cut_off, [(round(x0 + c * step, 1), round(y0 + r * step, 1)) for c, r in cut_off[:5]]
-    assert len(free) / (columns * rows) > 0.4  # most of the floor is open to walk on
+    wall = world.NOVA["wall"]
+    for wing, (x0, y0, x1, y1) in wing_floors().items():
+        columns = int((x1 - x0) / step) + 1
+        rows = int((y1 - y0) / step) + 1
+        free = {
+            (c, r)
+            for c in range(columns)
+            for r in range(rows)
+            if not is_blocked(x0 + c * step, y0 + r * step, solid)
+        }
+        starts = set()
+        for gap in gaps():
+            if gap["side"] in ("south", "north"):
+                centre = (gap["x"] + gap["width"] / 2, gap["y"] + wall / 2)
+                probes = [(centre[0], centre[1] - wall / 2 - 0.4), (centre[0], centre[1] + wall / 2 + 0.4)]
+            else:
+                centre = (gap["x"] + wall / 2, gap["y"] + gap["width"] / 2)
+                probes = [(centre[0] - wall / 2 - 0.4, centre[1]), (centre[0] + wall / 2 + 0.4, centre[1])]
+            for px, py in probes:
+                if x0 <= px <= x1 and y0 <= py <= y1:
+                    starts.add((round((px - x0) / step), round((py - y0) / step)))
+        assert starts, f"{wing} has no way in"
+        assert starts & free, wing
+        seen = set(starts & free)
+        todo = deque(seen)
+        while todo:
+            c, r = todo.popleft()
+            for n in ((c + 1, r), (c - 1, r), (c, r + 1), (c, r - 1)):
+                if n in free and n not in seen:
+                    seen.add(n)
+                    todo.append(n)
+        cut_off = sorted(free - seen)
+        assert not cut_off, (wing, [(round(x0 + c * step, 1), round(y0 + r * step, 1)) for c, r in cut_off[:5]])
+        assert len(free) / (columns * rows) > 0.4, wing  # most of the floor is open to walk on
 
 
 def test_clicking_to_walk_finds_a_way_to_every_spot_a_player_can_stand_on():
@@ -367,13 +410,14 @@ const expect = (ok, text) => { if (!ok) problems.push(text); };
 
 expect(insideParts({ x: 21, y: 5 }, parts), "the middle of the atrium is inside");
 expect(!insideParts({ x: 21, y: 11.2 }, parts), "the plaza in front is outside");
-expect(!insideParts({ x: 5, y: 5 }, parts), "the ground west of the building is outside");
+expect(!insideParts({ x: 1.5, y: 5 }, parts), "the ground west of the building is outside");
 expect(!insideParts({ x: 21, y: door.y + 0.5 + 0.2 }, parts), "just in front of the wall line is outside");
 expect(insideParts({ x: middle, y: door.y + 0.1 }, parts), "the doorway counts as inside");
 
 // the seams between the joined parts are no edge: the roof must not flicker there
-for (let i = 1; i < parts.length; i++) {
-  const seam = parts[i].x;
+const novaParts = parts.filter((part) => part.wing === "nova");
+for (let i = 1; i < novaParts.length; i++) {
+  const seam = novaParts[i].x;
   for (const y of [4, 5, 6, 7]) expect(insideParts({ x: seam, y }, parts), `the seam at ${seam},${y} is inside`);
 }
 
@@ -420,7 +464,7 @@ const REACH = 1.65;
 const world = JSON.parse(readFileSync(process.argv[2]));
 const zone = world.zones.campus;
 const solid = world.colliders.campus;
-const door = world.nova.entrances[0];
+const entrances = world.nova.entrances;
 const wall = world.nova.wall;
 const problems = [];
 let checked = 0;
@@ -454,7 +498,7 @@ for (const start of starts.filter((p) => !pointBlocked(p, solid, RADIUS))) {
       for (let i = 1; i <= steps; i++) {
         const p = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
         if (pointBlocked(p, solid, RADIUS - 0.01)) problems.push(`walks through something near ${loc.title}`);
-        if (p.y > door.y && p.y < door.y + wall && p.x > door.x && p.x < door.x + door.width) crossedDoor = true;
+        if (entrances.some((door) => p.y > door.y && p.y < door.y + wall && p.x > door.x && p.x < door.x + door.width)) crossedDoor = true;
       }
       from = to;
     });

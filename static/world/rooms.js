@@ -1,4 +1,4 @@
-// The rooms inside the Nova: the floor, the furniture, the shops and the people.
+// The rooms inside the Nova and its wings: the floor, the furniture, the shops and the people.
 // Drawing code started from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures) and was redrawn for the walk-in Nova.
 // All of it is placed from the data in world.py (world.interiors.campus). Drawing only.
@@ -9,7 +9,7 @@
 
 import { drawPersonFigure } from "./people.js";
 import { drawBlock, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
-import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, scene, world } from "./scene.js";
+import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 const FLOOR_Z = 4;
 export const GALLERY_Z = 54; // the upper floor along the north wall of the atrium
@@ -27,13 +27,16 @@ const dark = (color, amount) => mixColor(color, "#000000", amount);
 const light = (color, amount) => mixColor(color, "#ffffff", amount);
 const shades = (top) => [top, dark(top, 0.3), dark(top, 0.16)]; // top, east face, south face
 
-// the walkable floor: the footprint of the Nova without its walls
-export function floorBounds() {
-  const { parts, wall } = world.nova;
-  const x0 = Math.min(...parts.map((p) => p.x)) + wall;
-  const y0 = Math.min(...parts.map((p) => p.y)) + wall;
-  const x1 = Math.max(...parts.map((p) => p.x + p.w)) - wall;
-  const y1 = Math.max(...parts.map((p) => p.y + p.h)) - wall;
+const areasOf = (wingId) => layout().areas.filter((area) => area.wing === wingId);
+const solidsOf = (wingId) => layout().solid.filter((item) => item.wing === wingId);
+
+// the walkable floor of a wing: the box around its places (they split it between them)
+export function floorBounds(wingId = "nova") {
+  const areas = areasOf(wingId);
+  const x0 = Math.min(...areas.map((a) => a.x));
+  const y0 = Math.min(...areas.map((a) => a.y));
+  const x1 = Math.max(...areas.map((a) => a.x + a.w));
+  const y1 = Math.max(...areas.map((a) => a.y + a.h));
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
@@ -81,8 +84,8 @@ function floorRing(x, y, radius, stroke, width, fill = null) {
 // ---- the floor ---------------------------------------------------------------------------------
 
 // every place has its own floor: timber, polished stone, carpet, concrete
-function paintCafeFloor(area) {
-  floorQuad(area.x, area.y, area.w, area.h, "#dcc59b");
+function paintCafeFloor(area, base = "#dcc59b") {
+  floorQuad(area.x, area.y, area.w, area.h, base);
   const rows = Math.ceil(area.h / 0.45);
   for (let i = 0; i < rows; i++) {
     const y = area.y + i * 0.45;
@@ -137,21 +140,83 @@ function paintPrintFloor(area) {
   if (printer) floorQuad(area.x + 0.3, printer.y - 0.32, area.w - 0.6, 0.07, "#f1c94b");
 }
 
-const FLOORS = { cafe: paintCafeFloor, atrium: paintAtriumFloor, merch: paintMerchFloor, print: paintPrintFloor };
+// the Learning Center: grey-green carpet, a rug under the long tables; timber with a rug for the seminar
+function paintStudyFloor(area) {
+  floorQuad(area.x, area.y, area.w, area.h, "#c9d6d3");
+  for (let y = area.y + 0.5; y < area.y + area.h; y += 0.5) floorLine(area.x, y, area.x + area.w, y, "rgba(49,84,91,.1)", 0.8);
+  const tables = solidsOf(area.wing).filter((item) => item.id.startsWith("study-table"));
+  if (tables.length) {
+    const x0 = Math.min(...tables.map((t) => t.x)) - 0.45;
+    const x1 = Math.max(...tables.map((t) => t.x + t.w)) + 0.45;
+    const y0 = Math.min(...tables.map((t) => t.y)) - 0.7;
+    const y1 = Math.max(...tables.map((t) => t.y + t.h)) + 0.7;
+    floorQuad(x0, y0, x1 - x0, y1 - y0, "rgba(100,203,200,.26)");
+    floorLine(x0, y0, x1, y0, "rgba(49,84,91,.3)", 1.4);
+    floorLine(x1, y0, x1, y1, "rgba(49,84,91,.3)", 1.4);
+    floorLine(x1, y1, x0, y1, "rgba(49,84,91,.3)", 1.4);
+    floorLine(x0, y1, x0, y0, "rgba(49,84,91,.3)", 1.4);
+  }
+}
 
-// the mat inside the entrance
-function paintEntranceMat() {
-  const door = world.nova.entrances[0];
-  const x = door.x + 0.7;
-  const w = door.width - 1.4;
-  const y = door.y - 0.7;
-  floorQuad(x, y, w, 0.6, "#3b5d65");
-  for (let i = 1; i < 8; i++) floorLine(x + (w * i) / 8, y, x + (w * i) / 8, y + 0.6, "rgba(255,255,255,.18)", 0.8);
+function paintSeminarFloor(area) {
+  paintCafeFloor(area, "#d9c4a2");
+  const table = solidsOf(area.wing).find((item) => item.id === "seminar-table");
+  if (table) {
+    floorRing(table.x + table.w / 2, table.y + table.h / 2, 1.5, "rgba(154,123,193,.5)", 1.6, "rgba(154,123,193,.17)");
+    floorRing(table.x + table.w / 2, table.y + table.h / 2, 1.1, "rgba(154,123,193,.4)", 1);
+  }
+}
+
+// the Mercado: concrete, joints, and yellow lines along the aisle
+function paintSupplyFloor(area) {
+  floorQuad(area.x, area.y, area.w, area.h, "#cfd0cb");
+  for (let x = area.x + 1.8; x < area.x + area.w; x += 1.8) floorLine(x, area.y, x, area.y + area.h, "rgba(20,61,66,.1)", 0.7);
+  for (let y = area.y + 1.8; y < area.y + area.h; y += 1.8) floorLine(area.x, y, area.x + area.w, y, "rgba(20,61,66,.1)", 0.7);
+  const entrance = world.nova.entrances.find((e) => e.wing === area.wing);
+  if (entrance) {
+    for (const x of [entrance.x - 0.05, entrance.x + entrance.width + 0.05]) {
+      floorLine(x, area.y + 0.15, x, area.y + area.h, "rgba(241,201,75,.85)", 2);
+    }
+  }
+}
+
+// the Student Hub: a warm carpet with a big rug in the lounge, a cool one in the meeting room
+function paintLoungeFloor(area) {
+  floorQuad(area.x, area.y, area.w, area.h, "#efddd2");
+  floorQuad(area.x + 1.3, area.y + 0.5, area.w - 2.6, area.h - 0.9, "rgba(255,123,91,.2)");
+  floorLine(area.x + 1.3, area.y + 0.5, area.x + area.w - 1.3, area.y + 0.5, "rgba(255,123,91,.45)", 1.4);
+  floorLine(area.x + 1.3, area.y + area.h - 0.4, area.x + area.w - 1.3, area.y + area.h - 0.4, "rgba(255,123,91,.45)", 1.4);
+}
+
+function paintMeetingFloor(area) {
+  floorQuad(area.x, area.y, area.w, area.h, "#d3dfe0");
+  for (let x = area.x + 1; x < area.x + area.w; x += 1) floorLine(x, area.y, x, area.y + area.h, "rgba(49,84,91,.08)", 0.7);
+}
+
+const FLOORS = {
+  cafe: paintCafeFloor, atrium: paintAtriumFloor, merch: paintMerchFloor, print: paintPrintFloor,
+  study: paintStudyFloor, seminar: paintSeminarFloor, supply: paintSupplyFloor,
+  lounge: paintLoungeFloor, meeting: paintMeetingFloor,
+};
+
+// the mat inside an entrance
+function paintEntranceMat(wingId) {
+  for (const door of world.nova.entrances.filter((entrance) => entrance.wing === wingId)) {
+    const inset = door.width >= 3 ? 0.7 : 0.3;
+    const x = door.x + inset;
+    const w = door.width - 2 * inset;
+    const y = door.y - 0.7;
+    floorQuad(x, y, w, 0.6, "#3b5d65");
+    for (let i = 1; i < 8; i++) floorLine(x + (w * i) / 8, y, x + (w * i) / 8, y + 0.6, "rgba(255,255,255,.18)", 0.8);
+  }
 }
 
 // patches of light from the windows in the north wall, moving with the time of day
-function paintWindowLight() {
-  const { x, y, w } = floorBounds();
+const LIT_FROM_THE_NORTH = ["nova", "learning-center"];
+
+function paintWindowLight(wingId) {
+  if (!LIT_FROM_THE_NORTH.includes(wingId)) return;
+  const { x, y, w } = floorBounds(wingId);
   const day = Math.max(0, Math.min(1, (scene.clock - DAY_START) / (DAY_END - DAY_START)));
   const slant = -2.4 + 4.8 * day;
   const strength = 0.1 + 0.07 * Math.sin(Math.PI * day);
@@ -165,9 +230,9 @@ function paintWindowLight() {
 }
 
 // every piece of furniture sits on a soft shadow
-function paintContactShadows() {
+function paintContactShadows(wingId) {
   ctx.save();
-  for (const item of layout().solid) {
+  for (const item of solidsOf(wingId)) {
     if ("r" in item) {
       ellipseAt(isoPoint(item.x + 0.08, item.y + 0.1, FLOOR_Z + 0.1), item.r * 62, item.r * 31, "rgba(10,30,36,.16)");
     } else {
@@ -178,26 +243,26 @@ function paintContactShadows() {
 }
 
 // along the north and west wall the floor darkens a little
-function paintWallEdges() {
-  const { x, y, w, h } = floorBounds();
+function paintWallEdges(wingId) {
+  const { x, y, w, h } = floorBounds(wingId);
   floorQuad(x, y, w, 0.32, "rgba(20,45,52,.1)");
   floorQuad(x, y, 0.32, h, "rgba(20,45,52,.08)");
 }
 
-export function drawInteriorFloor() {
-  const floor = floorBounds();
+export function drawInteriorFloor(wingId = "nova") {
+  const floor = floorBounds(wingId);
   floorQuad(floor.x, floor.y, floor.w, floor.h, layout().floor);
-  for (const area of layout().areas) FLOORS[area.id]?.(area);
-  paintEntranceMat();
-  paintWallEdges();
-  paintWindowLight();
-  paintContactShadows();
+  for (const area of areasOf(wingId)) FLOORS[area.id]?.(area);
+  paintEntranceMat(wingId);
+  paintWallEdges(wingId);
+  paintWindowLight(wingId);
+  paintContactShadows(wingId);
 }
 
 // the names of the places, written on the floor, and the marked way in
-export function drawInteriorWayfinding() {
+export function drawInteriorWayfinding(wingId = "nova") {
   ctx.save();
-  for (const area of layout().areas) {
+  for (const area of areasOf(wingId)) {
     const at = area.labelAt ?? { x: area.x + 0.4, y: area.y + area.h - 0.5 };
     const text = area.label.toUpperCase();
     const p = isoPoint(at.x, at.y, FLOOR_Z + 1);
@@ -213,6 +278,10 @@ export function drawInteriorWayfinding() {
     floorLine(at.x, at.y + 0.17, at.x + 0.16 * text.length + 0.2, at.y + 0.17, area.color, 3, FLOOR_Z + 0.5);
   }
   const { route } = layout();
+  if (wingId !== "nova") {
+    ctx.restore();
+    return; // the marked way in leads through the main entrance
+  }
   ctx.globalAlpha = 0.34;
   ctx.strokeStyle = TEAL;
   ctx.lineWidth = 2.4;
@@ -312,7 +381,7 @@ function drawBenchSlice(item, x, w, index, count) {
 
 // a column is cut off at the height of the people when the roof is gone, like the front walls
 function drawColumn(item) {
-  const height = 36 + 42 * scene.roof;
+  const height = 36 + 42 * roofOf(item.wing);
   drawBlock(item.x - 0.15, item.y - 0.15, 0.3, 0.3, height, "#ffffff", "#c9cdd0", "#e4e5e2");
 }
 
@@ -585,6 +654,196 @@ function drawPrinter(item) {
   ctx.fillRect(panel.x - 6, panel.y - 5.5, 7, 2);
 }
 
+// ---- the Learning Center ------------------------------------------------------------------------
+
+const BOOKS = ["#c46a52", "#4f7fa0", "#d9b84f", "#5b9a74", "#8f6bb0", "#e8e1d0", "#2f4d5a"];
+
+// a bookshelf wall on the north wall: dark back, planks, rows of books
+function drawBookshelfSlice(item, x, w, index) {
+  const [top, east, south] = shades("#d9b987");
+  drawBlock(x, item.y, w, item.h, 58, top, east, south);
+  const front = item.y + item.h + 0.01;
+  drawFacadeBandY(x + 0.04, front, w - 0.08, 3, 55, "#7b5a3a", 1);
+  for (const z of [17, 31, 45]) drawRaisedSlab(x, item.y, w, item.h, z, 2, "#d9b987", "#a98a58", "#c3a572");
+  const count = Math.max(3, Math.round(w / 0.17));
+  [4, 17, 31, 45].forEach((floor, row) => {
+    for (let k = 0; k < count; k++) {
+      if ((index * 3 + k * 2 + row) % 7 === 0) continue; // a gap now and then
+      const tall = 7 + ((index * 5 + k * 3 + row * 2) % 4) * 1.6;
+      const p = isoPoint(x + ((k + 0.5) * w) / count, item.y + item.h * 0.8, floor);
+      ctx.fillStyle = BOOKS[(index * 7 + k + row * 3) % BOOKS.length];
+      ctx.fillRect(p.x - 1.6, p.y - tall, 3.2, tall);
+      ctx.fillStyle = "rgba(0,0,0,.14)";
+      ctx.fillRect(p.x + 0.3, p.y - tall, 1.3, tall);
+    }
+  });
+}
+
+function drawLaptop(x, y, z) {
+  const p = isoPoint(x, y, z);
+  roundedRect(p.x - 7, p.y - 2, 14, 5, 1.5, "#cfd3d3");
+  ctx.fillStyle = INK;
+  ctx.fillRect(p.x - 6, p.y - 13, 12, 10);
+  ctx.fillStyle = AQUA;
+  ctx.fillRect(p.x - 4.5, p.y - 10.5, 6, 1.6);
+  ctx.fillStyle = LIME;
+  ctx.fillRect(p.x - 4.5, p.y - 7.5, 8, 1.6);
+}
+
+function drawDeskLamp(x, y, z) {
+  const base = isoPoint(x, y, z);
+  const top = isoPoint(x, y, z + 15);
+  ctx.strokeStyle = TEAL;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(base.x, base.y);
+  ctx.lineTo(top.x, top.y);
+  ctx.stroke();
+  ellipseAt({ x: top.x + 2, y: top.y + 1 }, 5, 2.6, CORAL);
+  ellipseAt({ x: base.x, y: base.y + 0.5 }, 4, 2, "rgba(34,67,75,.6)");
+}
+
+function drawOpenBook(x, y, z) {
+  const p = isoPoint(x, y, z);
+  ctx.fillStyle = "#f6f3ea";
+  ctx.beginPath();
+  ctx.moveTo(p.x - 7, p.y);
+  ctx.lineTo(p.x, p.y - 3);
+  ctx.lineTo(p.x + 7, p.y);
+  ctx.lineTo(p.x, p.y + 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(49,84,91,.4)";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y - 3);
+  ctx.lineTo(p.x, p.y + 3);
+  ctx.stroke();
+}
+
+// a long study table: laptops at one end, a lamp and an open book at the other
+function drawStudyTableSlice(item, x, w, index, count) {
+  const [top, east, south] = shades("#eee8d9");
+  const leg = (px, py) => drawBlock(px, py, 0.09, 0.09, 24, "#274a52", "#1b363c", "#22434b");
+  if (index === 0) leg(x + 0.1, item.y + item.h - 0.17);
+  if (index === count - 1) leg(x + w - 0.19, item.y + item.h - 0.17);
+  drawRaisedSlab(x, item.y, w, item.h, 28, 4, top, east, south);
+  if (index === 0) drawLaptop(x + 0.5, item.y + 0.4, 28);
+  if (index === count - 1) {
+    drawDeskLamp(x + w - 0.3, item.y + 0.3, 28);
+    drawOpenBook(x + w - 0.75, item.y + 0.5, 28);
+  }
+}
+
+// the seminar table in the corner: a lilac top, papers and a cup
+function drawSeminarTable(item) {
+  const leg = (px, py) => drawBlock(px, py, 0.1, 0.1, 24, "#274a52", "#1b363c", "#22434b");
+  leg(item.x + 0.1, item.y + item.h - 0.2);
+  leg(item.x + item.w - 0.2, item.y + item.h - 0.2);
+  drawRaisedSlab(item.x, item.y, item.w, item.h, 28, 4, "#d9cbe6", "#8f7fa3", "#b6a8c7");
+  drawOpenBook(item.x + 0.4, item.y + 0.45, 28);
+  drawOpenBook(item.x + 0.8, item.y + 0.7, 28);
+  drawCup(item.x + item.w - 0.3, item.y + 0.35, 28);
+}
+
+// ---- the Mercado ----------------------------------------------------------------------------------
+
+const CARTONS = ["#c9a26b", "#d8b47a", "#bd9660", "#cfa970"];
+
+// a steel rack on the west wall: back panel, four shelves with cartons, uprights at the ends
+function drawStorageRackSlice(item, y, length, index) {
+  const x = item.x;
+  drawBlock(x, y, 0.1, length, 76, "#aeb6b9", "#8f989b", "#9ea6a9");
+  const shelves = [8, 28, 48, 68];
+  shelves.forEach((z, level) => {
+    drawRaisedSlab(x, y, item.w, length, z, 2.5, "#dfe3e3", "#9ba4a7", "#c1c7c8");
+    const boxes = Math.max(1, Math.round(length / 0.5));
+    for (let k = 0; k < boxes; k++) {
+      if ((index * 2 + k + level) % 5 === 0) continue;
+      const tall = 9 + ((index + k * 2 + level) % 3) * 2;
+      const by = y + 0.05 + (k * (length - 0.1)) / boxes;
+      const color = CARTONS[(index * 3 + k + level) % CARTONS.length];
+      drawRaisedSlab(x + 0.14, by, item.w - 0.28, (length - 0.1) / boxes - 0.05, z + tall, tall, color, dark(color, 0.3), dark(color, 0.16));
+    }
+  });
+  const post = (py) => drawBlock(x + item.w - 0.08, py, 0.08, 0.08, 76, "#31545b", "#1f3c43", "#294a51");
+  if (index === 0) post(y);
+  post(y + length - 0.08);
+}
+
+// a pallet with two layers of cartons and a strip of tape on each
+function drawPallet(item) {
+  drawBlock(item.x, item.y, item.w, item.h, 6, "#b88b55", "#8a6740", "#a17747");
+  const bw = (item.w - 0.18) / 2;
+  const bh = (item.h - 0.15) / 2;
+  const layers = [
+    { z: 22, offset: 0.06, rows: [0, 1], cols: [0, 1] },
+    { z: 38, offset: 0.06 + bw / 2, rows: [0, 1], cols: [0] },
+  ];
+  let n = 0;
+  for (const layer of layers) {
+    for (const row of layer.rows) {
+      for (const col of layer.cols) {
+        const bx = item.x + layer.offset + col * (bw + 0.06);
+        const by = item.y + 0.05 + row * (bh + 0.05);
+        const color = CARTONS[(n++ + (item.x > 5 ? 1 : 0)) % CARTONS.length];
+        drawRaisedSlab(bx, by, bw, bh, layer.z, 16, color, dark(color, 0.3), dark(color, 0.16));
+        const tape = isoPoint(bx + bw / 2, by + bh, layer.z - 7);
+        ctx.fillStyle = "rgba(245,201,94,.92)";
+        ctx.fillRect(tape.x - 3, tape.y - 1, 6, 2);
+      }
+    }
+  }
+}
+
+// plastic crates, two high
+function drawCrates(item) {
+  const colors = [SUN, AQUA, SUN];
+  const width = (item.w - 0.12) / 3;
+  colors.forEach((color, i) => {
+    const bx = item.x + 0.03 + i * (width + 0.03);
+    drawRaisedSlab(bx, item.y + 0.05, width, item.h - 0.1, 18, 18, color, dark(color, 0.32), dark(color, 0.16));
+    drawFacadeBandY(bx + 0.04, item.y + item.h - 0.04, width - 0.08, 5, 8, dark(color, 0.3), 1);
+    if (i !== 1) {
+      drawRaisedSlab(bx + 0.03, item.y + 0.1, width - 0.06, item.h - 0.2, 36, 16, light(color, 0.1), dark(color, 0.3), dark(color, 0.14));
+      drawFacadeBandY(bx + 0.07, item.y + item.h - 0.09, width - 0.14, 23, 26, dark(color, 0.3), 1);
+    }
+  });
+}
+
+// ---- the Student Hub -------------------------------------------------------------------------------
+
+// a sofa along a side wall, drawn in slices along its length; its back is at the wall
+function drawSofaSlice(item, y, length, index, count) {
+  const west = item.x < 30;
+  const color = west ? CORAL : "#3d8c94";
+  const back = 0.3;
+  const seatX = west ? item.x + back : item.x;
+  const backX = west ? item.x : item.x + item.w - back;
+  drawBlock(seatX, y, item.w - back, length, 17, light(color, 0.18), dark(color, 0.3), dark(color, 0.14));
+  drawBlock(backX, y, back, length, 32, color, dark(color, 0.34), dark(color, 0.18));
+  if (index === 0) drawBlock(seatX, y, item.w - back, 0.14, 27, color, dark(color, 0.34), dark(color, 0.18));
+  if (index === count - 1) drawBlock(seatX, y + length - 0.14, item.w - back, 0.14, 27, color, dark(color, 0.34), dark(color, 0.18));
+  const cushion = isoPoint(seatX + (item.w - back) / 2, y + length / 2, 18);
+  ctx.fillStyle = "rgba(255,255,255,.2)";
+  ctx.beginPath();
+  ctx.ellipse(cushion.x, cushion.y, 5, 2.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// a charging bar with phones on it
+function drawChargingBar(item) {
+  drawBlock(item.x, item.y, item.w, item.h, 34, "#2b6070", "#1c4350", "#245566");
+  drawFacadeBandY(item.x + 0.06, item.y + item.h + 0.01, item.w - 0.12, 8, 26, "rgba(150,205,225,.55)", 2);
+  drawRaisedSlab(item.x - 0.02, item.y - 0.02, item.w + 0.04, item.h + 0.06, 38, 4, "#f3f1ea", "#a6aeab", "#c9cecb");
+  [0.3, 0.7].forEach((fy, i) => {
+    const p = isoPoint(item.x + item.w / 2, item.y + item.h * fy, 38);
+    roundedRect(p.x - 4, p.y - 7, 8, 6, 1.5, INK);
+    ctx.fillStyle = i ? LIME : SUN;
+    ctx.fillRect(p.x - 2.5, p.y - 5.5, 5, 1.4);
+  });
+}
+
 // ---- people ------------------------------------------------------------------------------------
 
 const SHIRTS = ["#f5c95e", "#ff8060", "#64cbc8", "#9a7bc1", "#bce65f", "#f0e9dc", "#e6a769"];
@@ -621,18 +880,28 @@ function sliced(item, maxWidth, drawSlice) {
   });
 }
 
+// the same along y, for pieces that stand against a side wall: they sort by their front line, x
+function slicedY(item, maxLength, drawSlice) {
+  const count = Math.max(1, Math.ceil(item.h / maxLength));
+  const length = item.h / count;
+  return Array.from({ length: count }, (_, i) => {
+    const y = item.y + i * length;
+    return { depth: item.x + item.w + y + length / 2 + 0.01, draw: () => drawSlice(y, length, i, count) };
+  });
+}
+
 // something that stands on a sliced piece sorts after the slice below it
 const onTop = (x, item) => x + 0.6 + item.y + item.h + 0.03;
 
 // depth of a single small object: its front edge, a little beyond
 const frontDepth = (item) => item.x + item.w / 2 + item.y + item.h + 0.3;
 
-// stools around a table: two on each side
-function tableStools(item) {
+// stools around a table: two on each side (only on the north side if the table stands against the south wall)
+function tableStools(item, sides = "both") {
   const spots = [];
   for (const x of [item.x + 0.5, item.x + item.w - 0.5]) {
     spots.push({ x, y: item.y - 0.35, depth: x + item.y - 0.35 });
-    spots.push({ x, y: item.y + item.h + 0.35, depth: x + item.y + item.h + 0.35 });
+    if (sides === "both") spots.push({ x, y: item.y + item.h + 0.35, depth: x + item.y + item.h + 0.35 });
   }
   return spots;
 }
@@ -640,6 +909,7 @@ function tableStools(item) {
 export function roomActors(t) {
   const actors = [];
   for (const item of layout().solid) {
+    if (!wingIsOpen(item.wing)) continue; // a closed wing shows nothing of what is inside
     const id = item.id;
     if (id === "cafe-shelf") {
       actors.push(...sliced(item, 1.1, (x, w, i) => drawCafeShelfSlice(item, x, w, i)));
@@ -678,12 +948,35 @@ export function roomActors(t) {
       actors.push({ depth: frontDepth(item) + 0.3, draw: () => drawPrinter(item) });
     } else if (id.startsWith("column")) {
       actors.push({ depth: item.x + item.y + 0.2, draw: () => drawColumn(item) });
+    } else if (id === "study-shelf") {
+      actors.push(...sliced(item, 1.1, (x, w, i) => drawBookshelfSlice(item, x, w, i)));
+    } else if (id.startsWith("study-table") || id === "hub-meeting-table") {
+      actors.push(...sliced(item, 0.95, (x, w, i, n) => drawStudyTableSlice(item, x, w, i, n)));
+      for (const spot of tableStools(item, id === "hub-meeting-table" ? "north" : "both")) {
+        actors.push({ depth: spot.depth, draw: () => drawStool(spot.x, spot.y, 14, TEAL) });
+      }
+    } else if (id === "seminar-table") {
+      actors.push({ depth: frontDepth(item), draw: () => drawSeminarTable(item) });
+      for (const [sx, sy] of [[item.x - 0.35, item.y + item.h / 2], [item.x + item.w / 2, item.y - 0.35]]) {
+        actors.push({ depth: sx + sy, draw: () => drawStool(sx, sy, 14, LILAC) });
+      }
+    } else if (id === "stock-rack-west") {
+      actors.push(...slicedY(item, 1.15, (y, length, i) => drawStorageRackSlice(item, y, length, i)));
+    } else if (id.startsWith("stock-pallet")) {
+      actors.push({ depth: frontDepth(item), draw: () => drawPallet(item) });
+    } else if (id.startsWith("stock-crates")) {
+      actors.push({ depth: frontDepth(item), draw: () => drawCrates(item) });
+    } else if (id.startsWith("hub-sofa")) {
+      actors.push(...slicedY(item, 1.0, (y, length, i, n) => drawSofaSlice(item, y, length, i, n)));
+    } else if (id === "hub-charging-bar") {
+      actors.push({ depth: frontDepth(item), draw: () => drawChargingBar(item) });
     } else if (id.includes("plant")) {
       const scale = 0.9 + item.r * 0.9;
       actors.push({ depth: item.x + item.y + 0.3, draw: () => drawIndoorPlant(item.x, item.y, scale) });
     }
   }
   layout().activities.forEach((activity, index) => {
+    if (!wingIsOpen(activity.wing)) return;
     actors.push({ depth: activity.x + activity.y + 0.03, draw: () => drawRoomPerson(activity, t, index) });
   });
   return actors;

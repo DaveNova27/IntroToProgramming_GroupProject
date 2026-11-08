@@ -39,7 +39,7 @@ This is the first of the specs that rebuild the world (see the roadmap, phase 2)
     `floor`.
 - The three academic wings are replaced by the Nova. The Student Hub is removed as well: it stood
   east of the Nova and, seen from the camera, hid the Print Corner. Learning Center and Mercado stay
-  as outdoor buildings for now; `nova-zones` decides what becomes of them. The three desks stand
+  as outdoor buildings for now; `nova-wings` makes them wings that can be entered. The three desks stand
   inside: "Order stock" (supply desk) and "Open the dashboard" (Student Central) in the atrium, "Set
   your prices" (cafe counter) in the Cafe. They keep their ids and `action`s.
 - The whole floor inside is open to walk on. The labelled areas split it between them (Cafe in the
@@ -136,14 +136,16 @@ brands) are our own: Cafe, Merchandise, Print Corner.
    throwaway building would mean doing the work twice. So the Nova's first form comes in this
    spec (shape, walls, atrium, three desks, areas), and its detailed look stays in `nova-design`.
 3. **Which outdoor buildings go.** The three academic wings (the Nova takes their place) and the
-   Student Hub (it hid the Print Corner). Learning Center and Mercado stay. `nova-zones` redraws the
-   outdoor map (Dorm, beach way, Surf Shop, Beach Cafe) and decides about the rest.
-4. **The whole roof at once.** Decided by Felix, no per-room roofs.
+   Student Hub (it hid the Print Corner). Learning Center and Mercado stay. `nova-wings` makes them
+   wings that can be entered; `nova-zones` redraws the outdoor map (Dorm, beach way, Surf Shop, Beach
+   Cafe).
+4. **The whole roof at once.** Decided by Felix, no per-room roofs. Inside this spec the Nova is one
+   building with one roof. `nova-wings` proposes one roof per wing.
 5. **Printers.** Drawn and placed, without a rule. Decided by Felix to be included.
 
 ## Out of scope
 
-The Dorm, the way to the beach, the Surf Shop and the Beach Cafe (`nova-zones`). The day starting
+More wings, entering the Learning Center and the Mercado (`nova-wings`). The Dorm, the way to the beach, the Surf Shop and the Beach Cafe (`nova-zones`). The day starting
 and ending at the Dorm and the day-end screen (`day-cycle`). Rain, storm and sky effects
 (`weather-visuals`). Final art and details (`nova-design`). Shop work, serving, carrying stock, staff and
 guests (`shop-walk`, `staff`, `guests`). Any rule for money, stock or time: where the player stands

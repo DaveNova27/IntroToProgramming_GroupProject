@@ -42,7 +42,7 @@ def test_the_api_serves_the_whole_world():
     assert set(data["zones"]) == {"campus"}  # spec walk-in: one zone, the Nova is a building on it
     assert set(data["colliders"]) == set(data["zones"])
     assert set(data["interiors"]) == {"campus"}  # the rooms are inside the Nova, on the campus
-    assert data["buildings"] and data["planters"] and data["trees"] and data["spaces"]
+    assert data["nova"]["wings"] and data["planters"] and data["trees"] and data["spaces"]  # spec nova-wings: no outdoor buildings, the Nova has wings
 
 
 def test_every_location_is_inside_its_zone():
