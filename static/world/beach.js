@@ -7,7 +7,7 @@
 
 import { drawCampusBench } from "./campus.js";
 import { drawPersonFigure } from "./people.js";
-import { drawWindFlag, environmentalProfile, lightingProfile } from "./environment.js";
+import { drawTree, drawWindFlag, environmentalProfile, lightingProfile } from "./environment.js";
 import {
   drawBlock,
   drawFacadeBandX,
@@ -1645,6 +1645,171 @@ function promenadeGrass() {
   return out;
 }
 
+// ---- the Dorm's front, the edge of the campus, the delivery lorry -----------------------------------
+
+// window boxes with flowers under the Dorm's windows, a timber canopy over its door, a balcony on the east side
+function drawDormFront(t, amount) {
+  const y = 12.6 + 0.02;
+  // flower boxes
+  for (const [x0, x1] of [[35.3, 36.8], [39.2, 40.2]]) {
+    drawBlock(x0, y - 0.02, x1 - x0, 0.22, 33, "#8a6a49", "#6a4f36", "#a67c52");
+    for (let x = x0 + 0.12; x < x1; x += 0.2) {
+      const p = isoPoint(x, y + 0.1, 33);
+      const sway = Math.sin(clock(t) * 0.002 + x) * 0.8;
+      line(p, { x: p.x + sway, y: p.y - 6 }, "#6f9a54", 1.2);
+      dot({ x: p.x + sway, y: p.y - 7 }, 1.7, [CORAL, SUN, "#ffffff", "#c9a0e0"][Math.round(x * 5) % 4]);
+    }
+  }
+  // the canopy over the door, on two timber posts
+  drawRaisedSlab(36.7, 12.5, 2.6, 1.3, 50, 4, "#c99a62", "#8f6a3f", "#a98050");
+  for (let x = 36.8; x < 39.2; x += 0.3) line(isoPoint(x, 12.5, 50), isoPoint(x, 13.8, 50), "rgba(80,50,20,.35)", 0.8);
+  for (const x of [36.85, 39.15]) {
+    line(isoPoint(x, 13.7, 5), isoPoint(x, 13.7, 48), "#8f6a3f", 3.4);
+    line(isoPoint(x + 0.04, 13.7, 5), isoPoint(x + 0.04, 13.7, 48), "#c99a62", 1.2);
+  }
+  // a house number and a lantern by the door
+  const sign = isoPoint(37.2, 12.68, 40);
+  roundedRectAt({ x: sign.x, y: sign.y }, 16, 9, "#31545b");
+  ctx.fillStyle = "#f4efe6";
+  ctx.font = "800 6px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("№ 7", sign.x, sign.y + 2.2);
+  const lamp = isoPoint(38.7, 12.7, 38);
+  dot(lamp, 3, amount > 0.1 ? "#ffe9a8" : "#eee2b8");
+  if (amount > 0.05) glow(38.7, 13.0, 36, 90, amount);
+}
+
+// the balcony on the Dorm's east wall: a ledge, a rail, pots, a hanging bike
+function drawDormBalcony(t) {
+  const x = 40.5;
+  drawRaisedSlab(x, 8.5, 0.7, 3.2, 33, 4, "#c99a62", "#8f6a3f", "#a98050");
+  const rail = 33 + 14;
+  line(isoPoint(x + 0.7, 8.5, rail), isoPoint(x + 0.7, 11.7, rail), "#31545b", 2);
+  line(isoPoint(x + 0.7, 11.7, rail), isoPoint(x, 11.7, rail), "#31545b", 2);
+  for (let y = 8.5; y <= 11.7; y += 0.4) line(isoPoint(x + 0.7, y, 33), isoPoint(x + 0.7, y, rail), "rgba(49,84,91,.7)", 1);
+  for (const [y, color] of [[8.9, CORAL], [9.9, SUN], [11.2, "#ffffff"]]) {
+    const p = isoPoint(x + 0.45, y, 36);
+    ctx.fillStyle = "#c8795a";
+    ctx.fillRect(p.x - 3, p.y - 5, 6, 5);
+    for (const dx of [-2, 0, 2]) {
+      line({ x: p.x + dx, y: p.y - 5 }, { x: p.x + dx * 1.4 + Math.sin(clock(t) * 0.002 + y) * 0.8, y: p.y - 11 }, "#6f9a54", 1.2);
+    }
+    dot({ x: p.x, y: p.y - 12 }, 2, color);
+  }
+}
+
+// the lorry on the delivery lane: a white box with the Mercado stripe, a teal cab, wheels, an open back
+function drawDeliveryLorry() {
+  const x = -1.15;
+  drawSoftShadow(-0.4, 12.3, 90, 48, 0.14);
+  drawBlock(x, 10.4, 1.35, 2.6, 46, "#f4f1e8", "#c9c6bd", "#e4e0d4");
+  drawFacadeBandX(x + 1.35 + 0.012, 10.5, 2.4, 10, 22, "#2e8b8f", 1);
+  drawFacadeBandX(x + 1.35 + 0.014, 10.5, 2.4, 24, 27, "#f5c95e", 1);
+  const label = isoPoint(x + 1.37, 11.7, 33);
+  ctx.save();
+  ctx.fillStyle = "#31545b";
+  ctx.font = "800 5px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("MERCADO", label.x, label.y + 2);
+  ctx.restore();
+  drawBlock(x, 13.0, 1.35, 1.0, 32, "#2e8b8f", "#1f6568", "#277a7d");
+  drawFacadeBandX(x + 1.35 + 0.012, 13.1, 0.8, 18, 30, "#cfe7e6", 1);
+  drawFacadeBandY(x + 0.1, 14.0 + 0.012, 1.15, 14, 29, "#cfe7e6", 1);
+  for (const y of [10.9, 13.6]) {
+    const w = isoPoint(x + 1.35, y, 8);
+    oval(w, 6, 7, "#22343a");
+    oval({ x: w.x + 0.5, y: w.y }, 3, 4, "#8aa6ad");
+  }
+  const lamp = isoPoint(x + 1.35, 14.0, 12);
+  dot(lamp, 2, "#ffe9a8");
+}
+
+// a thick low hedge along the east edge of the campus, with flowers in it
+function drawHedge(y0, y1) {
+  for (let y = y0; y < y1; y += 0.7) {
+    drawBlock(41.35, y, 0.7, 0.72, 14 + 2 * Math.sin(y * 1.9), "#6f9a54", "#4e7a3c", "#5f8a48");
+    const p = isoPoint(41.7, y + 0.35, 17);
+    for (let k = 0; k < 3; k++) {
+      dot({ x: p.x + (k - 1) * 4 + Math.sin(y * 3 + k) * 2, y: p.y - k % 2 * 1.5 }, 2.6, ["#83a774", "#5f8a48", "#8fb166"][k]);
+    }
+    if (Math.round(y * 10) % 3 === 0) dot({ x: p.x + 2, y: p.y - 2 }, 1.2, [CORAL, SUN, "#ffffff"][Math.round(y) % 3]);
+  }
+}
+
+function drawGardenBed(x, y, index, t) {
+  drawBlock(x, y, 2.3, 0.95, 9, "#7a5a3a", "#5a4128", "#94693f");
+  drawBlock(x + 0.1, y + 0.1, 2.1, 0.75, 10.5, "#4a3626", "#3a2a1c", "#4a3626");
+  for (let i = 0; i < 8; i++) {
+    const p = isoPoint(x + 0.25 + i * 0.26, y + 0.5 + ((i * 3) % 2) * 0.12, 11);
+    const sway = Math.sin(clock(t) * 0.002 + i + index) * 0.8;
+    const crop = index % 3;
+    if (crop === 0) { // salad: round green heads
+      oval({ x: p.x, y: p.y - 3 }, 3.6, 2.8, i % 2 ? "#8fbf5c" : "#6fa84a");
+    } else if (crop === 1) { // tomatoes on canes
+      line(p, { x: p.x + sway, y: p.y - 16 }, "#8a6a43", 1);
+      oval({ x: p.x + sway, y: p.y - 10 }, 3, 3.6, "#5f9a45");
+      dot({ x: p.x + sway + 1.5, y: p.y - 7 }, 1.5, "#e24d3f");
+    } else { // flowers
+      line(p, { x: p.x + sway, y: p.y - 9 }, "#6f9a54", 1.2);
+      dot({ x: p.x + sway, y: p.y - 10 }, 2.4, [SUN, CORAL, "#c9a0e0", "#ffffff"][i % 4]);
+    }
+  }
+}
+
+function drawBikeShelter() {
+  const x = 42.4;
+  const y = 14.0;
+  for (const [px, py] of [[x, y], [x + 3, y], [x, y + 1.5], [x + 3, y + 1.5]]) line(isoPoint(px, py, 5), isoPoint(px, py, 46), "#31545b", 2.6);
+  drawRaisedSlab(x - 0.2, y - 0.2, 3.4, 1.9, 48, 3, "#bde0d8", "#7aa6a3", "#9fc9c5");
+  for (let i = 0; i < 6; i++) {
+    const px = x + 0.3 + i * 0.5;
+    const a = isoPoint(px, y + 0.7, 5);
+    const b = isoPoint(px - 0.28, y + 0.7, 5);
+    for (const w of [a, b]) {
+      ctx.strokeStyle = "#22343a";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y - 5, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const color = [CORAL, AQUA, SUN, "#9a7bc1", "#bce65f", "#ffffff"][i];
+    const seat = { x: (a.x + b.x) / 2, y: a.y - 14 };
+    line({ x: b.x, y: b.y - 5 }, seat, color, 1.6);
+    line(seat, { x: a.x, y: a.y - 5 }, color, 1.6);
+    line({ x: a.x - 1, y: a.y - 16 }, { x: a.x, y: a.y - 5 }, color, 1.6);
+  }
+}
+
+// a hammock between two palms, with someone in it
+function drawHammock(t) {
+  const a = { x: 43.4, y: 18.6 };
+  const b = { x: 43.4, y: 21.4 };
+  const sway = Math.sin(clock(t) * 0.0014) * 0.5;
+  ctx.save();
+  ctx.strokeStyle = "#c9a45e";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for (let i = 0; i <= 12; i++) {
+    const f = i / 12;
+    const p = isoPoint(a.x + sway * Math.sin(Math.PI * f), a.y + (b.y - a.y) * f, 38 - 14 * Math.sin(Math.PI * f));
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  const mid = isoPoint(a.x + sway, (a.y + b.y) / 2, 28);
+  oval({ x: mid.x - 1, y: mid.y - 3 }, 11, 3.6, "#2f4d5a");
+  dot({ x: mid.x - 9, y: mid.y - 6 }, 3.2, "#d99a70");
+  oval({ x: mid.x - 9, y: mid.y - 8 }, 3.4, 2, "#54362a");
+}
+
+// palms and olive-like trees standing behind the campus edges: only scenery
+const EDGE_TREES = [
+  ...[5.2, 8.0, 10.9, 13.6, 16.5, 19.3, 22.2].map((y, i) => [43.8 + (i % 2) * 0.9, y + (i % 3) * 0.3, 0.84 + (i % 3) * 0.08]),
+  ...[1.6, 4.4, 7.4, 10.2].map((x, i) => [x + (i % 2) * 0.8, 0.7 + (i % 3) * 0.5, 0.86 + (i % 2) * 0.1]),
+  ...[9.2, 12.5, 15.8, 19.2, 22.4].map((y, i) => [-3.4 + (i % 2) * 0.8, y, 0.86 + (i % 3) * 0.07]),
+];
+
 // ---- everything that stands, sorted with the rest of the scene -------------------------------------
 
 export function beachActors(t) {
@@ -1720,6 +1885,16 @@ export function beachActors(t) {
   world.beach.paddlers.forEach((pd, i) => add(pd.x + pd.y, () => drawPaddler(pd, i, t)));
   add(1, () => drawTidePools(t));
   add(world.beach.lighthouse.x + world.beach.lighthouse.y, () => drawLighthouse(world.beach.lighthouse, t, amount));
+  add(35.0 + 12.6 + 0.9, () => drawDormFront(t, amount));
+  add(40.5 + 8.5 + 3.3, () => drawDormBalcony(t));
+  add(-1.15 + 10.4 + 3.6, drawDeliveryLorry);
+  add(41.35 + 4.5 + 0.2, () => drawHedge(4.5, 12.0));
+  add(41.35 + 15.5 + 0.2, () => drawHedge(12.0, 25.0));
+  [8.4, 10.3, 12.2].forEach((y, i) => add(42.6 + y + 1.0, () => drawGardenBed(42.6, y, i, t)));
+  add(42.4 + 14.0 + 1.9, drawBikeShelter);
+  add(43.4 + 20.0, () => drawHammock(t));
+  const environment = environmentalProfile(scene.clock, scene.day, t);
+  EDGE_TREES.forEach(([x, y, size]) => add(x + y + 0.3, () => drawTree(x, y, size, t, environment)));
   world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
   grassClumps().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
   world.beach.benches.forEach(([x, y]) => add(x + y + 0.6, () => drawCampusBench(x, y, 0)));

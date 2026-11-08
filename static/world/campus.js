@@ -59,7 +59,11 @@ export function drawTerrain(t) {
         color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
         // the paving turns warm and sandy towards the beach, so the two do not meet on a line
         if (y >= 20) color = mixColor(color, "#e6d3a2", Math.min(0.72, (y - 19.5) * 0.15));
-      } else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
+      } else {
+        // lawn: soft drifting patches of two greens, not a chessboard
+        const f = 0.5 + 0.25 * Math.sin(x * 0.43 + y * 0.21) + 0.25 * Math.sin(y * 0.57 - x * 0.17 + 1.3);
+        color = mixColor("#78a267", "#82ad70", f * 0.9 + ((x * 7 + y * 13) % 5) * 0.02);
+      }
     } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
     drawTile(x, y, color, depth);
     if (zone.outdoor && y === 34) {
@@ -228,11 +232,14 @@ export function drawCafeTerrace() {
   drawSpaceCaption(13.8, 16.25, "Shaded Terrace", "#8b6645");
 }
 
+// The delivery lane runs along the west side of the Mercado, so lorries never cross the plaza:
+// asphalt, a kerb against the building, centre dashes, a pallet or two, a barrier at the south end.
 export function drawServiceLane() {
-  drawGroundSlab(2.15, 17.15, 12.35, 2.15, "#9da39e", 4);
-  for (let i = 0; i < 8; i++) {
-    const a = isoPoint(2.55 + i * 1.45, 18.22, 6),
-      b = isoPoint(3.18 + i * 1.45, 18.22, 6);
+  drawGroundSlab(-1.4, 8.0, 4.3, 14.6, "#9da39e", 4);
+  drawGroundSlab(2.9, 8.0, 0.25, 14.6, "#c9c9c0", 5);
+  for (let j = 0; j < 13; j++) {
+    const a = isoPoint(0.95, 8.7 + j * 1.05, 6),
+      b = isoPoint(0.95, 9.2 + j * 1.05, 6);
     ctx.strokeStyle = "rgba(245,241,230,.62)";
     ctx.lineWidth = 2.2;
     ctx.beginPath();
@@ -240,15 +247,41 @@ export function drawServiceLane() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  for (let i = 0; i < 3; i++) {
-    const x = 3.05 + i * 2.15;
-    drawGroundSlab(x, 17.38, 1.3, 0.72, "#c5c6be", 5);
-    const p = isoPoint(x + 0.65, 17.76, 7);
-    ctx.strokeStyle = "#e8e5dc";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(p.x - 15, p.y - 6, 30, 12);
+  // loading bay marks in front of the dock, and pallets with boxes
+  for (const y of [9.4, 13.4]) {
+    const a = isoPoint(1.4, y, 6),
+      b = isoPoint(2.8, y, 6);
+    ctx.strokeStyle = "rgba(245,241,230,.55)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
   }
-  drawSpaceCaption(2.55, 19.03, "Service & deliveries", "#5d6765");
+  drawGroundSlab(2.05, 10.1, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 10.15, 0.65, 0.85, "#d8c59c", 7);
+  drawGroundSlab(2.05, 11.5, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 11.55, 0.65, 0.85, "#c9a878", 8);
+  // the barrier: a post with a red and white arm, lifted
+  const post = isoPoint(2.7, 21.6, 5),
+    top = isoPoint(2.7, 21.6, 30);
+  ctx.strokeStyle = "#31545b";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(post.x, post.y);
+  ctx.lineTo(top.x, top.y);
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) {
+    const a = isoPoint(2.7 - i * 0.33, 21.6 + i * 0.0, 30 + i * 9),
+      b = isoPoint(2.7 - (i + 1) * 0.33, 21.6, 30 + (i + 1) * 9);
+    ctx.strokeStyle = i % 2 ? "#ffffff" : "#e24d3f";
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  drawSpaceCaption(0.2, 20.3, "Service & deliveries", "#5d6765");
 }
 
 export function drawStudentLawn() {

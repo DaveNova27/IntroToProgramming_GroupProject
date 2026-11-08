@@ -76,7 +76,7 @@ SPACES = {
     "arrival": {"id": "arrival", "name": "Arrival Plaza", "x": 7.4, "y": 15.35},
     "courtyard": {"id": "courtyard", "name": "Academic Courtyard", "x": 20.1, "y": 12.75},
     "terrace": {"id": "terrace", "name": "Cafe Terrace", "x": 17.55, "y": 14.25},
-    "service": {"id": "service", "name": "Service Lane", "x": 8.4, "y": 18.25},
+    "service": {"id": "service", "name": "Service Lane", "x": 1.9, "y": 15.5},
     "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 28.2, "y": 27.4},
     "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 8.6, "y": 27.55},
     "beachWay": {"id": "beachWay", "name": "Beach Way", "x": 14.4, "y": 21.0},
