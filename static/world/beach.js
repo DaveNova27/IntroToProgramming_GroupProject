@@ -91,8 +91,8 @@ const flat = (x, y, w, h, fill, z = 5, stroke = null) =>
 // sand drifting over the paving in front of the beach, with a wavy edge
 function drawSandWash() {
   const points = [];
-  for (let x = 1.2; x <= 41.4; x += 0.9) points.push(isoPoint(x, 24.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
-  for (let x = 41.4; x >= 1.2; x -= 0.9) points.push(isoPoint(x, 25.3, 4.6));
+  for (let x = -13.8; x <= 58.2; x += 0.9) points.push(isoPoint(x, 24.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
+  for (let x = 58.2; x >= -13.8; x -= 0.9) points.push(isoPoint(x, 25.3, 4.6));
   drawPlane(points, "rgba(222,194,126,.62)", null);
 }
 
@@ -107,8 +107,8 @@ function drawShore(t) {
     }
   }
   const wet = [];
-  for (let x = 1.5; x <= 41.5; x += 0.9) wet.push(isoPoint(x, 32.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
-  for (let x = 41.5; x >= 1.5; x -= 0.9) wet.push(isoPoint(x, 33.05, 4.7));
+  for (let x = -13.5; x <= 58.5; x += 0.9) wet.push(isoPoint(x, 32.2 + 0.18 * Math.sin(x * 0.6 + clock(t) * 0.0009), 4.7));
+  for (let x = 58.5; x >= -13.5; x -= 0.9) wet.push(isoPoint(x, 33.05, 4.7));
   drawPlane(wet, "rgba(120,98,60,.2)", null);
   for (let k = 0; k < 3; k++) {
     ctx.save();
@@ -116,10 +116,10 @@ function drawShore(t) {
     ctx.globalAlpha = 0.72 - k * 0.2;
     ctx.lineWidth = 2.6 - k * 0.7;
     ctx.beginPath();
-    for (let x = 1.5; x <= 41.5; x += 0.5) {
+    for (let x = -13.5; x <= 58.5; x += 0.5) {
       const swell = 0.16 * Math.sin(x * 0.7 + clock(t) * 0.0018 - k * 0.8) + 0.1 * Math.sin(x * 1.9 + clock(t) * 0.0011);
       const p = isoPoint(x, 32.92 - k * 0.2 + swell, 4.9);
-      if (x === 1.5) ctx.moveTo(p.x, p.y);
+      if (x === -13.5) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
@@ -211,6 +211,21 @@ function drawBoardwalk() {
   }
 }
 
+
+// steps down from the promenade where the low wall is open
+function drawKerbSteps() {
+  const kerb = world.beach.kerb;
+  const edges = [];
+  kerb.segments.forEach(([a, b], i) => {
+    const next = kerb.segments[i + 1];
+    if (next) edges.push([b, next[0]]);
+  });
+  edges.forEach(([a, b]) => {
+    if (a > 11 && b < 17.5) return; // the boardwalk itself is the way down
+    for (let s = 0; s < 2; s++) flat(a + 0.1, kerb.y + 0.1 + s * 0.28, b - a - 0.2, 0.3, ["#e7e2d6", "#d6d1c4"][s], 5.6 - s * 0.5, "rgba(70,70,60,.3)");
+  });
+}
+
 function drawDeck(x, y, w, h, base) {
   drawGroundSlab(x - 0.1, y - 0.1, w + 0.2, h + 0.2, "#8b6645", 5);
   const rows = Math.floor(h / 0.36);
@@ -237,6 +252,7 @@ export function drawBeachGround(t) {
     drawDeck(shop.x, shop.y, shop.w, shop.h, base);
     drawSoftShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w * 22, shop.h * 18, 0.1);
   }
+  drawKerbSteps();
   drawDormGround();
   drawSpaceCaption(18.4, 32.5, "Beach", "#8b6645");
 }
@@ -616,8 +632,7 @@ function drawGull(g, t) {
 
 // ---- the Dorm's front -----------------------------------------------------------------------------
 
-function drawBikeRack() {
-  const rack = world.colliders.campus.find((c) => c.id === "dorm-bike-rack");
+function drawBikeRack(rack) {
   for (let i = 0; i < 4; i++) {
     const x = rack.x + 0.1 + i * 0.4;
     line(isoPoint(x, rack.y + 0.15, 5), isoPoint(x, rack.y + 0.15, 17), "#31545b", 1.6);
@@ -648,6 +663,98 @@ function drawMailbox() {
   roundedRectAt({ x: p.x, y: p.y - 19 }, 9, 7, "#ff7458");
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(p.x - 2.5, p.y - 20.5, 5, 1.2);
+}
+
+// ---- the low wall and the promenade -----------------------------------------------------------------
+
+// the wall between the promenade and the dunes: pale concrete, a cap, a shadow on the sand, a lamp at each end
+function drawKerbSegment(x0, x1) {
+  const kerb = world.beach.kerb;
+  drawSoftShadow((x0 + x1) / 2, kerb.y + kerb.h + 0.35, (x1 - x0) * 22, 14, 0.12);
+  drawRaisedSlab(x0, kerb.y, x1 - x0, kerb.h, 14, 4, "#efece3", "#aeb2ae", "#d3d4cd");
+  drawRaisedSlab(x0 - 0.03, kerb.y - 0.03, x1 - x0 + 0.06, kerb.h + 0.06, 17, 3, "#fbfaf6", "#c9cdd0", "#e4e5e2");
+  for (let x = x0 + 0.7; x < x1 - 0.3; x += 1.4) {
+    line(isoPoint(x, kerb.y + kerb.h + 0.012, 5), isoPoint(x, kerb.y + kerb.h + 0.012, 14), "rgba(70,75,72,.25)", 0.8);
+  }
+}
+
+function drawBollard(x, y, amount) {
+  drawRaisedSlab(x - 0.09, y - 0.09, 0.18, 0.18, 26, 4, "#31545b", "#1f3a40", "#274a52");
+  oval(isoPoint(x, y, 28), 3, 1.4, amount > 0.1 ? "#ffe9a8" : "#e9e3d4");
+  glow(x, y, 28, 36, amount);
+}
+
+function drawBin(x, y) {
+  const p = isoPoint(x, y, 5);
+  oval({ x: p.x, y: p.y + 1 }, 7, 2.8, "rgba(20,40,46,.25)");
+  ctx.fillStyle = "#4d6c62";
+  ctx.beginPath();
+  ctx.moveTo(p.x - 6, p.y - 17);
+  ctx.lineTo(p.x + 6, p.y - 17);
+  ctx.lineTo(p.x + 5, p.y);
+  ctx.lineTo(p.x - 5, p.y);
+  ctx.closePath();
+  ctx.fill();
+  oval({ x: p.x, y: p.y - 17 }, 6, 2.2, "#2f4a43");
+  ctx.fillStyle = "rgba(255,255,255,.7)";
+  ctx.fillRect(p.x - 2, p.y - 11, 4, 3);
+}
+
+function drawPlanterBox([x, y, w, h], index) {
+  drawRaisedSlab(x, y, w, h, 12, 4, "#e6e1d5", "#8e9690", "#aeb3ad");
+  drawRaisedSlab(x + 0.08, y + 0.08, w - 0.16, h - 0.16, 14, 2, "#8a6a49", "#6a4f36", "#7a5c3f");
+  for (let i = 0; i < Math.round(w / 0.3); i++) {
+    const px = isoPoint(x + 0.2 + i * 0.3, y + h / 2 + ((i * 3) % 2) * 0.08, 14);
+    const sway = Math.sin(clock(scene.time) * 0.0019 + i + index) * 1.3;
+    for (const k of [-1, 1]) line(px, { x: px.x + k * 2 + sway, y: px.y - 9 - ((i + k + 3) % 3) * 2 }, i % 2 ? "#6f9a54" : "#8fb166", 1.2);
+    if (i % 3 === 0) dot({ x: px.x + sway, y: px.y - 11 }, 1.6, [CORAL, SUN, "#ffffff"][(i + index) % 3]);
+  }
+}
+
+function drawFountain(f) {
+  const p = isoPoint(f.x, f.y, 5);
+  oval({ x: p.x, y: p.y + 1 }, 9, 3.4, "rgba(100,203,200,.45)");
+  drawBlock(f.x - 0.12, f.y - 0.12, 0.24, 0.24, 30, "#e7e2d6", "#9aa5a0", "#bcc3be");
+  oval(isoPoint(f.x, f.y, 31), 3.4, 1.4, "#31545b");
+  line(isoPoint(f.x, f.y, 31), isoPoint(f.x + 0.2, f.y + 0.1, 28), "rgba(100,203,200,.8)", 1);
+}
+
+function drawIceCart(c, t, amount) {
+  drawSoftShadow(c.x + c.w / 2, c.y + c.h / 2, c.w * 24, c.h * 20, 0.12);
+  for (const dx of [0.2, c.w - 0.2]) {
+    const w = isoPoint(c.x + dx, c.y + c.h + 0.02, 7);
+    ctx.strokeStyle = "#22343a";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, 4.6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  drawBlock(c.x, c.y, c.w, c.h, 26, "#fbf7ee", dark("#64cbc8", 0.25), "#64cbc8");
+  drawFacadeBandY(c.x + 0.06, c.y + c.h + 0.012, c.w - 0.12, 8, 14, "#ffffff", 1);
+  drawRaisedSlab(c.x - 0.04, c.y - 0.04, c.w + 0.08, c.h + 0.08, 29, 3, "#ffffff", "#b9c8c6", "#d4e0de");
+  [CORAL, SUN, "#c9a0e0"].forEach((color, i) => {
+    const sc = isoPoint(c.x + 0.4 + i * 0.3, c.y + 0.4, 30);
+    oval(sc, 3, 1.4, "#f4efe6");
+    dot({ x: sc.x, y: sc.y - 3 }, 3, color);
+  });
+  // a striped umbrella on a pole
+  const px = c.x + c.w - 0.25;
+  line(isoPoint(px, c.y + 0.2, 28), isoPoint(px, c.y + 0.2, 84), "#e6dfd0", 2);
+  const top = isoPoint(px - 0.4, c.y + 0.4, 86);
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = i % 2 ? "#fbf7ee" : CORAL;
+    ctx.beginPath();
+    ctx.moveTo(top.x - 24 + i * 8, top.y + 8 - Math.abs(i - 2.5) * -1.2);
+    ctx.quadraticCurveTo(top.x - 22 + i * 8, top.y - 10, top.x - 16 + i * 8, top.y + 8);
+    ctx.lineTo(top.x - 24 + i * 8, top.y + 8);
+    ctx.fill();
+  }
+  const m = isoPoint(c.x + c.w / 2 - 0.2, c.y + c.h + 0.03, 20);
+  ctx.fillStyle = "#22343a";
+  ctx.font = "800 3.8px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("ICE", m.x, m.y - 2);
+  if (amount > 0.1) dot(isoPoint(c.x + 0.3, c.y + 0.3, 84), 2, "#ffe9a8", amount);
 }
 
 // ---- the beach's own character: grass, umbrellas, castle, rocks, flags, shower, kites, swimmers -------
@@ -820,8 +927,8 @@ export function beachActors(t) {
     if (c.id.startsWith("way-lamp")) add(c.x + c.y + 0.05, () => drawLamp(c.x, c.y, amount));
   }
   add(14.4 + 17.5 + 0.2, () => drawArch(amount));
-  add(11.5 + 30.5 + 1.3, () => drawCampusBench(11.5, 30.5, 1));
-  add(17.0 + 30.5 + 1.3, () => drawCampusBench(17.0, 30.5, 1));
+  add(11.9 + 30.5 + 1.3, () => drawCampusBench(11.9, 30.5, 1));
+  add(16.5 + 30.5 + 1.3, () => drawCampusBench(16.5, 30.5, 1));
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
@@ -846,6 +953,19 @@ export function beachActors(t) {
   world.beach.loungers.forEach((l, i) => {
     if (i % 2 === 1) add(l.x + l.y + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
   });
+  const kerb = world.beach.kerb;
+  kerb.segments.forEach(([x0, x1]) => {
+    for (let a = x0; a < x1 - 1e-6; a += 1.6) {
+      const b = Math.min(a + 1.6, x1);
+      add(b + kerb.y + kerb.h + 0.05, () => drawKerbSegment(a, b));
+    }
+    for (const x of [x0 + 0.12, x1 - 0.12]) add(x + kerb.y + 0.3, () => drawBollard(x, kerb.y + kerb.h / 2, amount));
+  });
+  world.beach.bikeRacks.forEach(([x, y]) => add(x + y + 0.5, () => drawBikeRack({ x, y })));
+  world.beach.bins.forEach(([x, y]) => add(x + y + 0.2, () => drawBin(x, y)));
+  world.beach.planterBoxes.forEach((b, i) => add(b[0] + b[1] + b[3], () => drawPlanterBox(b, i)));
+  add(world.beach.fountain.x + world.beach.fountain.y + 0.2, () => drawFountain(world.beach.fountain));
+  add(world.beach.iceCart.x + world.beach.iceCart.y + world.beach.iceCart.h, () => drawIceCart(world.beach.iceCart, t, amount));
   world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
   grassClumps().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
   world.beach.benches.forEach(([x, y]) => add(x + y + 0.6, () => drawCampusBench(x, y, 0)));
@@ -862,7 +982,7 @@ export function beachActors(t) {
   world.beach.boats.forEach((b, i) => add(b.x + b.y, () => drawBoat(b, t, i)));
   world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t)));
 
-  add(35.3 + 13.1 + 0.5, drawBikeRack);
+  add(35.3 + 13.1 + 0.5, () => drawBikeRack(solid.find((c) => c.id === "dorm-bike-rack")));
   add(39.3 + 13.1 + 0.5, () => drawCampusBench(39.3, 13.1, 0));
   add(35.2 + 12.85 + 0.3, drawMailbox);
   return actors;

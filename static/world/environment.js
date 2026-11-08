@@ -82,17 +82,17 @@ export function drawSkyMotion(t, environment, w, h) {
 export function drawCoastalMotion(t, environment) {
   ctx.save();
   ctx.lineCap = "round";
-  for (let band = 0; band < 5; band++) {
-    const y = 32.55 + band * 0.78,
-      amplitude = 2.2 + band * 0.7 + environment.sea * 2,
-      alpha = 0.18 + band * 0.07;
+  for (let band = 0; band < 11; band++) {
+    const y = 32.55 + band * 0.9,
+      amplitude = 2.2 + Math.min(band, 5) * 0.7 + environment.sea * 2,
+      alpha = 0.18 + Math.min(band, 5) * 0.07 - Math.max(0, band - 6) * 0.03;
     ctx.strokeStyle = `rgba(229,251,247,${alpha})`;
-    ctx.lineWidth = 1.2 + band * 0.3;
+    ctx.lineWidth = 1.2 + Math.min(band, 5) * 0.3;
     ctx.beginPath();
-    for (let x = -1; x <= 58; x += 0.35) {
+    for (let x = -14; x <= 58; x += 0.35) {
       const phase = x * 0.55 - (reducedMotion ? 0 : t * 0.0011 * (0.65 + environment.sea)) + band * 0.9,
         p = isoPoint(x, y + Math.sin(phase) * 0.075 * environment.sea, 5 + Math.sin(phase) * amplitude);
-      if (x === -1) ctx.moveTo(p.x, p.y);
+      if (x === -14) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();

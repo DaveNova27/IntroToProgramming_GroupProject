@@ -37,8 +37,9 @@ export function drawTerrain(t) {
     center = isoPoint(camera.x, camera.y),
     viewX = canvas.clientWidth / (2 * camera.zoom) + TILE_W * 2,
     viewY = canvas.clientHeight / (2 * camera.zoom) + TILE_H * 3;
+  // the ground also runs a little west of the map, so no void shows beside the beach
   for (let y = 0; y < zone.height; y++)
-    for (let x = 0; x < zone.width; x++) {
+    for (let x = -14; x < zone.width; x++) {
       const point = isoPoint(x, y);
       if (Math.abs(point.x - center.x) <= viewX && Math.abs(point.y - center.y) <= viewY)
         tiles.push({ x, y, d: x + y });
@@ -50,7 +51,7 @@ export function drawTerrain(t) {
     if (zone.outdoor) {
       if (y >= 33) {
         // shallow, light water along the shore, deeper and darker further out
-        const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b"][Math.min(y - 33, 4)];
+        const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b", "#397f93", "#33758b", "#2e6b83"][Math.min(y - 33, 7)];
         color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
         depth = 0;
       } else if (y >= 25) color = y >= 32 ? "#d3b575" : x % 4 === 0 ? "#e4c986" : "#dec27e";
