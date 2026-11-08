@@ -104,9 +104,10 @@ brands) are our own: Cafe, Merchandise, Print Corner.
 
 ## Decide (my recommendations)
 
-1. **Tests that name the removed zones.** Eight existing tests name zones, doors or a number that
-   the spec changes on purpose. David confirmed the exception on 2026-11-08, for exactly these tests
-   and for the threshold below. They were changed in this PR and nothing else in `tests/` was:
+1. **Tests that name the removed zones.** Nine existing tests name zones, doors or a number that
+   the spec changes on purpose. David confirmed the exception on 2026-11-08 for eight of them (with
+   the threshold below); Felix, as the owner of the PR, confirmed the ninth. They were changed in this
+   PR and nothing else in `tests/` was:
    - `tests/test_world_api.py::test_the_api_serves_the_whole_world`: the zones are `{"campus"}` and the
      rooms are keyed `{"campus"}` (were: `campus`, `mercado`, `academy`, `hub`).
    - `test_every_door_leads_to_a_zone_with_a_free_place_to_stand`: there are no doors (it counted six).
@@ -119,6 +120,10 @@ brands) are our own: Cafe, Merchandise, Print Corner.
      saved a position in the zones `academy`, `hub` or `mercado`. They use the zone `campus` and a spot
      inside the Nova (23.25, 5.5 and 23.5, 7.25). The last one now compares the whole position, so it
      checks more than before, not less.
+   - `test_a_new_run_puts_the_player_back_at_the_spawn` is a ninth test, confirmed by Felix as the owner
+     of this PR (rule in `AGENTS.md`). It still posted the removed zone `hub`, was refused, and passed
+     without moving anyone. It now posts a spot inside the Nova on the campus and checks that the
+     player really moved before the new run puts them back at the spawn.
    - `tests/test_world_paths.py::test_every_door_and_desk_can_be_reached_from_anywhere` (Node, runs on
      GitHub Actions): `checked > 100` became `checked > 60`. The three desks on one campus give 69
      checks, not more than 100. This is the only threshold that is loosened; every check inside it
