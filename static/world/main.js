@@ -2,6 +2,7 @@
 // Walking and the camera are only for showing. Every rule stays on the server.
 
 import { inReach, locationsHere, nearestLocation } from "./locations.js";
+import { novaIsOpen } from "./nova.js";
 import { findPath } from "./paths.js";
 import { nearestFreePoint, pointBlocked, resolveMovement } from "./physics.js";
 import { drawWorld } from "./render.js";
@@ -124,14 +125,10 @@ function onClick(event) {
   if (scene.preview || inputBlocked()) return;
   window.focus();
   const point = canvasWorldPoint(event);
-  const hit = locationsHere().find(([, loc]) => {
-    // a door stands upright: a click on its picture lands about one tile behind its base
-    const lift = loc.kind === "door" ? 1.05 : 0;
-    return (
-      Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH ||
-      Math.hypot(point.x + lift - loc.x, point.y + lift - loc.y) < CLICK_REACH
-    );
-  });
+  // the desks stand inside the Nova and are only drawn while its roof is gone: a click on the
+  // closed roof must not pick one
+  const places = novaIsOpen() ? locationsHere() : [];
+  const hit = places.find(([, loc]) => Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH);
   if (!hit) {
     pendingUse = null;
     return walkTo(point);
