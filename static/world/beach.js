@@ -95,6 +95,31 @@ function drawSandWash() {
   for (let x = -13.8; x <= 58.2; x += 0.9) points.push(isoPoint(x, 24.7 - 0.38 * Math.sin(x * 0.55) - 0.14 * Math.sin(x * 1.9), 4.6));
   for (let x = 58.2; x >= -13.8; x -= 0.9) points.push(isoPoint(x, 25.3, 4.6));
   drawPlane(points, "rgba(222,194,126,.62)", null);
+  // drifts of sand on the paving, more and bigger towards the beach (fixed places, nothing random)
+  for (let i = 0; i < 110; i++) {
+    const x = -2 + ((i * 17.3) % 46);
+    const y = 19.8 + ((i * 5.9) % 5.0);
+    if (((i * 7) % 10) / 10 > (y - 19.8) / 5.0 + 0.1) continue;
+    const rx = 0.28 + ((i * 3) % 7) * 0.11;
+    const pts = [];
+    for (let a = 0; a < Math.PI * 2; a += 0.55) {
+      const r = rx * (1 + 0.28 * Math.sin(a * 3 + i));
+      pts.push(isoPoint(x + Math.cos(a) * r * 1.5, y + Math.sin(a) * r * 0.6, 4.7));
+    }
+    drawPlane(pts, "rgba(228,206,148,.38)", null);
+  }
+  // a tongue of sand blown through each opening of the low wall onto the promenade
+  const kerb = world.beach.kerb;
+  kerb.segments.slice(0, -1).forEach(([, a], i) => {
+    const b = kerb.segments[i + 1][0];
+    if (a > 11 && b < 17.5) return; // the beach way is there
+    const mid = (a + b) / 2;
+    const tip = 22.7 + ((Math.round(a * 10) * 7) % 5) * 0.18;
+    const pts = [];
+    for (let f = 0; f <= 1.001; f += 0.1) pts.push(isoPoint(a + 0.1 - 0.5 * Math.sin(f * 3) * 0.3 + (mid - a) * f * 0.8 + 0.2 * Math.sin(f * 9), 25.4 - (25.4 - tip) * f, 4.75));
+    for (let f = 1; f >= -0.001; f -= 0.1) pts.push(isoPoint(b - 0.1 + 0.5 * Math.sin(f * 3) * 0.3 - (b - mid) * f * 0.8 + 0.2 * Math.sin(f * 8 + 1), 25.4 - (25.4 - tip) * f, 4.75));
+    drawPlane(pts, "rgba(228,206,148,.7)", null);
+  });
 }
 
 // ripples in the sand, a darker wet strip along the water, foam that comes in and goes out
@@ -372,14 +397,14 @@ function shelf(x0, x1, y, z, color = "#8f6a3f") {
   for (const x of [x0 + 0.1, x1 - 0.1]) line(isoPoint(x, y, z), isoPoint(x, y, z - 7), color, 1.6);
 }
 
-function drawSurfHut(shop) {
+function drawSurfHut(shop, amount) {
   const { x, y, w } = shop;
   drawBlock(x, y, w, 0.2, HUT_Z, "#dfe9e6", "#6f9f9b", "#8fbcb7");
   const fy = y + 0.2 + 0.012;
   for (let px = x + 0.3; px < x + w - 0.1; px += 0.34) line(isoPoint(px, fy, 6), isoPoint(px, fy, HUT_Z - 2), "rgba(40,80,80,.28)", 0.8);
   // west wall with a shuttered window
   drawBlock(x, y + 0.2, 0.2, 1.2, HUT_Z, "#dfe9e6", "#6f9f9b", "#8fbcb7");
-  drawFacadeBandX(x + 0.212, y + 0.5, 0.6, 46, 78, "#cfe7e6", 3);
+  drawFacadeBandX(x + 0.212, y + 0.5, 0.6, 46, 78, amount > 0.1 ? "#ffe3a0" : "#cfe7e6", 3);
   drawFacadeBandX(x + 0.214, y + 0.38, 0.12, 46, 78, "#2e8b8f", 1);
   drawFacadeBandX(x + 0.214, y + 1.0, 0.12, 46, 78, "#2e8b8f", 1);
   // wetsuits on a rail
@@ -409,6 +434,7 @@ function drawSurfHut(shop) {
   dot(port, 8, "#f4efe6");
   dot(port, 6, "#1d4a55");
   dot({ x: port.x - 1.5, y: port.y - 2 }, 1.6, "rgba(255,255,255,.5)");
+  if (amount > 0.05) glow(x + w / 2, y + 0.9, 50, 190, amount); // light spilling from under the roof
   const sign = isoPoint(x + w - 2.0, fy, 60);
   roundedRectAt({ x: sign.x, y: sign.y }, 34, 12, "#f4efe6");
   ctx.fillStyle = "#2e8b8f";
@@ -445,7 +471,7 @@ function drawSurfRoof(shop, amount) {
   ctx.restore();
 }
 
-function drawCafeHut(shop) {
+function drawCafeHut(shop, amount) {
   const { x, y, w } = shop;
   drawBlock(x, y, w, 0.2, HUT_Z, "#fbf5e8", "#d9a483", "#f3e4cf");
   const fy = y + 0.2 + 0.012;
@@ -494,12 +520,13 @@ function drawCafeHut(shop) {
     line({ x: board.x - 18, y: board.y - 4 + i * 4.6 }, { x: board.x - 18 + len * 0.6, y: board.y - 4 + i * 4.6 }, color, 1.3, 0.9);
     line({ x: board.x + 12, y: board.y - 4 + i * 4.6 }, { x: board.x + 18, y: board.y - 4 + i * 4.6 }, "#e9f2ee", 1.1, 0.7);
   });
+  if (amount > 0.05) glow(x + w / 2, y + 1.0, 50, 220, amount);
   // woven lamps on cords
   for (const px of [x + 5.0, x + 5.9]) {
     const top = isoPoint(px, fy, HUT_Z - 2);
     const lamp = isoPoint(px, fy, HUT_Z - 20);
     line(top, lamp, "#5a4a37", 1);
-    oval(lamp, 6, 5, "#c9a45e");
+    oval(lamp, 6, 5, amount > 0.1 ? "#ffd980" : "#c9a45e");
     for (let k = -2; k <= 2; k++) line({ x: lamp.x + k * 2, y: lamp.y - 4 }, { x: lamp.x + k * 2.2, y: lamp.y + 4 }, "#a9823d", 0.8);
   }
 }
@@ -557,22 +584,6 @@ function drawSurfShop(shop, amount) {
   drawBlock(rack.x, rack.y, rack.width, rack.height, 10, ...TIMBER);
   ["#ff7458", "#64cbc8", "#f5c95e", "#bce65f", "#9a7bc1", "#ffffff"].forEach((color, i) => {
     drawSurfboard(rack.x + 0.2, rack.y + 0.2 + i * 0.27, 44 + (i % 3) * 5, color, -0.25);
-  });
-  const railTop = isoPoint(11.15, 26.5, 52);
-  const railEnd = isoPoint(11.15, 27.8, 52);
-  line(railTop, railEnd, "#31545b", 2);
-  line(isoPoint(11.15, 26.5, 5), railTop, "#31545b", 2);
-  line(isoPoint(11.15, 27.8, 5), railEnd, "#31545b", 2);
-  ["#2f4d5a", "#ff7458", "#64cbc8"].forEach((color, i) => {
-    const p = isoPoint(11.15, 26.7 + i * 0.42, 52);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(p.x - 4, p.y);
-    ctx.lineTo(p.x + 4, p.y);
-    ctx.lineTo(p.x + 3, p.y + 20);
-    ctx.lineTo(p.x - 3, p.y + 20);
-    ctx.closePath();
-    ctx.fill();
   });
   drawSoftShadow(counter.x + 1.8, counter.y + 1.3, 60, 22, 0.1);
 }
@@ -872,10 +883,16 @@ function drawMailbox() {
 function drawKerbSegment(x0, x1) {
   const kerb = world.beach.kerb;
   drawSoftShadow((x0 + x1) / 2, kerb.y + kerb.h + 0.35, (x1 - x0) * 22, 14, 0.12);
-  drawRaisedSlab(x0, kerb.y, x1 - x0, kerb.h, 14, 4, "#efece3", "#aeb2ae", "#d3d4cd");
-  drawRaisedSlab(x0 - 0.03, kerb.y - 0.03, x1 - x0 + 0.06, kerb.h + 0.06, 17, 3, "#fbfaf6", "#c9cdd0", "#e4e5e2");
+  drawRaisedSlab(x0, kerb.y, x1 - x0, kerb.h, 10, 4, "#ebe1c8", "#b4a98c", "#d3c8ab");
+  drawRaisedSlab(x0 - 0.03, kerb.y - 0.03, x1 - x0 + 0.06, kerb.h + 0.06, 12, 3, "#f6eed9", "#cdc3a6", "#e3d9bd");
+  // sand piled against its foot, on both sides
+  for (let x = x0; x < x1 - 0.05; x += 0.5) {
+    const lift = 0.1 + 0.07 * Math.sin(x * 4.1);
+    drawPlane([isoPoint(x, kerb.y + kerb.h, 5.2), isoPoint(x + 0.55, kerb.y + kerb.h, 5.2), isoPoint(x + 0.5, kerb.y + kerb.h + 0.3 + lift, 5.2), isoPoint(x + 0.05, kerb.y + kerb.h + 0.28, 5.2)], "rgba(228,206,148,.9)", null);
+    drawPlane([isoPoint(x, kerb.y, 5.2), isoPoint(x + 0.55, kerb.y, 5.2), isoPoint(x + 0.5, kerb.y - 0.2 - lift, 5.2), isoPoint(x + 0.05, kerb.y - 0.18, 5.2)], "rgba(228,206,148,.6)", null);
+  }
   for (let x = x0 + 0.7; x < x1 - 0.3; x += 1.4) {
-    line(isoPoint(x, kerb.y + kerb.h + 0.012, 5), isoPoint(x, kerb.y + kerb.h + 0.012, 14), "rgba(70,75,72,.25)", 0.8);
+    line(isoPoint(x, kerb.y + kerb.h + 0.012, 5), isoPoint(x, kerb.y + kerb.h + 0.012, 10), "rgba(90,80,60,.25)", 0.8);
   }
 }
 
@@ -1116,6 +1133,161 @@ function drawSwimmer(sw, t) {
   oval({ x: p.x - 0.4, y: p.y - 4.6 + bob }, 3.3, 2.2, sw.phase > 2 ? "#2f4d5a" : "#7a4b2a");
 }
 
+// ---- annexes, signs, bunting, the fire pit -----------------------------------------------------------
+
+// two changing cabins next to the Surf Shop
+function drawSurfCabins(a, amount) {
+  drawSoftShadow(a.x + a.w / 2, a.y + a.h / 2, a.w * 26, a.h * 22, 0.12);
+  drawBlock(a.x, a.y, a.w, a.h, 66, "#e9eeea", "#5d8f8c", "#8fbcb7");
+  drawRaisedSlab(a.x - 0.08, a.y - 0.08, a.w + 0.16, a.h + 0.16, 70, 4, "#2e8b8f", "#1f6568", "#277a7d");
+  const fy = a.y + a.h + 0.012;
+  [0, 1].forEach((i) => {
+    const x0 = a.x + 0.08 + i * 0.56;
+    drawFacadeBandY(x0, fy, 0.46, 6, 52, i ? "#ff7458" : "#64cbc8", 1);
+    for (let k = 0; k < 4; k++) line(isoPoint(x0 + 0.05, fy + 0.002, 38 + k * 3.4), isoPoint(x0 + 0.41, fy + 0.002, 38 + k * 3.4), "rgba(255,255,255,.4)", 0.8);
+    dot(isoPoint(x0 + 0.38, fy + 0.002, 26), 1.3, "#f4efe6");
+    const n = isoPoint(x0 + 0.23, fy + 0.002, 58);
+    ctx.fillStyle = "#31545b";
+    ctx.font = "800 6px Menlo, Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(String(i + 1), n.x, n.y + 2);
+  });
+  if (amount > 0.1) dot(isoPoint(a.x + a.w / 2, fy, 64), 2.4, "#ffe9a8", amount);
+}
+
+// a shipping container turned into the cafe's kitchen, with an ice cream hatch
+function drawCafeContainer(a, amount) {
+  drawSoftShadow(a.x + a.w / 2, a.y + a.h / 2, a.w * 26, a.h * 22, 0.12);
+  drawBlock(a.x, a.y, a.w, a.h, 56, "#f3ecdc", "#2c7c80", "#3aa0a4");
+  const fy = a.y + a.h + 0.012;
+  for (let px = a.x + 0.1; px < a.x + a.w - 0.05; px += 0.12) line(isoPoint(px, fy, 6), isoPoint(px, fy, 54), "rgba(20,70,74,.28)", 0.8);
+  // the hatch
+  drawFacadeBandY(a.x + 0.22, fy + 0.002, 0.95, 24, 46, amount > 0.1 ? "#ffe3a0" : "#fff6e4", 1);
+  drawRaisedSlab(a.x + 0.18, fy - 0.1, 1.03, 0.14, 24, 2, "#fbf6ea", "#b9b09a", "#d6cfbd");
+  for (let i = 0; i < 4; i++) flat(a.x + 0.16 + i * 0.27, fy, 0.27, 0.34, i % 2 ? "#fbf7ee" : CORAL, 49 - 0, "rgba(40,50,50,.2)");
+  [CORAL, SUN, "#c9a0e0"].forEach((color, i) => {
+    const sc = isoPoint(a.x + 0.45 + i * 0.28, fy - 0.04, 28);
+    dot({ x: sc.x, y: sc.y - 3 }, 2.8, color);
+  });
+  const n = isoPoint(a.x + 0.7, fy + 0.002, 52);
+  ctx.fillStyle = "#31545b";
+  ctx.font = "800 4px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("ICE · COFFEE", n.x, n.y - 1);
+  // a rolled-up door on the side, a vent on the roof
+  drawRaisedSlab(a.x + 1.15, a.y + 0.2, 0.4, 0.5, 60, 4, "#c9c6bd", "#8e9690", "#aeb3ad");
+  oval(isoPoint(a.x + 1.35, a.y + 0.45, 62), 3.4, 1.6, "#31545b");
+}
+
+function drawChalkSign(sign) {
+  const base = isoPoint(sign.x, sign.y, 5);
+  oval({ x: base.x, y: base.y + 1 }, 9, 3, "rgba(20,40,46,.25)");
+  ctx.fillStyle = "#8f6a3f";
+  ctx.beginPath();
+  ctx.moveTo(base.x - 9, base.y);
+  ctx.lineTo(base.x - 4, base.y - 26);
+  ctx.lineTo(base.x + 4, base.y - 26);
+  ctx.lineTo(base.x + 9, base.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#22343a";
+  ctx.beginPath();
+  ctx.moveTo(base.x - 7.4, base.y - 2);
+  ctx.lineTo(base.x - 3.3, base.y - 24.4);
+  ctx.lineTo(base.x + 3.3, base.y - 24.4);
+  ctx.lineTo(base.x + 7.4, base.y - 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#e9f2ee";
+  ctx.font = "800 3.8px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(sign.id === "surf-sign" ? "TODAY" : "FRESH", base.x, base.y - 18);
+  for (let i = 0; i < 3; i++) line({ x: base.x - 4, y: base.y - 14 + i * 4 }, { x: base.x + 4 - i * 1.5, y: base.y - 14 + i * 4 }, [AQUA, SUN, CORAL][i], 1.1, 0.9);
+}
+
+// a line of small flags (and, in the evening, small bulbs between them)
+function drawBunting(a, b, z, amount, t, colors) {
+  const count = 14;
+  const pts = [];
+  for (let i = 0; i <= count; i++) {
+    const f = i / count;
+    pts.push(isoPoint(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, z - 8 * Math.sin(Math.PI * f)));
+  }
+  ctx.save();
+  ctx.strokeStyle = "rgba(60,50,40,.7)";
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.stroke();
+  for (let i = 1; i < count; i++) {
+    const p = pts[i];
+    const flutter = Math.sin(clock(t) * 0.004 + i * 1.3) * 0.8;
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath();
+    ctx.moveTo(p.x - 3, p.y);
+    ctx.lineTo(p.x + 3, p.y);
+    ctx.lineTo(p.x + flutter, p.y + 8);
+    ctx.closePath();
+    ctx.fill();
+    if (amount > 0.05) dot({ x: p.x, y: p.y + 2 }, 4, "#ffd980", 0.22 * amount);
+  }
+  ctx.restore();
+}
+
+// the fire pit: stones, logs to sit on, and a fire that burns when it gets dark
+function drawFirePit(pit, t, amount) {
+  const p = isoPoint(pit.x, pit.y, 5);
+  oval({ x: p.x, y: p.y + 2 }, 26, 10, "rgba(60,45,30,.35)");
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    oval({ x: p.x + Math.cos(a) * 17, y: p.y + Math.sin(a) * 8 - 2 }, 5, 3, i % 2 ? "#85847b" : "#6d6e68");
+  }
+  oval({ x: p.x, y: p.y - 1 }, 14, 6, amount > 0.1 ? "#2a1d14" : "#4a3b2c");
+  line({ x: p.x - 9, y: p.y - 2 }, { x: p.x + 8, y: p.y - 6 }, "#5a4128", 3.2);
+  line({ x: p.x - 7, y: p.y - 5 }, { x: p.x + 9, y: p.y - 1 }, "#6b4d2e", 3);
+  if (amount > 0.12) {
+    glow(pit.x, pit.y, 6, 150 + 20 * Math.sin(clock(t) * 0.008), Math.min(1, amount * 1.6));
+    for (let k = 0; k < 4; k++) {
+      const h = 18 + 7 * Math.sin(clock(t) * 0.011 + k * 2.1) + (k === 1 ? 8 : 0);
+      const dx = (k - 1.5) * 4.5;
+      ctx.fillStyle = k % 2 ? "#ff9d3c" : "#ff6a2a";
+      ctx.beginPath();
+      ctx.moveTo(p.x + dx - 5, p.y - 3);
+      ctx.quadraticCurveTo(p.x + dx - 2, p.y - h * 0.6, p.x + dx + Math.sin(clock(t) * 0.01 + k) * 2, p.y - h);
+      ctx.quadraticCurveTo(p.x + dx + 2, p.y - h * 0.5, p.x + dx + 5, p.y - 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = "#ffe08a";
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y - 7, 3, 7 + 2 * Math.sin(clock(t) * 0.014), 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let k = 0; k < 6; k++) {
+      const life = ((clock(t) * 0.0006 + k / 6) % 1);
+      dot({ x: p.x + Math.sin(k * 3 + life * 6) * 9, y: p.y - 14 - life * 40 }, 1.1, "#ffcf70", 0.8 * (1 - life) * Math.min(1, amount * 2));
+    }
+  }
+}
+
+function drawLog(pit, [dx, dy, w, h]) {
+  drawBlock(pit.x + dx, pit.y + dy, w, h, 8, "#a98050", "#6b4d2e", "#8a6a43");
+  const e = isoPoint(pit.x + dx + w / 2, pit.y + dy + h, 8);
+  oval({ x: e.x, y: e.y }, 0.1, 0.1, "#c9a878");
+}
+
+// tufts of grass that have found a crack in the paving, a few steps from the sand
+function promenadeGrass() {
+  const out = [];
+  for (let i = 0; i < 26; i++) {
+    const x = 2 + ((i * 7.3) % 39);
+    const y = 21.8 + ((i * 5) % 8) * 0.3;
+    if (x > 12.4 && x < 16.4) continue;
+    if (x > 18 && x < 23 && y > 21.7) continue;
+    out.push({ x, y, index: i + 40 });
+  }
+  return out;
+}
+
 // ---- everything that stands, sorted with the rest of the scene -------------------------------------
 
 export function beachActors(t) {
@@ -1133,13 +1305,13 @@ export function beachActors(t) {
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
-      add(shop.x + shop.y + 0.05, () => drawSurfHut(shop));
+      add(shop.x + shop.y + 0.05, () => drawSurfHut(shop, amount));
       add(shop.x + shop.y + 1.0, () => drawSurfShop(shop, amount));
       for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, HUT_Z));
       add(shop.x + shop.w + shop.y + 1.3, () => drawSurfRoof(shop, amount));
       add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 150, "SURF SHOP", AQUA));
     } else {
-      add(shop.x + shop.y + 0.05, () => drawCafeHut(shop));
+      add(shop.x + shop.y + 0.05, () => drawCafeHut(shop, amount));
       add(shop.x + shop.y + 1.0, () => drawBeachCafe(shop, t, amount));
       for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, HUT_Z));
       add(shop.x + shop.w + shop.y + 1.3, () => drawThatchRoof(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.3, HUT_Z));
@@ -1169,6 +1341,17 @@ export function beachActors(t) {
   world.beach.planterBoxes.forEach((b, i) => add(b[0] + b[1] + b[3], () => drawPlanterBox(b, i)));
   add(world.beach.fountain.x + world.beach.fountain.y + 0.2, () => drawFountain(world.beach.fountain));
   add(world.beach.iceCart.x + world.beach.iceCart.y + world.beach.iceCart.h, () => drawIceCart(world.beach.iceCart, t, amount));
+  for (const a of world.beach.annexes) {
+    if (a.id === "surf-cabins") add(a.x + a.y + a.h + 0.1, () => drawSurfCabins(a, amount));
+    else add(a.x + a.y + a.h + 0.1, () => drawCafeContainer(a, amount));
+  }
+  world.beach.signs.forEach((sg) => add(sg.x + sg.y + 0.2, () => drawChalkSign(sg)));
+  add(14.9 + 27.5 + 0.1, () => drawBunting({ x: 6.0, y: 27.5 }, { x: 10.75, y: 27.5 }, 86, amount, t, [CORAL, "#ffffff", AQUA, SUN]));
+  add(25.3 + 28.5 + 0.1, () => drawBunting({ x: 25.3, y: 28.5 }, { x: 31.4, y: 28.5 }, 84, amount, t, [SUN, "#ffffff", CORAL, "#bce65f"]));
+  const pit = world.beach.firePit;
+  add(pit.x + pit.y + 0.4, () => drawFirePit(pit, t, amount));
+  pit.logs.forEach((l) => add(pit.x + l[0] + pit.y + l[1] + l[3], () => drawLog(pit, l)));
+  promenadeGrass().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
   world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
   grassClumps().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
   world.beach.benches.forEach(([x, y]) => add(x + y + 0.6, () => drawCampusBench(x, y, 0)));

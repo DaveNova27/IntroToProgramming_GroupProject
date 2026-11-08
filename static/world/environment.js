@@ -117,6 +117,23 @@ export function drawCoastalMotion(t, environment) {
     ctx.ellipse(p.x, p.y, 7 + progress * 5, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  // the sun's path on the water at sunset: orange dashes in a column, brighter the lower the sun
+  const dusk = Math.max(0, Math.min(1, (lightingProfile(scene.clock).progress - 0.5) / 0.4));
+  if (dusk > 0.02) {
+    // bright dashes along a column under the sun
+    for (let i = 0; i < 140; i++) {
+      const row = (i * 0.37) % 9;
+      const spread = 0.5 + row * 0.5;
+      const flick = reducedMotion ? 0.7 : 0.4 + 0.6 * Math.sin(t * 0.003 + i * 2.1);
+      const p = isoPoint(26 + Math.sin(i * 2.3) * spread, 35.3 + row, 7);
+      ctx.strokeStyle = `rgba(255,${170 + (i % 4) * 14},${100 + (i % 3) * 25},${0.9 * dusk * Math.max(0.1, flick)})`;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(p.x - 10 - spread * 5, p.y);
+      ctx.lineTo(p.x + 10 + spread * 5, p.y);
+      ctx.stroke();
+    }
+  }
   // sun glitter: short bright dashes that twinkle in turn (fixed places, nothing random)
   for (let i = 0; i < 60; i++) {
     const twinkle = reducedMotion ? 0.5 : Math.max(0, Math.sin(t * 0.0026 + i * 1.7)) * Math.max(0, Math.sin(t * 0.0011 + i * 0.6));

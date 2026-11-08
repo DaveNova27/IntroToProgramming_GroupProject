@@ -55,9 +55,11 @@ export function drawTerrain(t) {
         color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
         depth = 0;
       } else if (y >= 25) color = y >= 34 ? "#d3b575" : y >= 33 ? "#d9bc7b" : x % 4 === 0 ? "#e4c986" : "#dec27e";
-      else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18)
+      else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18) {
         color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
-      else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
+        // the paving turns warm and sandy towards the beach, so the two do not meet on a line
+        if (y >= 20) color = mixColor(color, "#e6d3a2", Math.min(0.72, (y - 19.5) * 0.15));
+      } else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
     } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
     drawTile(x, y, color, depth);
     if (zone.outdoor && y === 34) {

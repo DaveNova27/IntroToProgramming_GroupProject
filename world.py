@@ -318,6 +318,15 @@ BEACH = {
         {"x": 28.9, "y": 31.6, "color": "#f5c95e"},
     ],
     "sandcastle": {"x": 24.4, "y": 33.0},
+    # a fire pit with log seats: it burns in the evening (drawing only)
+    "firePit": {"x": 22.8, "y": 29.2, "logs": [[-1.8, -0.6, 0.3, 1.2], [1.5, -0.6, 0.3, 1.2], [-0.6, -1.8, 1.2, 0.3]]},
+    # annexes of the huts: the Surf Shop's changing cabins and the Beach Cafe's kitchen container,
+    # and a chalk sign in front of each
+    "annexes": [
+        {"id": "surf-cabins", "x": 10.95, "y": 26.0, "w": 1.2, "h": 1.4},
+        {"id": "cafe-container", "x": 23.1, "y": 25.7, "w": 1.8, "h": 1.5},
+    ],
+    "signs": [{"id": "surf-sign", "x": 6.6, "y": 28.9}, {"id": "cafe-sign", "x": 24.4, "y": 29.0}],
     # benches on the promenade, facing the sea
     "benches": [[2.2, 23.4], [9.4, 23.4], [23.8, 23.4], [33.4, 23.4]],
     # rocks at the two ends of the bay, in the wash of the waves
@@ -463,6 +472,14 @@ def _zone_colliders():
     solid.append(_rect("ice-cart", cart["x"], cart["y"], cart["w"], cart["h"], "Ice cream cart", "prop"))
     for i, (x, y) in enumerate(BEACH["benches"]):
         solid.append(_rect(f"promenade-bench-{i}", x, y, 1.4, 0.42, "Bench", "prop"))
+    for annex in BEACH["annexes"]:
+        solid.append(_rect(annex["id"], annex["x"], annex["y"], annex["w"], annex["h"], "Annex", "prop"))
+    for sign in BEACH["signs"]:
+        solid.append(_circle(sign["id"], sign["x"], sign["y"], 0.3, "Chalk sign", "prop"))
+    pit = BEACH["firePit"]
+    solid.append(_circle("fire-pit", pit["x"], pit["y"], 0.55, "Fire pit", "prop"))
+    for i, (dx, dy, w, h) in enumerate(pit["logs"]):
+        solid.append(_rect(f"fire-log-{i}", pit["x"] + dx, pit["y"] + dy, w, h, "Log", "prop"))
     castle = BEACH["sandcastle"]
     solid.append(_circle("sandcastle", castle["x"], castle["y"], 0.4, "Sandcastle", "prop"))
     shower = BEACH["shower"]
