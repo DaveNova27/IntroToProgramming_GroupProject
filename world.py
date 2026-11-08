@@ -59,13 +59,14 @@ PLANTERS = [
 
 # palm trees: x, y, size
 TREES = [
-    [1.8, 10.6, 0.85], [5, 14, 0.8], [11, 19, 0.82], [14, 22, 0.9], [25, 12, 0.76], [29, 19, 0.88],
-    [37, 9, 0.83], [39, 12, 0.92], [37, 19, 0.8], [6, 21, 0.75], [24, 22, 0.72], [40, 21, 0.86],
+    [1.8, 10.6, 0.85], [5, 14, 0.8], [25, 12, 0.76], [37, 19, 0.8], [6, 21, 0.75], [24, 22, 0.72],
+    [40, 21, 0.86],
+    # spec nova-zones: two palms at the start of the beach way, two near the Dorm
+    [12.8, 17.9, 0.9], [17.4, 17.9, 0.84], [34.4, 15.2, 0.8], [40.4, 15.0, 0.88],
 ]
 
 TERRACE_TABLES = [
     [14.7, 14.95], [17.1, 14.7], [19.15, 15.25], [20.65, 14.55],
-    [25.35, 19.75], [27.2, 20.35], [29.25, 19.75], [31, 20.45],
 ]
 
 # named outdoor places, where passers-by walk to
@@ -74,7 +75,10 @@ SPACES = {
     "courtyard": {"id": "courtyard", "name": "Academic Courtyard", "x": 20.1, "y": 12.75},
     "terrace": {"id": "terrace", "name": "Cafe Terrace", "x": 17.55, "y": 14.25},
     "service": {"id": "service", "name": "Service Lane", "x": 8.4, "y": 18.25},
-    "foodCourt": {"id": "foodCourt", "name": "Food Court", "x": 28.2, "y": 19.55},
+    "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 27.6, "y": 19.85},
+    "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 10.2, "y": 20.3},
+    "beachWay": {"id": "beachWay", "name": "Beach Way", "x": 15.1, "y": 21.0},
+    "dorm": {"id": "dorm", "name": "Dorm", "x": 38.0, "y": 13.9},
     "lawn": {"id": "lawn", "name": "Student Lawn", "x": 35.5, "y": 19.9},
     "promenade": {"id": "promenade", "name": "Beach Promenade", "x": 30.5, "y": 22.15},
     "eventSquare": {"id": "eventSquare", "name": "Event Square", "x": 20.5, "y": 21.35},
@@ -260,6 +264,82 @@ INTERIORS = {
 }
 
 
+# ---- the beach way, the outdoor shops and the Dorm (spec nova-zones) ------------------
+# Fixed data, the same on every start. The browser draws it and only walks round it.
+
+# the boardwalk from the plaza south to the sand: it has to stay free to walk
+BEACH_WAY = {"id": "beach-way", "label": "Beach Way", "x": 13.6, "y": 17.2, "w": 3.0, "h": 8.2}
+
+# open-air pavilions on the beach front. front: the free spot where the shop will be used later.
+SHOPS_OUTDOOR = [
+    {"id": "surf-shop", "label": "Surf Shop", "x": 7.4, "y": 18.7, "w": 5.1, "h": 2.4,
+     "front": {"x": 10.2, "y": 20.3}},
+    {"id": "beach-cafe", "label": "Beach Cafe", "x": 24.8, "y": 18.2, "w": 6.6, "h": 3.2,
+     "front": {"x": 27.6, "y": 19.85}},
+]
+
+# things on the sand and in the water: positions only, nothing is drawn at random
+BEACH = {
+    "loungers": [
+        {"x": 5.0, "y": 23.9, "color": "#ff7458"}, {"x": 7.2, "y": 23.9, "color": "#64cbc8"},
+        {"x": 9.4, "y": 23.9, "color": "#f5c95e"},
+        {"x": 24.4, "y": 23.9, "color": "#64cbc8"}, {"x": 26.6, "y": 23.9, "color": "#ff7458"},
+        {"x": 28.8, "y": 23.9, "color": "#f5c95e"}, {"x": 31.0, "y": 23.9, "color": "#bce65f"},
+    ],
+    "dunes": [{"x": 2.8, "y": 24.4, "r": 0.9}, {"x": 40.2, "y": 24.2, "r": 0.8}],
+    "volleyball": {"x1": 34.0, "x2": 38.0, "y": 24.6},
+    "tower": {"x": 39.0, "y": 23.3, "w": 1.1, "h": 1.1},
+    "footprints": [
+        {"x": round(16.6 + 0.62 * i, 2), "y": round(25.0 - 0.25 * (i % 2) - 0.05 * i, 2), "side": i % 2}
+        for i in range(11)
+    ],
+    "shells": [[12.1, 24.6], [19.4, 24.9], [23.2, 25.1], [33.0, 25.0], [11.0, 23.5]],
+    "driftwood": [{"x": 3.8, "y": 25.2, "length": 1.6}, {"x": 35.2, "y": 23.7, "length": 1.2}],
+    "buoys": [[6.0, 27.4], [15.5, 28.1], [26.0, 27.6], [35.5, 28.2]],
+    "boats": [{"x": 9.5, "y": 28.4, "color": "#ff7458"}, {"x": 31.0, "y": 28.9, "color": "#f5c95e"}],
+    "gulls": [{"x": 12.0, "y": 24.0, "phase": 0.0}, {"x": 28.0, "y": 22.5, "phase": 2.1}, {"x": 20.0, "y": 25.0, "phase": 4.2}],
+}
+
+# The Dorm: a small building east of the Hub, entered like a wing of the Nova (same data shape, one
+# wing). The tests and the code of the Nova read NOVA only, so the Dorm is kept apart here and the
+# browser joins the two. interior: the one room, with the bed that opens the Dorm panel.
+DORM = {
+    "id": "dorm", "label": "Dorm", "wall": 0.5,
+    "wings": [{"id": "dorm", "label": "Dorm", "fadesWith": []}],
+    "parts": [{"id": "dorm", "wing": "dorm", "x": 35.0, "y": 7.6, "w": 5.5, "h": 5.0, "z": 56}],
+    "walls": [
+        {"id": "dorm-north-wall", "wing": "dorm", "x": 35.0, "y": 7.6, "w": 5.5, "h": 0.5, "side": "north"},
+        {"id": "dorm-west-wall", "wing": "dorm", "x": 35.0, "y": 7.6, "w": 0.5, "h": 5.0, "side": "west"},
+        {"id": "dorm-east-wall", "wing": "dorm", "x": 40.0, "y": 7.6, "w": 0.5, "h": 5.0, "side": "east"},
+        {"id": "dorm-south-wall-west", "wing": "dorm", "x": 35.0, "y": 12.1, "w": 2.0, "h": 0.5, "side": "south"},
+        {"id": "dorm-south-wall-east", "wing": "dorm", "x": 39.0, "y": 12.1, "w": 1.5, "h": 0.5, "side": "south"},
+    ],
+    "entrances": [{"id": "dorm", "wing": "dorm", "x": 37.0, "y": 12.1, "width": 2.0, "side": "south"}],
+    "openings": [],
+    "interior": {
+        "areas": [
+            {"id": "dorm-sleep", "wing": "dorm", "label": "Sleep", "x": 35.5, "y": 8.1, "w": 2.5, "h": 4.0, "color": "#c99a62", "labelAt": {"x": 36.2, "y": 11.2}},
+            {"id": "dorm-desk", "wing": "dorm", "label": "Desk", "x": 38.0, "y": 8.1, "w": 2.0, "h": 4.0, "color": "#64cbc8", "labelAt": {"x": 38.3, "y": 10.4}},
+        ],
+        "solid": [
+            {"id": "dorm-bed", "wing": "dorm", "x": 35.5, "y": 8.1, "w": 1.5, "h": 2.1, "label": "Bed", "kind": "prop"},
+            {"id": "dorm-shelf", "wing": "dorm", "x": 37.3, "y": 8.1, "w": 0.9, "h": 0.5, "label": "Bookshelf", "kind": "prop"},
+            {"id": "dorm-desk", "wing": "dorm", "x": 38.4, "y": 8.1, "w": 1.6, "h": 0.7, "label": "Desk", "kind": "prop"},
+            {"id": "dorm-wardrobe", "wing": "dorm", "x": 35.5, "y": 10.6, "w": 0.6, "h": 1.3, "label": "Wardrobe", "kind": "prop"},
+            {"id": "dorm-plant", "wing": "dorm", "r": 0.35, "x": 39.5, "y": 11.55, "label": "Planter", "kind": "prop"},
+        ],
+        "activities": [
+            {"wing": "dorm", "x": 39.2, "y": 9.45, "pose": "sit", "facing": {"x": 0, "y": -1}, "label": "Flatmate at the laptop"},
+        ],
+    },
+    # the bed: the use point of the Dorm. It opens a panel; it is no door and decides no rule.
+    "bed": {
+        "zone": "campus", "x": 36.5, "y": 10.75, "kind": "panel", "action": "dorm", "label": "Go to bed",
+        "color": "#c99a62", "title": "YOUR BED", "sub": "DORM", "wing": "dorm",
+    },
+}
+
+
 # ---- solid objects, in one format for the movement code ----------------------------
 
 def _rect(cid, x, y, width, height, label, kind):
@@ -284,13 +364,56 @@ def _campus_colliders():
         _rect("courtyard-bench-east", 24.8, 11.75, 1.4, 0.42, "Bench", "prop"),
         _rect("terrace-pergola", 14.05, 14.35, 2.25, 1.35, "Pergola", "prop"),
         _rect("terrace-planter", 13.72, 15.88, 7.75, 0.42, "Terrace planter", "prop"),
-        _rect("food-pergola-west", 24.65, 17.75, 3.05, 1.15, "Food court canopy", "prop"),
-        _rect("food-pergola-east", 28.25, 17.75, 3.25, 1.15, "Food court canopy", "prop"),
         _rect("lawn-planter", 38.4, 17.55, 0.48, 4.15, "Lawn planter", "prop"),
     ]
     solid += [_circle(f"terrace-table-{i}", x, y, 0.36, "Terrace table", "prop") for i, (x, y) in enumerate(TERRACE_TABLES)]
     solid += [_circle(f"tree-{i}", x, y, 0.27, "Palm tree", "prop") for i, (x, y, _) in enumerate(TREES)]
-    return solid + _nova_colliders()
+    return solid + _zone_colliders() + _nova_colliders()
+
+
+def _zone_colliders():
+    """The beach way, the outdoor shops, the beach and the Dorm (spec nova-zones)."""
+    solid = []
+    # the lamps along the boardwalk, and two benches
+    for i, y in enumerate((18.4, 20.4, 24.2)):
+        solid.append(_circle(f"way-lamp-west-{i}", 13.35, y, 0.12, "Lamp", "prop"))
+        solid.append(_circle(f"way-lamp-east-{i}", 16.85, y, 0.12, "Lamp", "prop"))
+    solid.append(_rect("way-bench-west", 12.7, 22.0, 0.45, 1.3, "Bench", "prop"))
+    solid.append(_circle("way-arch-west", 13.45, 17.5, 0.15, "Arch post", "prop"))
+    solid.append(_circle("way-arch-east", 16.75, 17.5, 0.15, "Arch post", "prop"))
+    solid.append(_rect("way-bench-east", 17.15, 19.2, 0.45, 1.3, "Bench", "prop"))
+    # the Surf Shop: counter, board rack, four posts of the awning
+    solid.append(_rect("surf-counter", 8.4, 18.9, 3.6, 0.8, "Surf Shop counter", "prop"))
+    solid.append(_rect("surf-rack", 7.5, 19.3, 0.5, 1.7, "Board rack", "prop"))
+    for i, (x, y) in enumerate(((8.3, 18.8), (12.1, 18.8), (8.3, 20.8), (12.1, 20.8))):
+        solid.append(_circle(f"surf-post-{i}", x, y, 0.12, "Post", "prop"))
+    # the Beach Cafe: bar, cooler, posts and three tables
+    solid.append(_rect("cafe-bar", 25.0, 18.4, 5.2, 0.8, "Beach Cafe bar", "prop"))
+    solid.append(_rect("cafe-cooler", 30.5, 18.4, 0.7, 0.5, "Cooler", "prop"))
+    for i, (x, y) in enumerate(((24.9, 18.3), (30.3, 18.3), (24.9, 19.9), (30.3, 19.9))):
+        solid.append(_circle(f"cafe-post-{i}", x, y, 0.12, "Post", "prop"))
+    for i, x in enumerate((25.6, 27.9, 30.2)):
+        solid.append(_circle(f"beach-table-{i}", x, 20.9, 0.36, "Beach table", "prop"))
+    # the beach
+    for i, lounger in enumerate(BEACH["loungers"]):
+        solid.append(_rect(f"lounger-{i}", lounger["x"], lounger["y"], 0.8, 1.7, "Lounger", "prop"))
+    for i, dune in enumerate(BEACH["dunes"]):
+        solid.append(_circle(f"dune-{i}", dune["x"], dune["y"], dune["r"], "Dune", "prop"))
+    net = BEACH["volleyball"]
+    solid.append(_circle("net-post-west", net["x1"], net["y"], 0.12, "Net post", "prop"))
+    solid.append(_circle("net-post-east", net["x2"], net["y"], 0.12, "Net post", "prop"))
+    tower = BEACH["tower"]
+    solid.append(_rect("lifeguard-tower", tower["x"], tower["y"], tower["w"], tower["h"], "Lifeguard tower", "prop"))
+    # the Dorm: walls, furniture, and what stands at its door
+    solid += [_rect(w["id"], w["x"], w["y"], w["w"], w["h"], "Wall", "wall") for w in DORM["walls"]]
+    for item in DORM["interior"]["solid"]:
+        if "r" in item:
+            solid.append(_circle(item["id"], item["x"], item["y"], item["r"], item["label"], item["kind"]))
+        else:
+            solid.append(_rect(item["id"], item["x"], item["y"], item["w"], item["h"], item["label"], item["kind"]))
+    solid.append(_rect("dorm-bike-rack", 35.3, 13.1, 1.4, 0.3, "Bike rack", "prop"))
+    solid.append(_rect("dorm-bench", 39.3, 13.1, 1.2, 0.4, "Bench", "prop"))
+    return solid
 
 
 def _nova_colliders():
@@ -334,4 +457,8 @@ def world_view():
         "spaces": SPACES,
         "nova": NOVA,
         "interiors": INTERIORS,
+        "dorm": DORM,
+        "outdoorShops": SHOPS_OUTDOOR,
+        "beachWay": BEACH_WAY,
+        "beach": BEACH,
     }

@@ -153,6 +153,22 @@ function closePanel() {
   tellDashboard({ type: "panel-closed" });
 }
 
+// The Dorm (spec nova-zones): what the server already knows about the day, as text, and one button
+// that does what the Open button does. No rule here: the server decides, as before.
+function renderDormPanel(body) {
+  $("#panel-title").textContent = "Your room";
+  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C` : "—";
+  const label = state.finished ? "The run is complete" : state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`;
+  body.innerHTML = `
+    <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
+    <dl class="dorm-facts">
+      <div><dt>Day</dt><dd>${state.finished ? "Done" : `${esc(state.day)} / ${esc(state.last_day)}`}</dd></div>
+      <div><dt>Cash</dt><dd>${fmt(state.cash)}</dd></div>
+      <div><dt>Weather</dt><dd>${weather}</dd></div>
+    </dl>
+    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`;
+}
+
 function renderPanel() {
   const body = $("#panel-body");
   if (panelMode === "order") {
@@ -211,6 +227,8 @@ function renderPanel() {
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
             </div>`}
         </section>`).join("")}`;
+  } else if (panelMode === "dorm") {
+    renderDormPanel(body);
   } else if (panelMode === "shift") {
     renderShiftPanel(body);
   } else if (panelMode === "prices") {
@@ -369,6 +387,10 @@ function wirePanel() {
   const panel = $("#panel");
   panel.addEventListener("click", (e) => {
     if (e.target.closest("[data-close]")) return closePanel();
+    if (e.target.closest("[data-dorm-open]")) {
+      closePanel();
+      return openDay();
+    }
     const unlockBtn = e.target.closest("[data-unlock]");
     if (unlockBtn) return shopAction("/api/shop/unlock", { shop: unlockBtn.dataset.unlock });
     const upgradeBtn = e.target.closest("[data-upgrade-item]");
@@ -529,6 +551,7 @@ function syncFromDashboard(msg) {
 export function useLocation(action) {
   if (action === "stock") openPanel("order");
   if (action === "prices") openPanel("prices");
+  if (action === "dorm") openPanel("dorm");
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 

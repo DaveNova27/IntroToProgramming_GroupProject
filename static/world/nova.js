@@ -15,6 +15,7 @@ import {
   drawPlane,
   drawRaisedSlab,
   drawSoftShadow,
+  drawTimberScreen,
   drawWorldLabel,
 } from "./primitives.js";
 import { GALLERY_Z, drawInteriorFloor, drawInteriorWayfinding, roomActors } from "./rooms.js";
@@ -34,6 +35,7 @@ const LOOK = {
   "learning-center": { accent: "#64cbc8", garden: true, label: "LEARNING CENTER" },
   mercado: { accent: "#f5c95e", label: "MERCADO SUPPLY" },
   hub: { accent: "#ff7b5b", glassy: true, label: "STUDENT HUB" },
+  dorm: { accent: "#c99a62", garden: true, timber: true, label: "DORM" },
 };
 
 export const novaIsOpen = () => wingIsOpen("nova");
@@ -80,6 +82,12 @@ function drawWallSlice(wall, x, y, w, h, z) {
   const glassy = LOOK[wall.wing]?.glassy;
   let bands = back ? [[0.52, 0.86, GLASS_LIGHT]] : [[0.12, 0.48, GLASS], [0.58, 0.88, GLASS]];
   if (glassy) bands = [[0.14, 0.9, back ? GLASS_LIGHT : GLASS]];
+  // the Dorm: windows in the upper half of the front, warm timber slats below them
+  if (LOOK[wall.wing]?.timber && wall.side === "south") {
+    bands = [[0.58, 0.88, GLASS]];
+    drawFacadeBandY(x, y + h + 0.015, w, 4, z * 0.52, "#c99a62", 1);
+    drawTimberScreen(x + 0.05, y + h + 0.02, w - 0.1, 4, z * 0.52, Math.max(3, Math.round(w * 3)));
+  }
   for (const [low, high, color] of bands) {
     if (wall.side === "north" || wall.side === "south") {
       drawFacadeBandY(x + 0.12, y + h + 0.015, w - 0.24, z * low, z * high, color, Math.max(2, Math.round(w * 1.4)));

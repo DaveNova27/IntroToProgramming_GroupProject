@@ -246,19 +246,6 @@ export function drawServiceLane() {
   drawSpaceCaption(2.55, 19.03, "Service & deliveries", "#5d6765");
 }
 
-export function drawFoodCourt() {
-  drawPavingInlay(24.05, 17.25, 8.3, 4.45, "#dfd8ca", 1.2);
-  drawPergola(24.65, 17.75, 3.05, 1.15, "#f5c95e");
-  drawPergola(28.25, 17.75, 3.25, 1.15, "#64cbc8");
-  [
-    [25.35, 19.75],
-    [27.2, 20.35],
-    [29.25, 19.75],
-    [31, 20.45],
-  ].forEach(([x, y], index) => drawTerraceTable(x, y, index % 2 ? "#64cbc8" : "#f5c95e"));
-  drawSpaceCaption(24.4, 21.35, "Food Court", "#8b6645");
-}
-
 export function drawStudentLawn() {
   drawGroundSlab(32.35, 17.15, 6.8, 5.1, "#83a774", 3);
   const patches = [
@@ -341,7 +328,6 @@ export function drawCampusGroundPlan(t) {
   drawAcademicCourtyard(t);
   drawCafeTerrace();
   drawServiceLane();
-  drawFoodCourt();
   drawStudentLawn();
   drawBeachPromenade(t);
   drawEventSquare();

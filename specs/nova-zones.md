@@ -35,30 +35,34 @@ specs do not exist yet, so here the Dorm gets everything that does not need them
 
 - **A real building.** One room (about 5.4 × 5 tiles) entered the same way as a wing of the Nova: an
   entrance on the south side, its roof fades while the player is inside, its walls facing the camera
-  sink. It is a fifth wing in `NOVA["wings"]`-style data of its own (`DORM`, same shape as a wing:
-  parts, walls, entrance, `fadesWith`), so the roof code (`roofs.js`, `nova.js`) is reused, not copied.
+  sink. Its data (`DORM`, same shape as the Nova: wings, parts, walls, entrances, openings) is kept apart
+  from `NOVA`, because the tests and the code of the Nova count four wings and one joined footprint. The
+  browser joins the two when it loads (`zones.js`, `joinDorm`), so the roof code (`roofs.js`, `nova.js`,
+  `rooms.js`) is reused and not copied.
 - **A room with life.** A bed (the use point), a desk with a laptop and a lamp, a wardrobe, a shelf
   with books and a plant, a rug, a window to the sea, a poster, a corkboard with the day's notes. One
   person (a flatmate asleep or at the laptop) in the same figure style as the Nova's rooms.
 - **A use point: the bed.** Using it (E, click or the hint) opens a small **Dorm panel** in the same
-  style as the desk panels. It shows what the server already knows, as text: the day number, the cash,
-  the day's weather (`day_context`) and whether the day is open. It has one button that does what the
+  style as the desk panels. It shows what the server already knows, as text: the day number, the cash
+  and the day's weather. It has one button that does what the
   Open button of the map already does (`openDay()` in `ui.js`: start the day clock, or let the time
   pass while a shift runs). No new endpoint and no new rule: the panel only calls what exists. What
   "Sleep" means (the evening report, forecast, the next day starting here) is `day-cycle`, which
   replaces this button.
-- **A new place type.** `LOCATIONS["bed"]`: `{zone, x, y, kind: "panel", action: "dorm", label: "Go to bed",
-  title: "DORM", sub: "YOUR ROOM"}`. `useLocation("dorm")` opens the panel. The three desks of the
-  Nova are unchanged.
+- **A new place.** `DORM["bed"]`: `{zone, x, y, kind: "panel", action: "dorm", label: "Go to bed", wing:
+  "dorm", ...}`. It is not in `LOCATIONS`, whose three desks the tests of `walk-in` and `nova-wings`
+  pin; the browser adds it to the places (`joinDorm`) and shows it while the roof of its wing is gone
+  (`openPlaces` in `locations.js`). `useLocation("dorm")` opens the panel.
 - The spawn stays (21, 18) (see Decide 5): a new run still starts on the plaza. The walk to the Dorm
   is short and shows the new map.
 
 ### Data (`world.py`)
 
-- `DORM`: `{id: "dorm", label, parts, walls, entrances, wings: [{id: "dorm", label, fadesWith}]}` in the
-  shape of `NOVA`. Footprint about x 35.0 to 40.4, y 8.4 to 13.4; entrance (at least 2 tiles wide) on
-  the south wall. Its walls are solids, its entrance and its floor are free. `INTERIORS["campus"]`
-  gets the Dorm's `areas`, `solid` pieces and `activities` (`wing: "dorm"`), same format as today.
+- `DORM`: `{id, label, wall, wings, parts, walls, entrances, openings, interior, bed}` in the shape of
+  `NOVA`. Footprint x 35.0 to 40.5, y 7.6 to 12.6 (it touches the fence behind it and leaves 1.5 tiles to
+  the Hub); the entrance (2 tiles wide) is on the south wall. Its walls and furniture are solids, its
+  entrance and its floor are free. `interior` holds the Dorm's `areas`, `solid` pieces and `activities`
+  (`wing: "dorm"`), in the format of `INTERIORS["campus"]`, which stays as it is.
 - `SHOPS_OUTDOOR`: `{id, label, x, y, w, h, front: {x, y}}` for `surf-shop` and `beach-cafe`. Counter and
   posts are solids; the area under the awning in front of the counter is free. `front` is the free
   spot where the shop will be used (`shop-walk`). The ids are the shop ids of the roadmap; no rule
@@ -74,6 +78,9 @@ specs do not exist yet, so here the Dorm gets everything that does not need them
 - Moved or removed: the terrace tables and trees that stand where the new things stand (`TREES`,
   `TERRACE_TABLES`), the Food Court. The east lawn gets smaller to make room for the Dorm.
 - `GET /api/world` gets `dorm`, `outdoorShops`, `beachWay` and `beach`; the existing keys stay.
+- The beach way has an arch with a sign at its start (two posts, solids), two lamps every 2 tiles and
+  two benches; the beach has seven loungers, two dunes, a volleyball net and a lifeguard tower (solids,
+  all in `world.py`).
 
 ### Browser (`static/world/`)
 
@@ -95,18 +102,20 @@ with the detail below. It is **the most careful drawing of the map**.
   (text only, no data), a surfboard stuck in the sand, a lamp.
 - **Beach Cafe:** a bar with a coral awning, stools, a menu board, string lights on posts, five tables
   with parasols and chairs, a cooler box, a small speaker, glasses and bottles on the bar.
-- **Dorm** (outside): white block with warm timber on the door side, a small balcony with a railing
-  and a plant, windows with a light that is warm at dusk, a bike rack with two bikes, a bench at the
-  door, a mailbox, a sign "DORM", a path to the plaza.
-- **Dorm** (inside): the room of the section above, with a floor of timber, a rug, a bed with
-  pillows and a blanket, a lamp that glows, a window with a view of the sea.
+- **Dorm** (outside): white block with warm timber slats on the door side, windows, a roof garden, a bike
+  rack with two bikes, a bench at the door, a mailbox, a threshold deck with a welcome mat, flagstones
+  to the plaza, a strip of grass with flowers towards the Hub and the sign "DORM" on its roof.
+- **Dorm** (inside): the room of the section above: timber floor, a rug, a bed with pillows and a
+  blanket, a wardrobe, a bookshelf, a desk with laptop, lamp and book and a chair, a poster, a cork board
+  with notes, a plant, a flatmate at the desk and windows along the walls.
 - **Light:** the dusk and night colours of `environment.js` are used for the lamps, the awnings and the
   string lights so they switch on when it gets dark (an option of the drawing, no new rule).
 - **Edges:** no void shows at the edge of the map at the smallest and largest zoom.
 - Labels (names on signs, captions of the spaces) are written with `textContent` where they are
   DOM, and drawn as canvas text where not; no data is evaluated.
-- The roof logic generalises to the Dorm without a copy: `roofs.js` gets the Dorm as one more wing
-  source, the tests of `nova-wings` keep passing.
+- The roof logic is not copied: `joinDorm` makes the Dorm one more wing of the joined data, so
+  `roofs.js`, `nova.js` and `rooms.js` draw and fade it like the others (`LOOK.dorm` in `nova.js` says how
+  it looks). The beach, the way and the shops are drawn by `beach.js`.
 
 ## Look
 
@@ -131,12 +140,10 @@ grass), things that light up in the evening. Final polish of the whole game is `
    player walks up to, as David said ("outside"). Walking into a roofed shop is not needed.
 5. **The spawn stays (21, 18).** `day-cycle` moves the start to the Dorm. Keeping it here means no
    existing test changes (`test_a_new_run_starts_at_the_spawn` and the saved-position tests use it).
-6. **Tests.** I expect **no change in `tests/`**: the existing tests read the world from `world.py`
-   and only need the spawn, the bounds, `SPACES`, `trees`, `planters` to exist and be free; the Dorm
-   adds a wing and walls like `nova-wings` did, so its tests have to be checked for "all wings" loops
-   that now see a fifth one. If one breaks, the build stops there, the change is written here, and
-   Felix, as the owner of this PR, confirms it in his own words (the AI never confirms for him)
-   before it is made. New checks go in `tests/test_nova_zones.py`.
+6. **Tests: no change in `tests/`.** Built that way: the Dorm is kept apart from `NOVA`, `INTERIORS` and
+   `LOCATIONS` (all three are pinned by the tests of `walk-in` and `nova-wings`), and the browser joins
+   them. All 401 existing tests (and their Node scripts, run in the browser: 486, 711 and 75 checks) pass
+   unchanged. The new checks are in `tests/test_nova_zones.py`.
 7. **Size of this spec.** The drawing is large (beach, way, two shops, Dorm inside and outside). If
    it grows too big for one PR, the cut is: PR 1 the beach, the way and the two shops; PR 2 the Dorm
    with its room and panel. Both would still be `nova-zones` (a second issue then).
@@ -167,9 +174,10 @@ request.
    checks of `walk-in` and `nova-wings` keep passing).
 4. A Node test runs the real `roofs.js`: in the Dorm its roof goes out and the Nova's do not; outside
    they come back; it takes about half a second and jumps with reduced motion.
-5. A test of the Dorm panel: using the bed opens it; the text shows the day, the cash and the
-   weather from the state through `textContent`; the button sends exactly the request the Open button
-   sends and nothing else; a rejected request changes nothing.
+5. The Dorm panel: using the bed opens it; it shows the day, the cash and the weather from the state
+   (escaped); its button calls `openDay()`, the same function as the Open button, and there is no new
+   endpoint (a test reads `ui.js` and the routes of the app). A rejected request changes nothing, as
+   before, because the server decides.
 6. In the browser: everything of "Browser" is drawn and cannot be walked through where it is solid;
    the waves, flags, gulls, grass and lights move without `Math.random` and without stutter (the
    frame time of the map stays close to the one before this spec); the lamps and string lights go on at
