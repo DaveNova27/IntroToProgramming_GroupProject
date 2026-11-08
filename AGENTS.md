@@ -24,6 +24,9 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
 - After every change, run the tests for the task and paste the final output. The output is the proof, not a sentence.
 - Never edit, delete or skip anything in `tests/`. If a test looks wrong, say so and stop.
+  - Exception, no one else needed: the member who owns the spec/PR may confirm a test change for their own PR, in their own words in the session. The AI never confirms for them.
+  - Allowed only when the old test refers to data the spec changes on purpose (names, counts, thresholds). Never weaken a check, never skip or delete a test.
+  - Write each changed test and the reason into the spec ("Decide") and the PR description. New checks go in new test files.
 - One spec per task. Stay inside its "Out of scope" fence.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.

@@ -36,7 +36,7 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 7) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
 2. Create a branch named after the spec, e.g. `day-context`, from an up-to-date `main`. Never commit a feature to `main` directly.
 3. Write `specs/<name>.md` (What, Out of scope, Done when), then build only that.
-4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec.
+4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec. If your spec changes data that an old test names on purpose, you may confirm that change yourself (rules in `AGENTS.md`).
 5. Open a pull request into `main` with the PR template. It needs a passing `Tests` check (GitHub Actions runs `uv run pytest`) and an AI code review (for example `/code-review` in Claude Code) whose findings are fixed or answered in the PR. No human approval is required.
 6. One spec per branch and per pull request. Keep it inside the spec's "Out of scope" fence.
 
