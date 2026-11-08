@@ -117,7 +117,8 @@ def test_a_new_run_puts_the_player_back_at_the_spawn(run_on_disk, monkeypatch):
     real_save_new_run = db.save_new_run
     monkeypatch.setattr(app.db, "save_new_run", lambda state: real_save_new_run(state, run_on_disk))
     client = app.app.test_client()
-    client.post("/api/player", json={"zone": "hub", "x": 7.5, "y": 8.8})
+    client.post("/api/player", json={"zone": "campus", "x": 23.5, "y": 7.25})
+    assert db.load(run_on_disk)["player"] == {"zone": "campus", "x": 23.5, "y": 7.25}  # it really moved
     client.post("/api/new-run", json={"confirm": True})
     assert db.load(run_on_disk)["player"] == world.start_player()
 
