@@ -76,7 +76,7 @@ animate that answer.
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 | `walk-in.md` | `walk-in` | One big Nova building: walk in, the roof fades out; replaces the room zones; the three desks inside |
-| `nova-wings.md` | `nova-wings` | Draft: more wings for the Nova: the Learning Center and the Mercado can be walked into, a Student Hub, one roof per wing |
+| `nova-wings.md` | `nova-wings` | Built, waiting for the team: more wings for the Nova: the Learning Center and the Mercado can be walked into, a Student Hub, one roof per wing |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 
@@ -100,7 +100,7 @@ tracked in the GitHub Issues (label `spec`).
 - The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
 - Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
-- The Nova has its first form (22 × 8 tiles: white blocks, glass-roofed atrium with a gallery, Cafe, Merchandise, Print Corner; the whole floor inside can be walked on). The Learning Center and the Mercado beside it are still solid blocks that cannot be entered; making them wings of the Nova is `nova-wings`. The Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside are `nova-zones`; its look is `nova-design`.
+- The Nova has its first form: four wings joined by openings (the main block of 22 × 8 tiles with a glass-roofed atrium, gallery, Cafe, Merchandise and Print Corner; the Learning Center with a Study Hall and a Seminar; the Mercado Supply Hall; the Student Hub with a Lounge and a Meeting Room). Each wing has its own roof, and the whole floor inside can be walked on. The new wings are places only: nobody works there yet and no rule happens there (`shop-walk`, `staff`). The Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside are `nova-zones`; its look is `nova-design`.
 - Cafe, Merchandise and the three printers in the Nova are places only: no rule works there yet.
 - A trading day only moves the light and then shows its result. The old map's truck, queues and live ticker went with three.js; customers on the map are the spec `guests`.
 - The passers-by are decoration: they cause no sale.

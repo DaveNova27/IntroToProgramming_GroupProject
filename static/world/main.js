@@ -5,7 +5,7 @@ import { inReach, locationsHere, nearestLocation } from "./locations.js";
 import { findPath } from "./paths.js";
 import { nearestFreePoint, pointBlocked, resolveMovement } from "./physics.js";
 import { drawWorld } from "./render.js";
-import { areaAt, insideParts, stepRoof } from "./roofs.js";
+import { areaAt, stepRoofs, wingsAt } from "./roofs.js";
 import {
   PLAYER_RADIUS,
   WALK_SPEED,
@@ -56,16 +56,17 @@ function safePoint(point, zone = activeZone()) {
 
 // ---- the place and the roof ----------------------------------------------------------
 
-// The name of the place in the banner, and the chips: outside, or in the Nova.
+// The name of the place in the banner, and the chips: outside, or in the Nova (any of its wings).
 // Only written to the page when it changes.
 let shownPlace = "";
 
 function renderPlace() {
   const zone = activeZone();
   const area = scene.inNova ? areaAt(scene.player, world.interiors.campus.areas) : null;
-  const name = scene.inNova ? (area ? area.label : world.nova.label) : zone.name;
-  const sub = scene.inNova ? world.nova.label.toUpperCase() : zone.sub;
-  const place = `${scene.inNova}:${name}`;
+  const wing = world.nova.wings.find((entry) => entry.id === scene.wing);
+  const name = scene.inNova ? (area ? area.label : (wing?.label ?? world.nova.label)) : zone.name;
+  const sub = scene.inNova ? (wing?.label ?? world.nova.label).toUpperCase() : zone.sub;
+  const place = `${scene.inNova}:${scene.wing}:${name}`;
   if (place === shownPlace) return;
   shownPlace = place;
   $("#zone-name").textContent = name;
@@ -78,8 +79,11 @@ function renderPlace() {
 // Is the player under the roof, and how far has the roof faded. `instant`: no fade (a new
 // start, or the saved position after loading).
 function updateRoof(dt, instant = false) {
-  scene.inNova = insideParts(scene.player, world.nova.parts);
-  scene.roof = stepRoof(scene.roof, scene.inNova, dt, reducedMotion || instant);
+  const inside = wingsAt(scene.player, world.nova.parts);
+  const area = inside.length ? areaAt(scene.player, world.interiors.campus.areas) : null;
+  scene.inNova = inside.length > 0;
+  scene.wing = area?.wing ?? inside[0] ?? null;
+  scene.roofs = stepRoofs(scene.roofs, world.nova.wings, inside, dt, reducedMotion || instant);
   renderPlace();
 }
 

@@ -31,9 +31,14 @@ export const scene = {
   facing: { x: 0, y: 1 },
   walking: false,
   preview: false, // the small live window on the dashboard
-  roof: 1, // opacity of the Nova's roof: 1 = closed, 0 = gone (see roofs.js)
-  inNova: false, // the player stands under the Nova's roof
+  roofs: {}, // opacity of the roof of each wing of the Nova: 1 = closed, 0 = gone (see roofs.js)
+  wing: null, // the wing the player is in, or null outside
+  inNova: false, // the player stands under the roof of any wing
 };
+
+// A wing without an entry is closed. The rooms of a wing are drawn while its roof is thinner than this.
+export const roofOf = (wingId) => scene.roofs[wingId] ?? 1;
+export const wingIsOpen = (wingId) => roofOf(wingId) < 0.98;
 
 export const activeZone = () => world.zones[scene.zoneId];
 
