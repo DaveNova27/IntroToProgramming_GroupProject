@@ -104,20 +104,29 @@ brands) are our own: Cafe, Merchandise, Print Corner.
 
 ## Decide (my recommendations)
 
-1. **Tests that name the removed zones.** Seven tests in `tests/test_world_api.py` name zones or
-   doors that no longer exist and fail: `test_the_api_serves_the_whole_world`,
-   `test_every_door_leads_to_a_zone_with_a_free_place_to_stand` (counts six doors),
-   `test_every_room_has_a_way_out`, `test_the_position_survives_a_restart` (zone `academy`),
-   `test_the_api_saves_the_position` (zone `hub`), `test_moving_changes_nothing_but_the_position`
-   (zone `mercado`) and `test_the_position_can_move_after_the_last_day` (zone `hub`). One more only
-   runs where Node is installed (GitHub Actions): `test_every_door_and_desk_can_be_reached_from_anywhere`
-   in `tests/test_world_paths.py` asks for more than 100 checks, and three desks on the campus give
-   75. `tests/` may not be edited, so this needs an exception that David confirms (as for PR #7).
-   Recommendation: change only the zone names, the door count and that number to the new data,
-   weaken no check, and keep the new checks in `tests/test_walk_in.py`. (`test_world_art.py` needs no
-   change because the rooms are keyed by the zone `campus`.) The alternative, keeping the three
-   room zones until `nova-zones`, leaves two half-working systems side by side and is not
-   recommended. Until the exception is confirmed the existing tests are left as they are.
+1. **Tests that name the removed zones.** Eight existing tests name zones, doors or a number that
+   the spec changes on purpose. David confirmed the exception on 2026-11-08, for exactly these tests
+   and for the threshold below. They were changed in this PR and nothing else in `tests/` was:
+   - `tests/test_world_api.py::test_the_api_serves_the_whole_world`: the zones are `{"campus"}` and the
+     rooms are keyed `{"campus"}` (were: `campus`, `mercado`, `academy`, `hub`).
+   - `test_every_door_leads_to_a_zone_with_a_free_place_to_stand`: there are no doors (it counted six).
+     The same check for the way in: the spawn is in bounds and free, and every entrance of the Nova
+     leads to free ground in the doorway, one step outside and one step inside.
+   - `test_every_room_has_a_way_out`: the rooms are inside the Nova on the campus, and the Nova has an
+     entrance at least 2 tiles wide (was: a door back to the campus from each room zone).
+   - `test_the_position_survives_a_restart`, `test_the_api_saves_the_position`,
+     `test_moving_changes_nothing_but_the_position` and `test_the_position_can_move_after_the_last_day`
+     saved a position in the zones `academy`, `hub` or `mercado`. They use the zone `campus` and a spot
+     inside the Nova (23.25, 5.5 and 23.5, 7.25). The last one now compares the whole position, so it
+     checks more than before, not less.
+   - `tests/test_world_paths.py::test_every_door_and_desk_can_be_reached_from_anywhere` (Node, runs on
+     GitHub Actions): `checked > 100` became `checked > 60`. The three desks on one campus give 69
+     checks, not more than 100. This is the only threshold that is loosened; every check inside it
+     stays as it was.
+   Apart from that threshold no assertion was weakened, no test was skipped or deleted, and
+   `test_world_art.py` needed no change because the rooms are keyed by the zone `campus`. New checks are in `tests/test_walk_in.py`.
+   The alternative, keeping the three room zones until `nova-zones`, leaves two half-working systems
+   side by side and was not chosen.
 2. **One PR for the mechanism and the Nova.** The mechanism needs a real building to be tested, and a
    throwaway building would mean doing the work twice. So the Nova's first form comes in this
    spec (shape, walls, atrium, three desks, areas), and its detailed look stays in `nova-design`.
