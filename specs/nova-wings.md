@@ -140,11 +140,11 @@ open to the south.
 5. **Order.** After `walk-in` is merged; before `nova-zones`, which then redraws the map around the
    finished building. `nova-zones` no longer decides what becomes of the Learning Center and the
    Mercado.
-6. **Reading `GET /api/world`.** The key `buildings` is gone. `test_the_api_serves_the_whole_world` in
-   `tests/test_world_api.py` (already adapted by `walk-in`) still asserts `data["buildings"]`, so it
-   fails with this spec. David's confirmation did not cover it. It needs one more edit, which the
-   owner of the PR has to confirm under the rule in `AGENTS.md` (the spec removes that data on
-   purpose): `data["buildings"]` becomes `data["nova"]["wings"]`, nothing else changes.
+6. **Reading `GET /api/world`.** The key `buildings` is gone, because the spec removes the outdoor
+   buildings. `test_the_api_serves_the_whole_world` in `tests/test_world_api.py` (already adapted by
+   `walk-in`) still asserted `data["buildings"]`. David's confirmation did not cover it, so Felix, as
+   the owner of the PR, confirmed this one edit under the rule in `AGENTS.md`: `data["buildings"]`
+   became `data["nova"]["wings"]`, nothing else changed.
 
 ## Out of scope
 
