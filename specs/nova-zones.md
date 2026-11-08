@@ -23,8 +23,7 @@ the beach way to the sea.
 | **Beach** | a deeper strip of sand (from y 20, the old promenade and Event Square paving are gone) with ripples, footprints, a few loungers, dunes, a volleyball court, a lifeguard tower, a shoreline with foam, the sea | changed a lot |
 | **Plaza and courtyard** | the ground in front of the Nova, kept | no |
 
-The map **keeps its size**: `ZONES["campus"]` (ground 90 × 30, the walkable area, the spawn) does not
-change. The shops are places to see and walk to; their rules are in `shop-unlock` and `shop-process`,
+The map keeps its size, except for the beach, which grew by two tiles to the south (see the end of this spec): the spawn and the rest of the walkable area do not change. The shops are places to see and walk to; their rules are in `shop-unlock` and `shop-process`,
 using them by walking is `shop-walk`. No desk is added in the shops; the three desks stay in the Nova.
 
 ### The Dorm and its function
@@ -205,4 +204,4 @@ by the browser. Names and labels are shown through `textContent`; no external as
 
 ## Built differently from the first draft
 
-After Felix saw the first build ("too crammed") the beach was thinned and widened: the sand now starts at y 20, the promenade, the Event Square paving and the signposts are gone, the beach way is 4 tiles wide with four lamps, the shops moved from the paving onto the sand, there are four loungers instead of seven, and the Student Lawn is shorter so that it no longer reaches the sand. The numbers in this spec that name a position are the ones in `world.py`.
+After Felix saw the first build ("too crammed") the beach was thinned and widened: the sand now starts at y 20, the promenade, the Event Square paving and the signposts are gone, the beach way is 4 tiles wide with four lamps, the shops moved from the paving onto the sand, there are four loungers instead of seven, and the Student Lawn is shorter so that it no longer reaches the sand. Then Felix asked for a bigger beach: the sand and the water start two tiles further south, so the drawn ground is 33 tiles high (it was 30) and the walkable area reaches y 27.7 (it was 25.7); the beach way is 10.2 tiles long. The numbers in this spec that name a position are the ones in `world.py`.
