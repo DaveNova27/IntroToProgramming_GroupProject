@@ -77,7 +77,7 @@ animate that answer.
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
 | `walk-in.md` | `walk-in` | One big Nova building: walk in, the roof fades out; replaces the room zones; the three desks inside |
 | `nova-wings.md` | `nova-wings` | Merged (#50): more wings for the Nova: the Learning Center and the Mercado can be walked into, a Student Hub, one roof per wing |
-| `nova-zones.md` | `nova-zones` | Spec written: the map around the Nova gets smaller; the Dorm, a beach way, the Surf Shop and the Beach Cafe outdoors |
+| `nova-zones.md` | `nova-zones` | Spec written: the map around the Nova: a walkable Dorm with a bed panel, a detailed beach way and beach, the Surf Shop and the Beach Cafe outdoors |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 
