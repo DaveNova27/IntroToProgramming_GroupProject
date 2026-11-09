@@ -476,12 +476,14 @@ def test_buying_a_place_hires_its_employee_without_a_second_fee():
     assert two["shops"]["cafe"]["staff_places"] == 2 and two["shops"]["cafe"]["level"] == 3
 
 
-def test_a_place_in_a_shop_without_staff_work_hires_nobody():
+def test_a_place_in_any_shop_hires_its_employee():
+    # changed for "staff in every shop": the Beach Cafe has staff work now, so its place hires
     state = logic.new_state()
     state["cash"] = 100_000
     state["shops"]["beach_cafe"] = logic.new_shop("cafe")
     state = logic.buy_upgrade(state, "beach_cafe", "staff_1")
-    assert state["employees"] == [] and state["shops"]["beach_cafe"]["staff_places"] == 1
+    assert [e["shop"] for e in state["employees"]] == ["beach_cafe"]
+    assert state["shops"]["beach_cafe"]["staff_places"] == 1
 
 
 def test_a_dismissed_place_is_hired_again_for_the_hire_price():
