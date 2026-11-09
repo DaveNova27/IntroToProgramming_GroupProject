@@ -23,6 +23,8 @@ import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
 
 const CLICK_REACH = 1.35; // tiles around a door or desk that count as clicking it
+const MAX_FRAME = 0.1; // seconds: the longest frame the world follows in real time
+const MAX_STEP = 0.04; // seconds: the longest step of walking and collision
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
 const keys = new Set();
@@ -297,12 +299,22 @@ function renderHint() {
 }
 
 function loop(t) {
-  const dt = Math.min((t - lastTime) / 1000 || 0, 0.04);
+  // the first frame has no earlier one: no step, so a long page load is not walked in one go
+  const dt = lastTime ? Math.min((t - lastTime) / 1000 || 0, MAX_FRAME) : 0;
   lastTime = t;
   scene.time = t;
-  walk(dt);
+  // a slow frame advances the world by its real time, in equal steps of at most MAX_STEP so the
+  // collision holds. walk() runs at least once per frame (also with dt 0), as before.
+  const steps = Math.max(1, Math.ceil(dt / MAX_STEP));
+  for (let i = 0; i < steps; i++) {
+    const zone = scene.zoneId;
+    const use = pendingUse;
+    walk(dt / steps);
+    // a door or desk used on arrival, or a new zone: the rest of the frame waits for the next frame
+    if (!scene.walking || scene.zoneId !== zone || (use && !pendingUse)) break;
+  }
   updateRoof(dt);
-  updateWalkers(dt);
+  for (let i = 0; i < steps; i++) updateWalkers(dt / steps); // waypoints are not skipped on a slow frame
   moveCamera(dt);
   renderHint();
   updateClock();

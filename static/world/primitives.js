@@ -104,10 +104,11 @@ export function drawFootprintShadow(x, y, w, h, alpha = 0.16, spread = 1.1) {
 }
 
 export function drawSoftShadow(x, y, rx = 42, ry = 15, alpha = 0.16) {
+  // One plain ellipse. It used a canvas blur filter (2px) before, which cost 66 to 160 ms a frame
+  // on a big canvas (35 shadows); a second ellipse for a soft edge cost about 4 ms more.
   const p = isoPoint(x, y, 1);
   ctx.save();
   ctx.fillStyle = `rgba(8,32,37,${alpha})`;
-  ctx.filter = "blur(2px)";
   ctx.beginPath();
   ctx.ellipse(p.x + 4, p.y + 5, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
