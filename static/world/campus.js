@@ -19,8 +19,9 @@ import {
   mixColor,
 } from "./primitives.js";
 import {
-  TILE_H,
-  TILE_W,
+  DEPTH,
+  TILE,
+  depthOf,
   activeZone,
   camera,
   canvas,
@@ -35,14 +36,14 @@ export function drawTerrain(t) {
   const zone = activeZone(),
     tiles = [],
     center = isoPoint(camera.x, camera.y),
-    viewX = canvas.clientWidth / (2 * camera.zoom) + TILE_W * 2,
-    viewY = canvas.clientHeight / (2 * camera.zoom) + TILE_H * 3;
+    viewX = canvas.clientWidth / (2 * camera.zoom) + TILE * 2,
+    viewY = canvas.clientHeight / (2 * camera.zoom) + DEPTH * 3;
   // the ground also runs a little west of the map, so no void shows beside the beach
   for (let y = 0; y < zone.height; y++)
     for (let x = -14; x < zone.width; x++) {
       const point = isoPoint(x, y);
       if (Math.abs(point.x - center.x) <= viewX && Math.abs(point.y - center.y) <= viewY)
-        tiles.push({ x, y, d: x + y });
+        tiles.push({ x, y, d: depthOf(x, y) });
     }
   tiles.sort((a, b) => a.d - b.d);
   tiles.forEach(({ x, y }) => {
@@ -374,7 +375,7 @@ export function architecturalForegroundActors() {
       slice = w / slices;
     for (let index = 0; index < slices; index++) {
       const sx = x + index * slice;
-      actors.push({ depth: sx + slice + y + h + 0.025, draw: () => drawLinearPlanter(sx, y, slice, h, z) });
+      actors.push({ depth: depthOf(sx + slice / 2, y + h + 0.025), draw: () => drawLinearPlanter(sx, y, slice, h, z) });
     }
   };
   world.planters.forEach((planter) => addPlanter(planter.x, planter.y, planter.w, planter.h, planter.z));
@@ -443,10 +444,10 @@ export function drawBeachStage(t) {
 export function campusActors(t) {
   const environment = environmentalProfile(scene.clock, scene.day, t);
   return [
-    { depth: 46.98, draw: () => drawBeachStage(t) },
+    { depth: depthOf(20.5, 24.33), draw: () => drawBeachStage(t) }, // the front edge of the stage
     ...architecturalForegroundActors(),
     ...world.trees.map((tree, i) => ({
-      depth: tree[0] + tree[1],
+      depth: depthOf(tree[0], tree[1]),
       draw: () => drawTree(tree[0], tree[1], tree[2], t + i * 170, environment),
     })),
   ];
