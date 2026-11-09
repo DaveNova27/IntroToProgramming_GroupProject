@@ -1,6 +1,6 @@
 // The beach front south of the plaza and the Dorm's surroundings (spec nova-zones): the boardwalk, the
 // Surf Shop and the Beach Cafe, the sand with loungers, dunes, a volleyball court and a lifeguard tower,
-// the shoreline, and the Dorm's bikes, bench and door. Everything is drawn in code from the data in
+// the shoreline, and the Dorm's bench and door. Everything is drawn in code from the data in
 // world.py (BEACH_WAY, SHOPS_OUTDOOR, BEACH, DORM). Nothing moves at random: waves, grass, flags and
 // gulls follow the clock, and the lamps and string lights come on as the evening light falls.
 // Only for showing: no rule reads any of this, and no label is evaluated.
@@ -335,9 +335,10 @@ function drawDeck(x, y, w, h, base) {
 }
 
 function drawDormGround() {
-  // the way from the door: timber threshold, a welcome mat, and flagstones to the plaza
-  drawDeck(37.0, 12.65, 2.0, 1.4, "#c9a878");
-  flat(37.25, 12.7, 1.5, 0.4, "#3b5d65", 5.8);
+  // the way from the door: a pale stone threshold with a step, a welcome mat, and flagstones to the plaza
+  drawBlock(36.8, 12.6, 2.4, 1.5, 3.5, "#ece6d6", "#bdb59f", "#d4ccb8");
+  drawBlock(37.1, 12.6, 1.8, 1.2, 5.5, "#f3eee0", "#c6bfa9", "#ddd6c2");
+  flat(37.25, 12.75, 1.5, 0.4, "#3b5d65", 6.0);
   for (let i = 0; i < 5; i++) flat(37.2 + (i % 2) * 0.4, 14.3 + i * 0.55, 1.3, 0.4, "#e7e2d6", 4.8, "rgba(70,70,60,.25)");
   // a strip of grass and flowers between the Dorm and the Hub
   drawGroundSlab(33.6, 7.8, 1.3, 5.9, "#83a774", 3.4);
@@ -1228,31 +1229,6 @@ function drawGull(g, t) {
 
 // ---- the Dorm's front -----------------------------------------------------------------------------
 
-function drawBikeRack(rack) {
-  for (let i = 0; i < 4; i++) {
-    const x = rack.x + 0.1 + i * 0.4;
-    line(isoPoint(x, rack.y + 0.15, 5), isoPoint(x, rack.y + 0.15, 17), "#31545b", 1.6);
-    line(isoPoint(x, rack.y + 0.15, 17), isoPoint(x + 0.2, rack.y + 0.15, 17), "#31545b", 1.6);
-    line(isoPoint(x + 0.2, rack.y + 0.15, 17), isoPoint(x + 0.2, rack.y + 0.15, 5), "#31545b", 1.6);
-  }
-  [[rack.x + 0.4, "#ff7458"], [rack.x + 1.0, "#64cbc8"]].forEach(([x, color]) => {
-    const front = isoPoint(x + 0.2, rack.y + 0.15, 9);
-    const back = isoPoint(x - 0.28, rack.y + 0.15, 9);
-    for (const w of [front, back]) {
-      ctx.strokeStyle = "#22343a";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(w.x, w.y, 5.2, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    const seat = { x: (front.x + back.x) / 2 - 1, y: front.y - 9 };
-    line(back, seat, color, 1.8);
-    line(seat, front, color, 1.8);
-    line({ x: front.x - 1, y: front.y - 11 }, front, color, 1.8);
-    line({ x: seat.x - 3, y: seat.y - 1 }, { x: seat.x + 2, y: seat.y - 1 }, "#22343a", 1.8);
-  });
-}
-
 function drawMailbox() {
   const p = isoPoint(35.2, 12.85, 5);
   line(p, { x: p.x, y: p.y - 15 }, "#31545b", 2);
@@ -1674,12 +1650,12 @@ function promenadeGrass() {
 
 // ---- the Dorm's front, the edge of the campus, the delivery lorry -----------------------------------
 
-// window boxes with flowers under the Dorm's windows, a timber canopy over its door, a balcony on the east side
+// window boxes with flowers under the Dorm's windows, a white canopy over its door, a balcony on the east side
 function drawDormFront(t, amount) {
   const y = 12.6 + 0.02;
   // flower boxes
   for (const [x0, x1] of [[35.3, 36.8], [39.2, 40.2]]) {
-    drawBlock(x0, y - 0.02, x1 - x0, 0.22, 33, "#8a6a49", "#6a4f36", "#a67c52");
+    drawBlock(x0, y - 0.02, x1 - x0, 0.22, 33, "#f7f7f4", "#c9cdd0", "#e4e5e2");
     for (let x = x0 + 0.12; x < x1; x += 0.2) {
       const p = isoPoint(x, y + 0.1, 33);
       const sway = Math.sin(clock(t) * 0.002 + x) * 0.8;
@@ -1687,12 +1663,11 @@ function drawDormFront(t, amount) {
       dot({ x: p.x + sway, y: p.y - 7 }, 1.7, [CORAL, SUN, "#ffffff", "#c9a0e0"][Math.round(x * 5) % 4]);
     }
   }
-  // the canopy over the door, on two timber posts
-  drawRaisedSlab(36.7, 12.5, 2.6, 1.3, 50, 4, "#c99a62", "#8f6a3f", "#a98050");
-  for (let x = 36.8; x < 39.2; x += 0.3) line(isoPoint(x, 12.5, 50), isoPoint(x, 13.8, 50), "rgba(80,50,20,.35)", 0.8);
+  // the canopy over the door, a thin white slab on two slim columns, like the Nova's
+  drawRaisedSlab(36.7, 12.5, 2.6, 1.3, 50, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
+  drawFacadeBandY(36.7, 13.8 + 0.012, 2.6, 46, 47.5, "#bce65f", 1);
   for (const x of [36.85, 39.15]) {
-    line(isoPoint(x, 13.7, 5), isoPoint(x, 13.7, 48), "#8f6a3f", 3.4);
-    line(isoPoint(x + 0.04, 13.7, 5), isoPoint(x + 0.04, 13.7, 48), "#c99a62", 1.2);
+    drawBlock(x - 0.07, 13.63, 0.14, 0.14, 46, "#ffffff", "#c9cdd0", "#e4e5e2");
   }
   // a house number and a lantern by the door
   const sign = isoPoint(37.2, 12.68, 40);
@@ -1706,14 +1681,14 @@ function drawDormFront(t, amount) {
   if (amount > 0.05) glow(38.7, 13.0, 36, 90, amount);
 }
 
-// the balcony on the Dorm's east wall: a ledge, a rail, pots, a hanging bike
+// the balcony on the Dorm's east wall: a white ledge, a glass rail, pots
 function drawDormBalcony(t) {
   const x = 40.5;
-  drawRaisedSlab(x, 8.5, 0.7, 3.2, 33, 4, "#c99a62", "#8f6a3f", "#a98050");
+  drawRaisedSlab(x, 8.5, 0.7, 3.2, 33, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
   const rail = 33 + 14;
-  line(isoPoint(x + 0.7, 8.5, rail), isoPoint(x + 0.7, 11.7, rail), "#31545b", 2);
-  line(isoPoint(x + 0.7, 11.7, rail), isoPoint(x, 11.7, rail), "#31545b", 2);
-  for (let y = 8.5; y <= 11.7; y += 0.4) line(isoPoint(x + 0.7, y, 33), isoPoint(x + 0.7, y, rail), "rgba(49,84,91,.7)", 1);
+  drawFacadeBandX(x + 0.7 + 0.01, 8.5, 3.2, 33, rail, "rgba(160,205,225,.34)", 6); // a glass balustrade
+  line(isoPoint(x + 0.7, 8.5, rail), isoPoint(x + 0.7, 11.7, rail), "#ffffff", 2);
+  line(isoPoint(x + 0.7, 11.7, rail), isoPoint(x, 11.7, rail), "#ffffff", 2);
   for (const [y, color] of [[8.9, CORAL], [9.9, SUN], [11.2, "#ffffff"]]) {
     const p = isoPoint(x + 0.45, y, 36);
     ctx.fillStyle = "#c8795a";
@@ -1836,30 +1811,6 @@ function drawGardenBed(x, y, index, t) {
   }
 }
 
-function drawBikeShelter() {
-  const x = 42.4;
-  const y = 14.0;
-  for (const [px, py] of [[x, y], [x + 3, y], [x, y + 1.5], [x + 3, y + 1.5]]) line(isoPoint(px, py, 5), isoPoint(px, py, 46), "#31545b", 2.6);
-  drawRaisedSlab(x - 0.2, y - 0.2, 3.4, 1.9, 48, 3, "#bde0d8", "#7aa6a3", "#9fc9c5");
-  for (let i = 0; i < 6; i++) {
-    const px = x + 0.3 + i * 0.5;
-    const a = isoPoint(px, y + 0.7, 5);
-    const b = isoPoint(px - 0.28, y + 0.7, 5);
-    for (const w of [a, b]) {
-      ctx.strokeStyle = "#22343a";
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.arc(w.x, w.y - 5, 5, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    const color = [CORAL, AQUA, SUN, "#9a7bc1", "#bce65f", "#ffffff"][i];
-    const seat = { x: (a.x + b.x) / 2, y: a.y - 14 };
-    line({ x: b.x, y: b.y - 5 }, seat, color, 1.6);
-    line(seat, { x: a.x, y: a.y - 5 }, color, 1.6);
-    line({ x: a.x - 1, y: a.y - 16 }, { x: a.x, y: a.y - 5 }, color, 1.6);
-  }
-}
-
 // a hammock between two palms, with someone in it
 function drawHammock(t) {
   const a = { x: 43.4, y: 18.6 };
@@ -1938,7 +1889,6 @@ export function beachActors(t) {
     }
     for (const x of [x0 + 0.12, x1 - 0.12]) add(x + kerb.y + 0.3, () => drawBollard(x, kerb.y + kerb.h / 2, amount));
   });
-  world.beach.bikeRacks.forEach(([x, y]) => add(x + y + 0.5, () => drawBikeRack({ x, y })));
   world.beach.bins.forEach(([x, y]) => add(x + y + 0.2, () => drawBin(x, y)));
   world.beach.planterBoxes.forEach((b, i) => add(b[0] + b[1] + b[3], () => drawPlanterBox(b, i)));
   add(world.beach.fountain.x + world.beach.fountain.y + 0.2, () => drawFountain(world.beach.fountain));
@@ -1972,7 +1922,6 @@ export function beachActors(t) {
   add(41.35 + 4.5 + 0.2, () => drawHedge(4.5, 12.0));
   add(41.35 + 15.5 + 0.2, () => drawHedge(12.0, 25.0));
   [8.4, 10.3, 12.2].forEach((y, i) => add(42.6 + y + 1.0, () => drawGardenBed(42.6, y, i, t)));
-  add(42.4 + 14.0 + 1.9, drawBikeShelter);
   add(43.4 + 20.0, () => drawHammock(t));
   const environment = environmentalProfile(scene.clock, scene.day, t);
   EDGE_TREES.forEach(([x, y, size]) => add(x + y + 0.3, () => drawTree(x, y, size, t, environment)));
@@ -1993,7 +1942,6 @@ export function beachActors(t) {
   world.beach.boats.forEach((b, i) => add(b.x + b.y, () => drawBoat(b, t, i)));
   world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t)));
 
-  add(35.3 + 13.1 + 0.5, () => drawBikeRack(solid.find((c) => c.id === "dorm-bike-rack")));
   add(39.3 + 13.1 + 0.5, () => drawCampusBench(39.3, 13.1, 0));
   add(35.2 + 12.85 + 0.3, drawMailbox);
   return actors;

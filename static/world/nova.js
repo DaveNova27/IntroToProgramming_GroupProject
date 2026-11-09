@@ -15,7 +15,6 @@ import {
   drawPlane,
   drawRaisedSlab,
   drawSoftShadow,
-  drawTimberScreen,
   drawWorldLabel,
 } from "./primitives.js";
 import { GALLERY_Z, drawInteriorFloor, drawInteriorWayfinding, roomActors } from "./rooms.js";
@@ -35,7 +34,7 @@ const LOOK = {
   "learning-center": { accent: "#64cbc8", garden: true, label: "LEARNING CENTER" },
   mercado: { accent: "#f5c95e", label: "MERCADO SUPPLY" },
   hub: { accent: "#ff7b5b", glassy: true, label: "STUDENT HUB" },
-  dorm: { accent: "#c99a62", garden: true, timber: true, label: "DORM", plaster: { top: "#f1e6d2", east: "#b8a182", south: "#dccbb0" } },
+  dorm: { accent: "#bce65f", garden: true, label: "DORM" },
 };
 
 export const novaIsOpen = () => wingIsOpen("nova");
@@ -74,8 +73,7 @@ export function drawNovaGround() {
 // ---- walls --------------------------------------------------------------------------------
 
 function drawWallSlice(wall, x, y, w, h, z) {
-  const tone = LOOK[wall.wing]?.plaster ?? WHITE; // the Dorm is warm plaster, the Nova white
-  drawBlock(x, y, w, h, z, tone.top, tone.east, tone.south);
+  drawBlock(x, y, w, h, z, WHITE.top, WHITE.east, WHITE.south);
   // the back walls show their inside to the camera: a dark skirting board along the floor
   if (wall.side === "north") drawFacadeBandY(x, y + h + 0.015, w, 0, 4, "#aab2b5", 1);
   if (wall.side === "west") drawFacadeBandX(x + w + 0.015, y, h, 0, 4, "#aab2b5", 1);
@@ -84,12 +82,6 @@ function drawWallSlice(wall, x, y, w, h, z) {
   const glassy = LOOK[wall.wing]?.glassy;
   let bands = back ? [[0.52, 0.86, GLASS_LIGHT]] : [[0.12, 0.48, GLASS], [0.58, 0.88, GLASS]];
   if (glassy) bands = [[0.14, 0.9, back ? GLASS_LIGHT : GLASS]];
-  // the Dorm: windows in the upper half of the front, warm timber slats below them
-  if (LOOK[wall.wing]?.timber && wall.side === "south") {
-    bands = [[0.58, 0.88, GLASS]];
-    drawFacadeBandY(x, y + h + 0.015, w, 4, z * 0.52, "#c99a62", 1);
-    drawTimberScreen(x + 0.05, y + h + 0.02, w - 0.1, 4, z * 0.52, Math.max(3, Math.round(w * 3)));
-  }
   for (const [low, high, color] of bands) {
     if (wall.side === "north" || wall.side === "south") {
       drawFacadeBandY(x + 0.12, y + h + 0.015, w - 0.24, z * low, z * high, color, Math.max(2, Math.round(w * 1.4)));
@@ -392,7 +384,7 @@ function drawDormRoofLife(part, t) {
     ctx.closePath();
     ctx.fill();
   });
-  drawBlock(part.x + part.w - 1.4, part.y + 0.9, 0.5, 0.5, z + 16, "#c8795a", "#8f5238", "#b5664a");
+  drawBlock(part.x + part.w - 1.4, part.y + 0.9, 0.5, 0.5, z + 16, "#e4e5e2", "#aeb5b3", "#c9cdd0");
   const aerial = isoPoint(part.x + 1.3, part.y + 1.1, z);
   ctx.strokeStyle = "#31545b";
   ctx.lineWidth = 1.4;
@@ -432,8 +424,7 @@ function drawWingRoof(wing, t) {
   ctx.save();
   ctx.globalAlpha = opacity;
   for (const part of plain) {
-    const tone = look.plaster ?? WHITE;
-    drawRaisedSlab(part.x - 0.2, part.y - 0.2, part.w + 0.4, part.h + 0.4, part.z + 6, 7, tone.top, tone.east, tone.south);
+    drawRaisedSlab(part.x - 0.2, part.y - 0.2, part.w + 0.4, part.h + 0.4, part.z + 6, 7, WHITE.top, WHITE.east, WHITE.south);
     if (look.garden) drawRoofGarden(part.x + 0.55, part.y + 0.45, part.w - 1.1, part.h - 1.0, part.z + 6);
     if (wing.id === "dorm") drawDormRoofLife(part, t);
     else drawRoofLights(part.x + 0.7, part.y + 0.7, part.w - 1.4, part.h - 1.4, part.z + 6);

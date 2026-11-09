@@ -296,8 +296,7 @@ BEACH = {
     "dunes": [{"x": 3.0, "y": 24.9, "r": 0.7}, {"x": 35.5, "y": 25.0, "r": 0.7}],
     # the low wall between promenade and dunes; it is open at the steps (the gaps between segments)
     "kerb": {"y": 24.25, "h": 0.35, "segments": [[1.0, 5.2], [8.4, 12.2], [16.6, 26.4], [30.2, 37.0], [39.6, 41.4]]},
-    # things on the promenade: bike racks (x, y), bins, planter boxes (x, y, w, h), fountain, ice cream cart
-    "bikeRacks": [[1.8, 21.0], [30.2, 21.0]],
+    # things on the promenade: bins, planter boxes (x, y, w, h), fountain, ice cream cart
     "bins": [[10.4, 22.6], [27.2, 22.4], [37.4, 22.6]],
     "planterBoxes": [[6.2, 21.2, 1.8, 0.7], [28.0, 20.2, 1.8, 0.7], [36.2, 21.6, 1.8, 0.7]],
     "fountain": {"x": 20.6, "y": 20.4},
@@ -481,8 +480,6 @@ def _zone_colliders():
     kerb = BEACH["kerb"]
     for i, (x0, x1) in enumerate(kerb["segments"]):
         solid.append(_rect(f"kerb-{i}", x0, kerb["y"], x1 - x0, kerb["h"], "Low wall", "prop"))
-    for i, (x, y) in enumerate(BEACH["bikeRacks"]):
-        solid.append(_rect(f"bike-rack-{i}", x, y, 1.4, 0.3, "Bike rack", "prop"))
     for i, (x, y) in enumerate(BEACH["bins"]):
         solid.append(_circle(f"bin-{i}", x, y, 0.22, "Bin", "prop"))
     for i, (x, y, w, h) in enumerate(BEACH["planterBoxes"]):
@@ -522,7 +519,6 @@ def _zone_colliders():
             solid.append(_circle(item["id"], item["x"], item["y"], item["r"], item["label"], item["kind"]))
         else:
             solid.append(_rect(item["id"], item["x"], item["y"], item["w"], item["h"], item["label"], item["kind"]))
-    solid.append(_rect("dorm-bike-rack", 35.3, 13.1, 1.4, 0.3, "Bike rack", "prop"))
     solid.append(_rect("dorm-bench", 39.3, 13.1, 1.2, 0.4, "Bench", "prop"))
     return solid
 
