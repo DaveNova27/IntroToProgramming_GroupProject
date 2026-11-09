@@ -422,6 +422,9 @@ DORM = {
         "zone": "campus", "x": 36.5, "y": 10.75, "kind": "panel", "action": "dorm", "label": "Go to bed",
         "color": "#c99a62", "title": "YOUR BED", "sub": "DORM", "wing": "dorm",
     },
+    # where the player stands up after sleeping (spec day-cycle): beside the bed, in reach of it.
+    # Only a spot to show; the browser saves it with POST /api/player like any other position.
+    "wake": {"zone": "campus", "x": 36.8, "y": 11.1},
 }
 
 

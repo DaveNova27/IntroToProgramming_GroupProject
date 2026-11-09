@@ -100,6 +100,35 @@ function placePlayer({ zone, x, y }) {
   updateRoof(0, true);
 }
 
+// "Go home" (spec day-cycle): walk to the bed by itself, the same way a click on it does. A move key
+// or a click on the map stops it. Gives false when no way was found.
+function goHome() {
+  const bed = world.locations.bed;
+  if (!bed) return false;
+  if (inReach(bed)) {
+    use("bed");
+    return true;
+  }
+  pendingUse = "bed";
+  walkTo(bed);
+  if (route.length) return true;
+  pendingUse = null;
+  return false;
+}
+
+// after sleeping: standing beside the bed, facing the room, and the spot saved like any other stop
+function wakeAt({ zone, x, y }) {
+  scene.zoneId = zone;
+  scene.player = safePoint({ x, y }, world.zones[zone]);
+  scene.facing = { x: 0, y: 1 };
+  camera.x = scene.player.x;
+  camera.y = scene.player.y;
+  route = [];
+  pendingUse = null;
+  updateRoof(0, true);
+  savePlayer();
+}
+
 function use(id) {
   const loc = world.locations[id];
   route = [];
@@ -244,7 +273,7 @@ function moveCamera(dt) {
 
 function renderHint() {
   const near = nearestLocation();
-  const hidden = !near || scene.preview;
+  const hidden = !near || scene.preview || scene.sleeping;
   const hint = $("#interaction-hint");
   if (hint.hidden !== hidden) hint.hidden = hidden;
   const name = $("#interaction-name");
@@ -289,7 +318,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer });
+  initUi(state, { placePlayer, goHome, wakeAt });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }

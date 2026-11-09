@@ -178,6 +178,34 @@ p { margin: 0; }
 .interaction-hint small { display: block; color: var(--on-panel-soft); font: 600 7px var(--mono); letter-spacing: 0.14em; }
 .interaction-hint strong { display: block; font-size: 12px; }
 
+/* ---- the evening and the night (spec day-cycle) ---------------------------- */
+.evening-hint {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 122px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid rgba(255, 212, 84, 0.5);
+  border-radius: 4px;
+  color: var(--on-panel);
+  background: var(--panel);
+  font-size: 13px;
+  font-weight: 600;
+}
+.evening-hint[hidden] { display: none; }
+.evening-hint .moon { color: #ffd454; font-size: 18px; }
+.evening-hint .btn { min-height: 36px; background: #ffd454; color: var(--ink); white-space: nowrap; }
+.evening-hint .btn:hover { background: #ffe07d; }
+.night-fade { position: absolute; inset: 0; z-index: 9; background: #03141a; opacity: 0; pointer-events: none; transition: opacity 0.7s ease; }
+.night-fade.on { opacity: 1; pointer-events: auto; }
+
 /* ---- toolbar ------------------------------------------------------------- */
 .toolbar {
   position: absolute;
@@ -334,6 +362,7 @@ p { margin: 0; }
   .stock-row { grid-template-columns: auto auto; }
   .stock-row + .stock-row { border-top: 0; }
   .interaction-hint { bottom: 106px; }
+  .evening-hint { bottom: 152px; font-size: 12px; }
   .tool { padding: 4px 8px 4px 4px; }
   .tool .txt { display: none; }
   .tool.primary #open-label { font-size: 12px; }
@@ -343,7 +372,7 @@ p { margin: 0; }
 
 /* ---- live window on the dashboard ------------------------------------------- */
 body.preview .topbar, body.preview .zone-banner, body.preview .zone-chips, body.preview .hud-stock,
-body.preview .interaction-hint, body.preview .toolbar, body.preview .panel, body.preview .overlay,
+body.preview .interaction-hint, body.preview .evening-hint, body.preview .toolbar, body.preview .panel, body.preview .overlay,
 body.preview .toasts { display: none !important; }
 body.preview .loading { font-size: 13px; }
 

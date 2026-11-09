@@ -11,7 +11,7 @@ import {
 } from "./environment.js";
 import { drawLocation, openPlaces } from "./locations.js";
 import { drawNovaGround, novaActors } from "./nova.js";
-import { drawPlayer } from "./player.js";
+import { drawPlayer, playerDepth } from "./player.js";
 import { camera, canvas, ctx, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
 
@@ -48,7 +48,7 @@ export function drawWorld(t) {
     ...novaActors(t),
     ...walkerActors(t),
     ...places.map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
-    { depth: scene.player.x + scene.player.y, draw: () => drawPlayer(t) },
+    { depth: playerDepth(), draw: () => drawPlayer(t) },
   ];
   actors.sort((a, b) => a.depth - b.depth).forEach((actor) => actor.draw());
   ctx.restore();

@@ -38,6 +38,7 @@ export const scene = {
   roofs: {}, // opacity of the roof of each wing of the Nova: 1 = closed, 0 = gone (see roofs.js)
   wing: null, // the wing the player is in, or null outside
   inNova: false, // the player stands under the roof of any wing
+  sleeping: false, // the player lies in the Dorm's bed (spec day-cycle): only drawn, no rule
 };
 
 // A wing without an entry is closed. The rooms of a wing are drawn while its roof is thinner than this.

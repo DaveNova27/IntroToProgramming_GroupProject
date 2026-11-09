@@ -1,7 +1,7 @@
 # The day starts and ends at the Dorm (`day-cycle`, issue to be opened)
 
-DRAFT by Christopher, 2026-11-09. Not agreed yet: the "Decide" section lists the open
-questions with a recommendation each. Builds on `outlook` (#12, the evening report) and
+Written by Christopher, 2026-11-09; decision 2 taken by him, the others are recommendations
+waiting for the team (and decision 6 for Felix). Builds on `outlook` (#12, the evening report) and
 `nova-zones` (#28, the Dorm with its bed panel).
 
 ## What
@@ -19,11 +19,13 @@ one ended. After this spec:
 3. **Evening.** When the day closes (the clock ran out on the server, the day was skipped,
    or it was ended from the dashboard), the summary does **not** pop up on the map. It
    gets dark (as today) and a hint in the display says "Day N is over. Time to go home."
-   with a button **"Go home"**. The player may also walk there alone.
+   with a button **"Go home"**; the Open button of the toolbar says "Go home" too. The
+   player may also walk there alone.
 4. **Go home.** The button makes the player walk to the bed by itself: the same way
    finding as click-to-move (`findPath` in `paths.js`), through the Dorm's entrance, at
    walking speed. Any move key or click on the map stops the walk and gives the control
-   back. Arriving at the bed counts like using it.
+   back. Arriving in reach of the bed counts like using it. A player who ends the day while
+   standing at the bed goes to bed at once.
 5. **Going to bed.** At the bed the player **lies down** on it (a new pose "lie" of the
    person figure) and the panel shows the day summary and the evening report of
    `outlook` (the same overlay as today). Its button is "Sleep".
@@ -59,7 +61,10 @@ report, so the whole game still works without walking.
   clock to the morning as `data-next` does today, puts the player standing at
   `DORM["wake"]` and saves it with `POST /api/player`. After the last day "Sleep" leads
   to the final result instead (`showFinal()`, as today).
-- `views.js`: a day ended from the dashboard also puts the campus into "evening".
+- A day ended through the dashboard sync (`syncFromDashboard` in `ui.js`) also puts the
+  campus into "evening". `views.js` is not changed.
+- `locations.js`, `main.js`: no use ring around the bed and no "Go to bed" hint while the
+  player lies in it.
 - Texts through `textContent` or `esc()`.
 
 ## Decide
@@ -96,8 +101,8 @@ other people in the Dorm, the demo scenarios.
 
 ## Done when
 
-1. `DORM["wake"]` lies inside the campus bounds, is not blocked by any collider, and lies
-   inside the Dorm's room; `POST /api/player` accepts it (new test
+1. `DORM["wake"]` lies inside the campus bounds, is not blocked by any collider, lies
+   inside the Dorm's room and in reach of the bed; `POST /api/player` accepts it (new test
    `tests/test_day_cycle.py`).
 2. A day that closes on the map does not open the summary; the hint with "Go home" is
    shown instead. "Go home" walks the player to the bed from any walkable spot of the
@@ -106,7 +111,7 @@ other people in the Dorm, the demo scenarios.
    morning and puts the player standing beside the bed.
 3. "Open day" and "End the day" at the bed send only the requests that exist today; a
    crafted request is refused by the server as before and changes nothing.
-4. The dashboard works as before: open, skip and its report.
+4. The dashboard works as before (the live window shows no evening hint).
 5. After the last day "Sleep" leads to the final result.
 6. A reload in the evening gives a normal morning without errors.
 7. `tests/` untouched apart from the new `tests/test_day_cycle.py`; `uv run pytest` passes.
