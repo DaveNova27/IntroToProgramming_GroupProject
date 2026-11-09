@@ -1,6 +1,6 @@
 # Campus events and trends (`events-and-disruptions`, issue #14)
 
-Agreed by Felix on 2026-11-09 ("Ja, bauen" after the draft). Test change of Decide 7 still to be confirmed by him. Builds on `day-context` (#10) and
+Agreed by Felix on 2026-11-09 ("Ja, bauen" after the draft). The one old-test change of Decide 7 confirmed by him in his own words the same day ("Ja, bestätige ich"). Builds on `day-context` (#10) and
 `pricing` (#38, the socket `FACTORS`). Decision 1 below splits the issue: this spec is the events
 (and the trend that lasts several days); outages and strikes come as their own spec.
 
@@ -102,7 +102,7 @@ prices from day to day. The stacking with the weather is what makes it interesti
      on purpose ("one more function in `FACTORS`", the plug-in the pricing spec describes). The line
      becomes `assert logic.FACTORS[0] is logic._weather_factor`: the weather stays the first factor, the
      number of factors is no longer pinned. No check is weakened, skipped or deleted. Owner's confirmation
-     in their own words: **pending** (AGENTS.md).
+     in their own words: Felix, 2026-11-09, "Ja, bestätige ich" (AGENTS.md).
 
 ## Out of scope
 

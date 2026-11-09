@@ -416,7 +416,7 @@ def test_the_weather_table_is_still_the_one_source():
         "cafe": 60, "surf_shop": 120, "merchandise": 80, "beach_cafe": 180}
     assert logic.WEATHER["storm"]["demand_percent"]["cafe"] == 100
     assert logic.VISITOR_WEATHER["storm"] == 100  # a storm is 100 % for both kinds of customers
-    assert logic.FACTORS == (logic._weather_factor,)
+    assert logic.FACTORS[0] is logic._weather_factor  # the weather stays the first factor
 
 
 def test_the_override_changes_the_customers_and_clearing_it_brings_the_roll_back():
