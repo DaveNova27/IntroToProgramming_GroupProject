@@ -360,7 +360,7 @@ def buy_upgrade(state, shop, item):
         if shop in SHIFT_SHOPS and offer["place"] <= len(SHOPS[shop]["jobs"]):
             _add_employee(new, shop, offer["place"])
     new_entry["level"] += 1
-    return new
+    return _open_staffed_shift(new)
 
 
 def _add_employee(new, shop, place):
@@ -415,7 +415,7 @@ def hire(state, shop, place):
     new = copy.deepcopy(state)
     new["cash"] -= HIRE_PRICE
     _add_employee(new, shop, place)
-    return new
+    return _open_staffed_shift(new)
 
 
 def upgrade_employee(state, employee_id):
@@ -563,6 +563,25 @@ def _check_shift_product(state, shift, product):
         raise RejectedAction(f"{CATALOGUE[product]['name']} is not sold in this shop.")
 
 
+def _open_staffed_shift(new):
+    """On an open day with no shift yet, a shop with a working employee opens its shift by
+    itself (specs/staff.md). There is one shift in the state at a time, so with several
+    staffed shops the first in SHIFT_SHOPS gets it. Too late in the day: nothing happens."""
+    shift = new.get("shift")
+    if shift is None or shift["shop"] is not None:
+        return new
+    for shop in SHIFT_SHOPS:
+        if new["shops"][shop]["unlocked"] and any(
+                e["shop"] == shop and e["working"] for e in new["employees"]):
+            try:
+                started = start_shift(new, shop)
+            except RejectedAction:  # not enough of the day left for a whole shift
+                return new
+            started["shift"]["staffed"] = True
+            return started
+    return new
+
+
 def open_day(state):
     """Open the day: the clock starts running. Nobody is serving yet. The player starts a
     shift in a shop while the day runs (start_shift), or lets the day pass and earns nothing."""
@@ -574,14 +593,7 @@ def open_day(state):
     new["shift"] = {"shop": None, "tick": 0, "counter": {}, "queue": [],
                     "planned": {}, "sold": {}, "lost": 0,
                     "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False}
-    # a shop with a working employee opens its shift by itself (specs/staff.md)
-    for shop in SHIFT_SHOPS:
-        if state["shops"][shop]["unlocked"] and any(
-                e["shop"] == shop and e["working"] for e in state["employees"]):
-            new = start_shift(new, shop)
-            new["shift"]["staffed"] = True
-            break
-    return new
+    return _open_staffed_shift(new)
 
 
 def start_shift(state, shop):
@@ -751,14 +763,16 @@ def skip_shift(state):
     return state, result
 
 
-def _pay_wages(new):
-    """End of the day: every working employee is paid, by id, as far as the cash goes.
-    Who cannot be paid stops working (stays hired). Afterwards, whoever stopped earlier and
-    could be paid from the cash left starts again tomorrow. Cash never goes below 0.
-    Returns (cents paid, ids who stopped today)."""
+def _pay_wages(new, shop):
+    """End of the day: every working employee of the shop that ran today is paid, by id, as
+    far as the cash goes. Who cannot be paid stops working (stays hired). Employees of a shop
+    where no shift ran earn nothing and cost nothing. Afterwards, whoever stopped earlier
+    restarts tomorrow if the cash left covers all the wages of those restarting (by id).
+    Cash never goes below 0. Returns (cents paid, ids who stopped today)."""
     paid, stopped = 0, []
-    for employee in sorted(new["employees"], key=lambda e: e["id"]):
-        if not employee["working"]:
+    by_id = sorted(new["employees"], key=lambda e: e["id"])
+    for employee in by_id:
+        if not employee["working"] or employee["shop"] != shop:
             continue
         wage = employee_wage(employee)
         if wage <= new["cash"]:
@@ -767,9 +781,13 @@ def _pay_wages(new):
         else:
             employee["working"] = False
             stopped.append(employee["id"])
-    for employee in sorted(new["employees"], key=lambda e: e["id"]):
-        if not employee["working"] and employee["id"] not in stopped \
-                and employee_wage(employee) <= new["cash"]:
+    budget = new["cash"]
+    for employee in by_id:
+        if employee["working"] or employee["id"] in stopped:
+            continue
+        wage = employee_wage(employee)
+        if wage <= budget:
+            budget -= wage
             employee["working"] = True
     return paid, stopped
 
@@ -789,7 +807,7 @@ def _close_shift(new):
             "gross_profit": sold * (price - item["cost"]),
         })
         new["stock"][pid] += shift["counter"][pid]
-    wages, stopped = _pay_wages(new)
+    wages, stopped = _pay_wages(new, shift["shop"])
     gross_profit = sum(line["gross_profit"] for line in lines)
     result = {
         "day": new["day"],
