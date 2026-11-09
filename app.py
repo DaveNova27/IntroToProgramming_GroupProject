@@ -74,6 +74,8 @@ def shift_view(state):
         "shift_ticks": logic.SHIFT_TICKS,
         "over": bool(shift.get("over")),
         "staffed": bool(shift.get("staffed")),
+        "crews": [{"shop": sid, "counter": sub["counter"], "sold": sub["sold"], "lost": sub["lost"],
+                   "over": bool(sub.get("over"))} for sid, sub in sorted(shift.get("extra", {}).items())],
         "counter": shift["counter"],
         "counter_space": size - sum(shift["counter"].values()),
         "counter_size": size,
@@ -96,7 +98,7 @@ def staff_view(state):
                               if level < logic.EMPLOYEE_MAX_LEVEL else None),
         })
     places = []
-    for shop in logic.SHIFT_SHOPS:
+    for shop in logic.STAFF_SHOPS:
         taken = {e["place"]: e["id"] for e in state["employees"] if e["shop"] == shop}
         for place, job in enumerate(logic.SHOPS[shop]["jobs"], start=1):
             places.append({

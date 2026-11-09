@@ -23,7 +23,7 @@ If the wage cannot be paid the employee does not leave: they just **stop working
 - A **place** is what the player buys in the shop window (`staff_1`, `staff_2`, €60,
   `shop-unlock`). **Buying a place hires the employee of that place straight away** (level 1,
   working), for the place price only; `buy_upgrade` does it, but only for shops in
-  `SHIFT_SHOPS` and places that have a job. The place purchase itself is unchanged. `state["shops"][shop]["staff_places"]`
+  `STAFF_SHOPS` (every shop) and places that have a job. The place purchase itself is unchanged. `state["shops"][shop]["staff_places"]`
   says how many places the shop has bought; the shop's level limits it as before.
 - Each shop lists its jobs as data: `SHOPS[shop]["jobs"] = ["refiller", "seller"]`. Place `n`
   has job `jobs[n-1]`. So the Cafe's first place is a refiller and the second a seller.
@@ -57,7 +57,7 @@ state. One employee per place. `working` is `false` while the wage could not be 
 ### Actions (pure functions that return a new state, like `buy`)
 
 - `hire(state, shop, place)`: only for a **free** bought place, i.e. one that was emptied by
-  `fire_employee` (buying a place already hires). Shop id from `SHOPS`, shop in `SHIFT_SHOPS` (only the Cafe first), shop unlocked, `place` a whole number
+  `fire_employee` (buying a place already hires). Shop id from `SHOPS`, shop in `STAFF_SHOPS` (all four shops), shop unlocked, `place` a whole number
   (not bool) with `1 <= place <= staff_places` and `place <= len(jobs)`, place still free,
   run not finished, `HIRE_PRICE` affordable. Cash - `HIRE_PRICE`, new employee on level 1.
 - `upgrade_employee(state, employee_id)`: whole number id of an existing employee, level
@@ -81,6 +81,18 @@ state. One employee per place. `working` is `false` while the wage could not be 
    `refill` and `sell` by the player are allowed next to the employees, and `start_shift`
    is refused ("A shift is already running"), as it is today for any open shift.
    Without employees `open_day` is unchanged.
+
+   **Every shop with employees (added after the first merge).** `STAFF_SHOPS` is every shop;
+   `SHIFT_SHOPS` stays where the *player* can play a shift (the Cafe until `shop-walk`). The
+   state holds one player shift, `state["shift"]`. Every other staffed shop runs in
+   `state["shift"]["extra"][shop]`: the same fields as a shift (counter, queue, planned,
+   sold, lost, clock), built by the same code, run only by its employees. The first shop of
+   `SHIFT_SHOPS` takes the player's shift if it is free, all others go to `extra`. Each
+   `tick` runs every crew through the same `refill` and `sell` rules on the shared stock and
+   cash, in shop order. When the day opens, or when someone is hired or a place is bought on
+   an open day and a whole shift still fits, the shop's shift starts; later it does not.
+   `start_shift` by the player keeps the crews running. Without a second staffed shop the
+   state has no `extra` key and nothing changes.
 3. **`start_shift`.** Unchanged for a shop with no employees. On a shop with employees it
    is only reached through `open_day`; the shift is the same one.
 4. **Each tick**, after the tick counter went up and before impatient customers leave, in
@@ -136,7 +148,7 @@ the player's rules: they are decoration of server facts and read no position.
 
 Outfits (#21), popularity changes, customers with their own choices (#22 `guests`),
 shifts and shift factors, maintenance, moving an employee to another place or shop, staff in
-shops outside `SHIFT_SHOPS`, `trade_day` with staff, balancing the numbers, employees that
+`trade_day` with staff, the world (work spots, figures) for the shops other than the Cafe, balancing the numbers, employees that
 talk or have their own moods, different outfits (#21), employees who walk through the whole
 Nova or outside the shop.
 
@@ -169,13 +181,19 @@ Nova or outside the shop.
     the employees are visible as named figures in the Cafe and move as the server says,
     refused actions show why, no console errors.
 11. PR "Closes #20", AI code review done and its findings handled.
+12. (Staff in every shop) Employees work in all four shops on the same day; the day result
+    has the lines, revenue, lost and wages of every crew that ran, and `shops` when more
+    than one ran. Wages are paid only for shops that ran. The crews share stock, cash and the
+    clock; `stock_value` counts every counter. Tested in `tests/test_staff_all_shops.py`.
 
-## Security
+## Decide: test change for staff in every shop
 
-Follows `docs/feature-roadmap.md` 3a and 3b for `staff`: wages and prices in integer cents,
-cash never negative, hiring limit from the shop's bought places (and so from its level),
-employee ids, shop ids and places validated from fixed lists (hire, upgrade and fire alike);
-employee names come from a fixed list and are shown via `textContent`; JSON fields typed and range
-checked; one lock per change (load, rule, save); a rejected action changes no saved data;
-error texts are our own rule messages; employees run on the server only; the browser sends
-no position and no number of ticks; texts shown via `textContent`.
+One old test referred to data this change moves on purpose (which shops have staff). Confirmed
+by David (owner of the spec) in the session on 2026-11-09:
+
+- `test_a_place_in_a_shop_without_staff_work_hires_nobody` in `tests/test_staff.py` bought a
+  place in the Beach Cafe and expected no employee. It is now
+  `test_a_place_in_any_shop_hires_its_employee` and expects the employee of that shop. Reason:
+  the Beach Cafe (and every shop) has staff work now. Nothing is weakened, skipped or deleted.
+
+New checks are in `tests/test_staff_all_shops.py`.

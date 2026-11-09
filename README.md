@@ -98,7 +98,7 @@ tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 
-- Staff: wages, hire and level prices and the speed per level are placeholders. With the current demand (10 customers per product) a level 1 seller already serves everyone, so levels only matter once `pricing` brings more customers. `trade_day` (day without a player) has no staff and no wages. Only the Cafe has employees (`SHIFT_SHOPS`).
+- Staff: wages, hire and level prices and the speed per level are placeholders. With the current demand (10 customers per product) a level 1 seller already serves everyone, so levels only matter once `pricing` brings more customers. `trade_day` (day without a player) has no staff and no wages. Employees work in every shop (`STAFF_SHOPS`, logic only): the Cafe on the player's shift, the other shops in `shift["extra"]`. Only the Cafe has figures in the world so far (`WORK_SPOTS`).
 - The shop prices, unlock prices and levels are placeholders to balance. The price logic itself is replaced in `pricing` (#38).
 - The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
