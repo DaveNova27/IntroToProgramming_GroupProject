@@ -35,14 +35,22 @@ def test_the_redrawn_rows_are_outside_the_toggle():
 
 def test_the_folded_card_hides_the_rows_in_both_layouts():
     assert re.search(r"\.hud-stock\.collapsed #hud-stock\s*\{\s*display:\s*none", CSS)
-    narrow = CSS[CSS.index("@media (max-width"):] if "@media (max-width" in CSS else CSS
+    # the narrow layout is the media block that already restyles the card as a bottom bar
+    start = CSS.index("  .hud-stock { top: auto;")
+    narrow = CSS[start:CSS.index("\n}", start)]
     assert ".hud-stock.collapsed" in narrow
+    assert ".stock-toggle" in narrow
 
 
 def test_the_choice_is_remembered_safely():
     assert "ct-stock-folded" in UI
-    assert len(re.findall(r"try \{[^}]*ct|try \{[^}]*STOCK_FOLDED_KEY", UI)) >= 2
+    assert re.search(r"try \{[^}]*localStorage\.getItem\(STOCK_FOLDED_KEY\)[^}]*\} catch", UI)
+    assert re.search(r"try \{ localStorage\.setItem\(STOCK_FOLDED_KEY[^}]*\} catch", UI)
     assert "wireStockToggle();" in UI
+
+
+def test_the_toggle_has_a_name_even_when_its_text_is_hidden():
+    assert 'aria-label="Stock"' in card_html()
 
 
 def test_the_toggle_keeps_its_state_for_screen_readers():
