@@ -1,6 +1,6 @@
 # Campus Tycoon: Audit-Bericht
 
-Stand: 2026-11-09, Branch `audit` (von `main`, Commit `abc439a`). Reiner Analyse-Auftrag: Es wurde
+Stand: 2026-11-09, Branch `audit` (von `main`, Commit `abc439a`; spätere Änderungen stehen am Ende in Abschnitt 5). Reiner Analyse-Auftrag: Es wurde
 kein Code, kein Test und keine Spec geändert. Die einzige neue Datei ist dieser Bericht.
 
 Gemessen wurde auf einer Kopie der App (Port 8770, eigener leerer Spielstand), damit der echte
@@ -28,7 +28,7 @@ Schwere: kritisch, hoch, mittel, niedrig. Aufwand: S (bis ein halber Tag), M (ei
 | U1 | Seiten-Fenster wird bei jedem Tick neu gebaut: Eingabe und Klicks gehen verloren | hoch | S bis M | `static/world/ui.js:277`, `ui.js:341` | Fenster nur neu zeichnen, wenn sich sein Inhalt geändert hat (wie beim Shift-Fenster, `ui.js:648`); getippte Werte behalten |
 | B1 | Echtes Wetter vor dem Öffnen des Tages sichtbar | hoch | M | `app.py:176`, `logic.py:824`, `logic.py:904` | Vor dem Öffnen Kunden und Erklärung mit dem Vorhersage-Wetter rechnen; neuer Test |
 | G1 | Surf Shop dominiert, Geld explodiert ab Tag 10 | hoch | M | `logic.py:26-39`, `logic.py:114-135`, `logic.py:808-814` | Kosten, Preise, Kundenzahl und Freischalt-Preise der teuren Shops neu ansetzen; Simulation als Prüfung |
-| B2 | Sackgasse: Kasse 0 und Lager leer, Lauf ist verloren | mittel | S | `logic.py:351-392`, `logic.py:293-315` | Kauf ablehnen oder warnen, wenn danach keine einzige Einheit mehr bezahlbar ist und kein Lager da ist; oder Notkredit (Feature F9) |
+| B2 | Sackgasse: Kasse 0 und Lager leer, Lauf ist verloren | mittel | S | `logic.py:351-392`, `logic.py:293-315` | Kauf ablehnen oder warnen, wenn danach keine einzige Einheit mehr bezahlbar ist und kein Lager da ist; oder Notkredit (Feature F8) |
 | B3 | Falle: Shop ohne Mitarbeiterplatz kann nichts verkaufen | mittel | S | `logic.py:79`, `logic.py:1057` | Freischalten enthält den ersten Platz, oder deutlicher Hinweis im Shops-Fenster; endgültig mit `shop-walk` |
 | B5 | `/api/open` verkauft ohne Arbeit und ohne Lohn (nur per direktem Aufruf) | mittel | M | `app.py:580-596`, `logic.py:487-525` | Endpunkt entfernen oder hinter den Editor-Schalter legen; Vorschau getrennt halten. Tests nennen ihn: Änderung muss der Spec-Besitzer bestätigen |
 | U3 | Veraltete Texte für den Spieler | mittel | S | `static/world/ui.js:1003-1005`, `static/app.js:394` | Den Satz "The weather does not change the number of customers yet" löschen; "above twice the reference" an die Preiskurve anpassen |
@@ -46,7 +46,7 @@ Schwere: kritisch, hoch, mittel, niedrig. Aufwand: S (bis ein halber Tag), M (ei
 | B6 | Preis-Eingaben wie `1e2` oder `1_0` werden angenommen | niedrig | S | `logic.py:203-214` | Vor `Decimal` nur Ziffern mit höchstens zwei Nachkommastellen zulassen |
 | B8 | Dashboard bricht ab, wenn der Verlauf ein Produkt nennt, das nicht mehr im Besitz ist (nur per Editor) | niedrig | S | `static/app.js:586-588`, `static/world/ui.js:974` | Name mit Rückfall auf die Produkt-Id lesen |
 | Q1 | Toter Code und doppelte Wege | niedrig | S | siehe Abschnitt 3.1.5 | Entfernen, soweit kein Test daran hängt |
-| D1 | README und Roadmap widersprechen dem Code | niedrig | S | `README.md:87`, `README.md:89`, `README.md:98-100`, `docs/feature-roadmap.md:36`, `:139` | Auf den Stand nach PR #65 bringen |
+| D1 | README und Roadmap widersprechen dem Code | niedrig | S | `README.md:87`, `README.md:89`, `README.md:98-100`, `docs/feature-roadmap.md:36`, `:121`, `:139` | Auf den Stand nach PR #65 bringen |
 | S1 | Nicht bereit für ein öffentliches Deployment | nur bei Deployment | M bis L | `app.py:24`, `app.py:619` | Sitzung pro Spieler, Produktions-Server, Sicherheits-Header (Roadmap 3a, Punkt 8) |
 
 ## 3. Details
@@ -415,7 +415,7 @@ und viele Tests. Empfehlung: erst nach dem Balance-Durchgang entscheiden.
 
 | Stufe | Inhalt | Parallel für 3 bis 4 Personen |
 |---|---|---|
-| 0, sofort | vier Fix-Specs: `smooth-frames` (P1, P2), `calm-panels` (U1, U3, U2), `hidden-weather` (B1), `balance-pass` (G1, B2, B3, B4) | ja, alle vier gleichzeitig: sie berühren verschiedene Dateien (`primitives.js` und `main.js` / `ui.js` / `app.py` und `logic.py`-Preislogik / `logic.py`-Tabellen). `hidden-weather` und `balance-pass` in `logic.py` absprechen |
+| 0, sofort | vier Fix-Specs: `smooth-frames` (P1, P2), `calm-panels` (U1, U3, U2), `hidden-weather` (B1), `balance-pass` (G1, B2, B3, B4) | ja, vier Personen gleichzeitig, mit Absprache: `hidden-weather` und `balance-pass` ändern beide `logic.py` (und `app.py`), `calm-panels` und `hidden-weather` berühren beide die Anzeige der Zahlen. Sonst verschiedene Dateien (`primitives.js` und `main.js` / `ui.js` / `app.py` und `logic.py`-Preislogik / `logic.py`-Tabellen). `hidden-weather` und `balance-pass` in `logic.py` absprechen |
 | 1 | F3 `badges`, F7 `fast-forward`, F5 `queue-figures`, F4 `weather-visuals` | ja, vier Personen: zwei Logik, zwei Optik |
 | 2 | F1 `events-and-disruptions`, F2 `popularity`, F8 `emergency-loan`, `shop-art` (Roadmap) | ja; F1 und F2 hängen beide einen Faktor an `FACTORS`, nacheinander zusammenführen |
 | 3 | F6 `shop-walk`, F9 `season-result`, F11 `outfits`, Aufräumen (Q1, D1) | ja; F6 braucht eine Person für mehrere Tage |
@@ -425,7 +425,7 @@ und viele Tests. Empfehlung: erst nach dem Balance-Durchgang entscheiden.
 
 | Titel | Inhalt | Out of scope |
 |---|---|---|
-| `smooth-frames` | P1 und P2: Schatten ohne Filter, Zeitschritt mit Teilschritten. Fertig, wenn die Welt auf dem Testrechner 60 Bilder/s hält und 3 Sekunden Laufen rund 10,5 Felder ergeben | Boden-Cache, Sichtfeld für Objekte, Dach-Blende, neue Optik |
+| `smooth-frames` | P1 und P2: Schatten ohne Filter, Zeitschritt mit Teilschritten. Fertig, wenn die Welt im gleichen Vergleich (alt und neu nacheinander auf demselben Rechner) höchstens ein Viertel der Frame-Zeit braucht und 3 Sekunden Laufen mindestens 10 Felder ergeben (Soll 10,5) | Boden-Cache, Sichtfeld für Objekte, Dach-Blende, neue Optik |
 | `calm-panels` | U1, U2, U3: Fenster nur bei geändertem Inhalt neu zeichnen, getippte Werte behalten, Klicks einreihen, veraltete Texte weg | Neues Aussehen der Fenster, `shop-walk`, Dashboard |
 | `hidden-weather` | B1: Vor dem Öffnen hängt keine gesendete Zahl am echten Wetter. Neuer Test in neuer Datei | Änderung der Fehlerquote, Ereignisse, Wetter-Optik |
 | `balance-pass` | G1, B2, B3, B4: Zahlen der Shops, Sackgasse, Falle, Lagerlimit. Simulation als Wächter-Test. Geänderte alte Tests einzeln in "Decide" nennen | Neue Regeln wie Beliebtheit oder Ereignisse, `warehouse`, Notkredit |
@@ -440,7 +440,7 @@ und viele Tests. Empfehlung: erst nach dem Balance-Durchgang entscheiden.
 ## 5. Geänderte Dateien und Testausgabe
 
 Geändert: nur `docs/audit-report.md` (neu). Nichts in `tests/`, kein Code, keine Spec. Der Branch
-`audit` ist angelegt, es wurde nichts committet.
+`audit` ist angelegt und als PR #72 offen. Stand der Folgearbeit: `smooth-frames` (P1, P2) ist als PR #77 und `hidden-weather` (B1) als PR #78 umgesetzt; der Bericht beschreibt den Zustand von `main` zum Zeitpunkt des Audits.
 
 Finale Ausgabe von `uv run pytest` nach dem Schreiben des Berichts:
 
