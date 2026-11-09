@@ -1,5 +1,6 @@
 // Draws one frame: sky, ground, then everything else sorted from back to front.
 
+import { beachActors, drawBeachGround, drawNightGrade, drawNightLights } from "./beach.js";
 import { campusActors, drawCampusGroundPlan, drawTerrain } from "./campus.js";
 import {
   drawAmbientLighting,
@@ -8,8 +9,8 @@ import {
   environmentalProfile,
   lightingProfile,
 } from "./environment.js";
-import { drawLocation, locationsHere } from "./locations.js";
-import { drawNovaGround, novaActors, novaIsOpen } from "./nova.js";
+import { drawLocation, openPlaces } from "./locations.js";
+import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer } from "./player.js";
 import { camera, canvas, ctx, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
@@ -36,12 +37,14 @@ export function drawWorld(t) {
   drawTerrain(t);
   drawCoastalMotion(t, environment);
   drawCampusGroundPlan(t);
+  drawBeachGround(t);
   drawNovaGround();
 
   // the desks stand inside the Nova: they show only while the roof is gone
-  const places = novaIsOpen() ? locationsHere() : [];
+  const places = openPlaces();
   const actors = [
     ...campusActors(t),
+    ...beachActors(t),
     ...novaActors(t),
     ...walkerActors(t),
     ...places.map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
@@ -51,4 +54,11 @@ export function drawWorld(t) {
   ctx.restore();
 
   drawAmbientLighting(light, w, h);
+  drawNightGrade(w, h);
+  // the lights go on top of the shade, in the same camera as the scene
+  ctx.save();
+  ctx.translate(w / 2 - center.x * camera.zoom, h / 2 - center.y * camera.zoom);
+  ctx.scale(camera.zoom, camera.zoom);
+  drawNightLights();
+  ctx.restore();
 }

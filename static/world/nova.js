@@ -18,7 +18,7 @@ import {
   drawWorldLabel,
 } from "./primitives.js";
 import { GALLERY_Z, drawInteriorFloor, drawInteriorWayfinding, roomActors } from "./rooms.js";
-import { ctx, isoPoint, roofOf, scene, wingIsOpen, world } from "./scene.js";
+import { ctx, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 // colours estimated from photographs of the real campus
 const WHITE = { top: "#f7f7f4", south: "#e4e5e2", east: "#c9cdd0" };
@@ -34,6 +34,7 @@ const LOOK = {
   "learning-center": { accent: "#64cbc8", garden: true, label: "LEARNING CENTER" },
   mercado: { accent: "#f5c95e", label: "MERCADO SUPPLY" },
   hub: { accent: "#ff7b5b", glassy: true, label: "STUDENT HUB" },
+  dorm: { accent: "#bce65f", garden: true, label: "DORM" },
 };
 
 export const novaIsOpen = () => wingIsOpen("nova");
@@ -64,6 +65,7 @@ export function drawNovaGround() {
     const b = wingBounds(id);
     drawBlock(b.x - 0.25, b.y - 0.2, b.w + 0.5, b.h + 0.4, 3, "#dcdbd5", "#8d9b97", "#abb3ae");
   }
+  drawNovaPortal();
   for (const id of wings) drawInteriorFloor(id);
   for (const id of wings) if (wingIsOpen(id)) drawInteriorWayfinding(id);
 }
@@ -87,11 +89,83 @@ function drawWallSlice(wall, x, y, w, h, z) {
       drawFacadeBandX(x + w + 0.015, y + 0.12, h - 0.24, z * low, z * high, wall.side === "east" ? GLASS_EAST : color, Math.max(2, Math.round(h * 1.4)));
     }
   }
+  if (wall.wing === "nova") drawNovaFacade(wall, x, y, w, h, z);
   // a coloured line along the top of the facade that faces the plaza
   const accent = LOOK[wall.wing]?.accent;
   if (accent && wall.side === "south" && wall.wing !== "nova" && z > 50) {
     drawFacadeBandY(x, y + h + 0.02, w, z - 11, z - 8, accent, 1);
   }
+}
+
+// The main block is not a flat white box: a stone plinth, white fins between the windows, the edge of each
+// floor sticking out as a ledge and a coral line under the roof. The fins stand on a fixed grid, so
+// neighbouring slices of the wall never draw one twice.
+const FIN_STEP = 2.0;
+function drawNovaFacade(wall, x, y, w, h, z) {
+  const fins = (from, to) => {
+    const list = [];
+    for (let at = Math.ceil(from / FIN_STEP) * FIN_STEP; at < to - 1e-9; at += FIN_STEP) list.push(at);
+    return list;
+  };
+  if (wall.side === "south") {
+    const face = y + h;
+    drawFacadeBandY(x, face + 0.02, w, 0, 7, "#a9b0ad", 1);
+    drawRaisedSlab(x, face, w, 0.24, z * 0.53, 3.5, WHITE.top, WHITE.east, WHITE.south);
+    drawFacadeBandY(x, face + 0.26, w, z - 12, z - 9, "#ff7b5b", 1);
+    for (const at of fins(x, x + w)) drawBlock(at - 0.08, face, 0.16, 0.22, z * 0.93, "#ffffff", WHITE.east, WHITE.south);
+  } else if (wall.side === "east") {
+    const face = x + w;
+    drawFacadeBandX(face + 0.02, y, h, 0, 7, "#8f9a98", 1);
+    drawRaisedSlab(face, y, 0.24, h, z * 0.53, 3.5, WHITE.top, WHITE.east, WHITE.south);
+    for (const at of fins(y, y + h)) drawBlock(face, at - 0.08, 0.22, 0.16, z * 0.93, "#f2f3f0", WHITE.east, WHITE.south);
+  }
+}
+
+// The entrance: a stone apron with two steps, a dark header beam under the canopy between the two middle
+// columns, and the name of the school on it. The beam fades with the roof, like the canopy.
+function drawNovaPortal() {
+  const entrance = world.nova.entrances.find((e) => e.id === "main");
+  if (!entrance) return;
+  const left = entrance.x - 0.9;
+  const width = entrance.width + 1.8;
+  drawBlock(left, 9.2, width, 1.45, 3.5, "#ece6d6", "#bdb59f", "#d4ccb8");
+  drawBlock(left + 0.35, 9.2, width - 0.7, 1.05, 5.5, "#f3eee0", "#c6bfa9", "#ddd6c2");
+  const step = (inset, depth, z, alpha) => {
+    const p = isoPoint(left + inset, 9.2 + depth, z);
+    const q = isoPoint(left + width - inset, 9.2 + depth, z);
+    ctx.strokeStyle = `rgba(120,110,90,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
+    ctx.stroke();
+  };
+  step(0, 1.45, 3.5, 0.75);
+  step(0.35, 1.05, 5.5, 0.9);
+}
+
+function drawNovaSign() {
+  const roof = roofOf("nova");
+  if (roof < 0.02) return;
+  const entrance = world.nova.entrances.find((e) => e.id === "main");
+  if (!entrance) return;
+  const from = entrance.x - 0.5;
+  const to = entrance.x + entrance.width + 0.5;
+  const y = CANOPY_Y + CANOPY_DEPTH - 0.2;
+  ctx.save();
+  ctx.globalAlpha = roof;
+  drawRaisedSlab(from, y, to - from, 0.2, CANOPY_Z - 5, 9, "#4c7380", "#1d3a43", "#25444e");
+  drawFacadeBandY(from + 0.12, y + 0.212, to - from - 0.24, CANOPY_Z - 17, CANOPY_Z - 15.5, "#ff7b5b", 1);
+  const p = isoPoint((from + to) / 2, y + 0.22, CANOPY_Z - 11);
+  const slope = isoPoint(from + 1, y, 0).y - isoPoint(from, y, 0).y; // the face runs along x: skew the text with it
+  const along = isoPoint(from + 1, y, 0).x - isoPoint(from, y, 0).x;
+  ctx.translate(p.x, p.y);
+  ctx.transform(1, slope / along, 0, 1, 0, 0);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 9px Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("NOVA SBE", 0, 0);
+  ctx.restore();
 }
 
 // The upper floor along the north wall of the atrium: a slab with a glass balustrade, reached by the
@@ -272,6 +346,76 @@ function drawAtriumRoof(a, wingTop) {
   }
 }
 
+// on the Dorm's roof: a clothes line with washing that sways, a chimney, an aerial
+function drawDormRoofLife(part, t) {
+  const z = part.z + 6;
+  const y = part.y + part.h - 1.0;
+  const x0 = part.x + 0.9;
+  const x1 = part.x + part.w - 1.2;
+  for (const x of [x0, x1]) {
+    ctx.strokeStyle = "#5d6765";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    const a = isoPoint(x, y, z + 1);
+    const b = isoPoint(x, y, z + 20);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  const count = 6;
+  const sway = reducedMotion ? 0 : Math.sin(t * 0.0021) * 1.3;
+  ctx.strokeStyle = "rgba(60,60,60,.7)";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  for (let i = 0; i <= count * 2; i++) {
+    const f = i / (count * 2);
+    const p = isoPoint(x0 + (x1 - x0) * f, y, z + 19 - 3 * Math.sin(Math.PI * f));
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ["#ff7458", "#ffffff", "#64cbc8", "#f5c95e", "#9a7bc1", "#ffffff"].forEach((color, i) => {
+    const f = (i + 0.5) / count;
+    const p = isoPoint(x0 + (x1 - x0) * f, y, z + 19 - 3 * Math.sin(Math.PI * f));
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 4, p.y);
+    ctx.lineTo(p.x + 4, p.y);
+    ctx.lineTo(p.x + 3.4 + sway, p.y + (i % 2 ? 12 : 9));
+    ctx.lineTo(p.x - 3.4 + sway, p.y + (i % 2 ? 12 : 9));
+    ctx.closePath();
+    ctx.fill();
+  });
+  drawBlock(part.x + part.w - 1.4, part.y + 0.9, 0.5, 0.5, z + 16, "#e4e5e2", "#aeb5b3", "#c9cdd0");
+  const aerial = isoPoint(part.x + 1.3, part.y + 1.1, z);
+  ctx.strokeStyle = "#31545b";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(aerial.x, aerial.y);
+  ctx.lineTo(aerial.x, aerial.y - 26);
+  ctx.moveTo(aerial.x - 7, aerial.y - 22);
+  ctx.lineTo(aerial.x + 7, aerial.y - 22);
+  ctx.moveTo(aerial.x - 5, aerial.y - 17);
+  ctx.lineTo(aerial.x + 5, aerial.y - 17);
+  ctx.stroke();
+}
+
+// rooftop plant on the main block: two air-handling boxes with a grille and a stair head, so the roof
+// is not an empty sheet
+function drawRoofPlant(part) {
+  const top = part.z + 6;
+  const box = (x, y, w, h, rise) => {
+    drawRaisedSlab(x, y, w, h, top + rise, rise, "#e8ebe9", "#aeb5b3", "#c9cecc");
+    drawFacadeBandY(x + 0.1, y + h + 0.012, w - 0.2, top + rise * 0.25, top + rise * 0.75, "#8f9a98", Math.max(3, Math.round(w * 3)));
+  };
+  box(part.x + part.w - 3.1, part.y + 1.0, 1.9, 1.0, 9);
+  box(part.x + part.w - 3.1, part.y + 2.6, 1.9, 1.0, 9);
+  box(part.x + 1.0, part.y + 1.0, 1.2, 1.2, 14);
+  const rail = isoPoint(part.x + part.w - 0.45, part.y + part.h - 0.45, top + 5);
+  ctx.fillStyle = "#31545b";
+  ctx.fillRect(rail.x - 1, rail.y - 8, 2, 8);
+}
+
 function drawWingRoof(wing, t) {
   const opacity = roofOf(wing.id);
   if (opacity < 0.01) return;
@@ -284,7 +428,9 @@ function drawWingRoof(wing, t) {
   for (const part of plain) {
     drawRaisedSlab(part.x - 0.2, part.y - 0.2, part.w + 0.4, part.h + 0.4, part.z + 6, 7, WHITE.top, WHITE.east, WHITE.south);
     if (look.garden) drawRoofGarden(part.x + 0.55, part.y + 0.45, part.w - 1.1, part.h - 1.0, part.z + 6);
+    if (wing.id === "dorm") drawDormRoofLife(part, t);
     else drawRoofLights(part.x + 0.7, part.y + 0.7, part.w - 1.4, part.h - 1.4, part.z + 6);
+    if (wing.id === "nova") drawRoofPlant(part);
   }
   if (atrium) {
     drawAtriumRoof(atrium, Math.max(...plain.map((p) => p.z)) + 6);
@@ -311,6 +457,7 @@ const roofDepth = (wingId) => {
 
 export function novaActors(t) {
   const actors = [...wallActors(), ...canopyActors(), ...roomActors(t)];
+  actors.push({ depth: COLUMNS[3] + CANOPY_Y + CANOPY_DEPTH - 0.2, draw: drawNovaSign });
   for (const wing of world.nova.wings) actors.push({ depth: roofDepth(wing.id), draw: () => drawWingRoof(wing, t) });
   return actors;
 }

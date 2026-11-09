@@ -8,7 +8,7 @@
 // tile is drawn in slices, so that a person standing in front of or behind it is sorted right.
 
 import { drawPersonFigure } from "./people.js";
-import { drawBlock, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
+import { drawBlock, drawFacadeBandX, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
 import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
 
 const FLOOR_Z = 4;
@@ -193,7 +193,18 @@ function paintMeetingFloor(area) {
   for (let x = area.x + 1; x < area.x + area.w; x += 1) floorLine(x, area.y, x, area.y + area.h, "rgba(49,84,91,.08)", 0.7);
 }
 
+// the Dorm (spec nova-zones): timber, a teal rug at the foot of the bed
+function paintBedroomFloor(area) {
+  paintCafeFloor(area, "#dcc4a0");
+  floorQuad(area.x + 0.7, 10.35, 1.7, 1.55, "rgba(100,203,200,.34)");
+  for (const [x1, y1, x2, y2] of [[0, 0, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 0, 0]]) {
+    floorLine(area.x + 0.7 + x1 * 1.7, 10.35 + y1 * 1.55, area.x + 0.7 + x2 * 1.7, 10.35 + y2 * 1.55, "rgba(49,84,91,.4)", 1.2);
+  }
+}
+
 const FLOORS = {
+  "dorm-sleep": paintBedroomFloor,
+  "dorm-desk": (area) => paintCafeFloor(area, "#d6bd9b"),
   cafe: paintCafeFloor, atrium: paintAtriumFloor, merch: paintMerchFloor, print: paintPrintFloor,
   study: paintStudyFloor, seminar: paintSeminarFloor, supply: paintSupplyFloor,
   lounge: paintLoungeFloor, meeting: paintMeetingFloor,
@@ -212,7 +223,7 @@ function paintEntranceMat(wingId) {
 }
 
 // patches of light from the windows in the north wall, moving with the time of day
-const LIT_FROM_THE_NORTH = ["nova", "learning-center"];
+const LIT_FROM_THE_NORTH = ["nova", "learning-center", "dorm"];
 
 function paintWindowLight(wingId) {
   if (!LIT_FROM_THE_NORTH.includes(wingId)) return;
@@ -981,12 +992,104 @@ function employeeActors(t) {
   return actors;
 }
 
+// ---- the Dorm (spec nova-zones) ------------------------------------------------------------------
+
+const BED_WOOD = ["#c99a62", "#8f6a3f", "#a98050"];
+
+// a bed with its head at the north wall: frame, mattress, a blanket over the foot, two pillows
+function drawBed(item) {
+  drawBlock(item.x, item.y, item.w, item.h, 13, ...BED_WOOD);
+  drawBlock(item.x, item.y, item.w, 0.14, 32, ...BED_WOOD); // headboard
+  drawRaisedSlab(item.x + 0.07, item.y + 0.14, item.w - 0.14, item.h - 0.2, 19, 5, "#f4efe6", "#c9c6bd", "#dedad0");
+  const blanket = item.y + item.h * 0.42;
+  drawRaisedSlab(item.x + 0.05, blanket, item.w - 0.1, item.y + item.h - blanket - 0.02, 22, 4, "#ff8a6e", "#c25a42", "#e06d52");
+  for (const px of [item.x + item.w * 0.28, item.x + item.w * 0.72]) {
+    const p = isoPoint(px, item.y + 0.45, 24);
+    ellipseAt(p, 9, 4.4, "#ffffff");
+    ctx.strokeStyle = "rgba(49,84,91,.25)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 9, 4.4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // a stripe across the blanket and a folded corner
+  drawFacadeBandY(item.x + 0.05, item.y + item.h + 0.01, item.w - 0.1, 8, 20, "#e06d52", 1);
+  drawFacadeBandY(item.x + 0.05, item.y + item.h + 0.012, item.w - 0.1, 14, 16, "#fff1e6", 1);
+}
+
+// a wardrobe against the west wall, its doors facing east, drawn in slices along y
+function drawWardrobeSlice(item, y, length, index, count) {
+  drawBlock(item.x, y, item.w, length, 62, "#d3b17c", "#8f6a3f", "#b58e5b");
+  const face = item.x + item.w + 0.012;
+  drawFacadeBandX(face, y + 0.04, length - 0.08, 5, 58, "#c49a62", 1);
+  if (index === 0) drawFacadeBandX(face + 0.001, y + 0.02, 0.05, 5, 58, "#7b5a3a", 1);
+  const p = isoPoint(face, y + length * (index % 2 ? 0.25 : 0.75), 32);
+  ellipseAt(p, 1.4, 1, "#3b2c1c");
+  if (index === count - 1) ellipseAt(isoPoint(face, y + length - 0.1, 62), 0.1, 0.1, "#8f6a3f");
+}
+
+// a desk against the north wall with a chair; the laptop and the lamp come from the study tables
+function drawDormChair(item) {
+  const x = item.x + 0.8;
+  const y = item.y + item.h + 0.5;
+  drawStool(x, y, 17, CORAL);
+}
+
+// the pictures on the north wall: a poster over the bed, a cork board with notes over the desk
+function drawDormPoster() {
+  const x = 35.7;
+  drawFacadeBandY(x, 8.12, 1.1, 38, 58, "#173743", 1);
+  drawFacadeBandY(x + 0.06, 8.121, 0.98, 41, 55, "#64cbc8", 1);
+  const p = isoPoint(x + 0.55, 8.13, 49);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(p.x - 8, p.y + 2);
+  ctx.quadraticCurveTo(p.x - 3, p.y - 7, p.x + 1, p.y);
+  ctx.quadraticCurveTo(p.x + 4, p.y + 5, p.x + 8, p.y - 3);
+  ctx.stroke();
+  ellipseAt({ x: p.x + 5, y: p.y - 6 }, 2, 1.5, SUN);
+}
+
+function drawDormCorkboard() {
+  const x = 38.55;
+  drawFacadeBandY(x, 8.12, 1.3, 36, 56, "#7b5a3a", 1);
+  drawFacadeBandY(x + 0.05, 8.121, 1.2, 38, 54, "#c99a62", 1);
+  [[0.15, 0.2, "#fff6c9"], [0.55, 0.12, "#ffd3c4"], [0.85, 0.3, "#d6f1c4"], [0.3, 0.55, "#c4e8f0"]].forEach(([fx, fz, color]) => {
+    const p = isoPoint(x + 0.05 + fx * 1.1, 8.13, 38 + fz * 16);
+    ctx.fillStyle = color;
+    ctx.fillRect(p.x - 2.6, p.y - 3, 5.2, 5);
+    ctx.fillStyle = CORAL;
+    ctx.fillRect(p.x - 0.5, p.y - 3.4, 1, 1);
+  });
+}
+
+function dormActors(item) {
+  if (item.id === "dorm-bed") return [{ depth: item.x + item.w / 2 + item.y + item.h + 0.01, draw: () => drawBed(item) }];
+  if (item.id === "dorm-wardrobe") return slicedY(item, 1.0, (y, length, i, n) => drawWardrobeSlice(item, y, length, i, n));
+  if (item.id === "dorm-shelf") return sliced(item, 1.1, (x, w, i) => drawBookshelfSlice(item, x, w, i));
+  if (item.id === "dorm-desk") {
+    return [
+      ...sliced(item, 0.95, (x, w, i, n) => drawStudyTableSlice(item, x, w, i, n)),
+      { depth: item.x + 0.8 + item.y + item.h + 0.5, draw: () => drawDormChair(item) },
+    ];
+  }
+  return [];
+}
+
+const dormDecor = () => [
+  { depth: 43.2, draw: drawDormPoster },
+  { depth: 46.4, draw: drawDormCorkboard },
+];
+
 export function roomActors(t) {
   const actors = [];
   for (const item of layout().solid) {
     if (!wingIsOpen(item.wing)) continue; // a closed wing shows nothing of what is inside
     const id = item.id;
-    if (id === "cafe-shelf") {
+    if (id.startsWith("dorm-") && id !== "dorm-plant") {
+      actors.push(...dormActors(item));
+    } else if (id === "cafe-shelf") {
       actors.push(...sliced(item, 1.1, (x, w, i) => drawCafeShelfSlice(item, x, w, i)));
       actors.push({ depth: onTop(item.x + 2.7, item), draw: () => drawEspressoMachine(item.x + 2.7, item.y + item.h * 0.5) });
       actors.push({ depth: onTop(item.x + 1.1, item), draw: () => drawCup(item.x + 1.1, item.y + item.h * 0.5, 28) });
@@ -1050,6 +1153,7 @@ export function roomActors(t) {
       actors.push({ depth: item.x + item.y + 0.3, draw: () => drawIndoorPlant(item.x, item.y, scale) });
     }
   }
+  if (wingIsOpen("dorm")) actors.push(...dormDecor());
   layout().activities.forEach((activity, index) => {
     if (!wingIsOpen(activity.wing)) return;
     actors.push({ depth: activity.x + activity.y + 0.03, draw: () => drawRoomPerson(activity, t, index) });
