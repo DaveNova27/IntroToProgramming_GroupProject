@@ -84,6 +84,7 @@ animate that answer.
 | `editor-mode.md` | `editor-mode` | Dev tools, off unless the server starts with `CT_EDITOR=1` (and only for requests from this computer): set or add cash, fix the weather, skip several days, one validated state patch (day, shops and levels, stock, prices, seed, player), reset the run. Editor panel on the campus page. Base for `demo-scenarios`. Employees and popularity are not settable yet. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 | `outlook.md` | `outlook` | Before *Open day* only a forecast of the day's weather is shown (picture and temperature range); the real weather appears once the day is opened, next to the forecast for tomorrow. Wrong about 20 % of the time (a neighbouring weather), drawn from the seed with its own roll so the real weather stays the same; always right with the demo override. The day summary on the campus page is an evening report: the forecast for the next day and a tip per open shop (more, fewer or the usual customers, from the weather table; the tips take effect with `pricing`, #38). The real weather is hidden in the display only: the API still sends it (see the spec's note). |
+| `pricing.md` | `pricing` | Customers from two segments (students, visitors) with price curves, a mix per shop and the day's factors (weather first, events and trend plug in later); the screen shows the same number everywhere and explains it ("Why this number?", live price preview). Replaces the old one-line demand rule. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -92,7 +93,7 @@ The tag `v1.0` is the dashboard-only version before the map.
 The first specs above are the solo-project history, the rest is the group project.
 The plan, with what is built and what is open, is in
 [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v3, state of 2026-11-09).
-Still open: `pricing`, `shop-walk`, `shop-art`, `nova-design`, `popularity`,
+Still open: `shop-walk`, `shop-art`, `nova-design`, `popularity`,
 `events-and-disruptions`, `weather-visuals`, `badges`, `outfits`, `guests`,
 `demo-scenarios` and `final-polish`; proposed: `day-cycle` and `warehouse`. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
