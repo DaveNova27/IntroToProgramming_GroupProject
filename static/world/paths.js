@@ -6,6 +6,10 @@ import { pointBlocked } from "./physics.js";
 const STEP = 0.5; // tiles between two grid points
 const SAMPLE = 0.1; // tiles between two checks along a straight line
 const SQRT2 = Math.SQRT2;
+// Straightening cuts corners. A shortcut that passes a solid object closer than this extra margin
+// (tiles) is not taken: the walker never follows a line exactly, and a hair too close makes it
+// stand still at the corner and give up (spec click-walk).
+const CORNER_MARGIN = 0.1;
 
 const grids = new WeakMap(); // one grid per list of solid objects
 
@@ -138,5 +142,5 @@ export function findPath(start, goal, bounds, colliders, radius) {
     x: bounds.minX + (node % grid.columns) * STEP,
     y: bounds.minY + Math.floor(node / grid.columns) * STEP,
   }));
-  return straighten([start, ...points, goal], colliders, radius).slice(1);
+  return straighten([start, ...points, goal], colliders, radius + CORNER_MARGIN).slice(1);
 }
