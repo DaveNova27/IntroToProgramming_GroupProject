@@ -2,8 +2,10 @@
 // from map tiles to screen, and the data from the server.
 // Nothing here decides a rule. The player's position and the clock are only for showing.
 
-export const TILE_W = 76;
-export const TILE_H = 38;
+// The camera looks straight at the campus from the south, a little from above (spec map-view):
+// x goes right, y goes down into the picture (north at the top, the sea at the bottom), height goes up.
+export const TILE = 44; // pixels per tile across
+export const DEPTH = TILE * 0.7; // pixels per tile into the picture
 export const PLAYER_RADIUS = 0.28;
 export const WALK_SPEED = 3.5; // tiles per second
 
@@ -50,9 +52,14 @@ export const wingIsOpen = (wingId) => roofOf(wingId) < 0.98;
 
 export const activeZone = () => world.zones[scene.zoneId];
 
+// From map tiles (and a height in pixels) to the screen. The name is older than the straight view.
 export function isoPoint(x, y, z = 0) {
-  return { x: ((x - y) * TILE_W) / 2, y: ((x + y) * TILE_H) / 2 - z };
+  return { x: x * TILE, y: y * DEPTH - z };
 }
+
+// The order to draw in: what stands further south (larger y) is in front. A small share of x keeps
+// two things on the same row in a fixed order, so nothing flickers.
+export const depthOf = (x, y) => y + x * 0.001;
 
 // from a click on the canvas back to map tiles
 export function canvasWorldPoint(event) {
@@ -60,5 +67,5 @@ export function canvasWorldPoint(event) {
   const center = isoPoint(camera.x, camera.y);
   const ix = (event.clientX - rect.left - canvas.clientWidth / 2) / camera.zoom + center.x;
   const iy = (event.clientY - rect.top - canvas.clientHeight / 2) / camera.zoom + center.y;
-  return { x: iy / TILE_H + ix / TILE_W, y: iy / TILE_H - ix / TILE_W };
+  return { x: ix / TILE, y: iy / DEPTH };
 }

@@ -217,10 +217,10 @@ function wireInput() {
 function keyDirection() {
   let dx = 0;
   let dy = 0;
-  if (keys.has("w") || keys.has("arrowup")) { dx--; dy--; }
-  if (keys.has("s") || keys.has("arrowdown")) { dx++; dy++; }
-  if (keys.has("a") || keys.has("arrowleft")) { dx--; dy++; }
-  if (keys.has("d") || keys.has("arrowright")) { dx++; dy--; }
+  if (keys.has("w") || keys.has("arrowup")) dy--;
+  if (keys.has("s") || keys.has("arrowdown")) dy++;
+  if (keys.has("a") || keys.has("arrowleft")) dx--;
+  if (keys.has("d") || keys.has("arrowright")) dx++;
   return { dx, dy };
 }
 

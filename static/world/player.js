@@ -3,15 +3,15 @@
 
 import { drawPersonFigure } from "./people.js";
 import { drawRaisedSlab } from "./primitives.js";
-import { ctx, isoPoint, reducedMotion, scene, world } from "./scene.js";
+import { ctx, depthOf, isoPoint, reducedMotion, scene, world } from "./scene.js";
 
 const bedOf = () => world.dorm?.interior.solid.find((item) => item.id === "dorm-bed");
 
 // drawn right after the bed while sleeping, so nothing in front of the bed covers the sleeper wrongly
 export function playerDepth() {
   const bed = scene.sleeping && bedOf();
-  if (bed) return bed.x + bed.w / 2 + bed.y + bed.h + 0.02;
-  return scene.player.x + scene.player.y;
+  if (bed) return depthOf(bed.x + bed.w / 2, bed.y + bed.h + 0.02);
+  return depthOf(scene.player.x, scene.player.y);
 }
 
 function drawSleeper(t, bed) {

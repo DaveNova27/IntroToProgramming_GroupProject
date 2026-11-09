@@ -12,7 +12,7 @@ import {
 import { drawLocation, openPlaces } from "./locations.js";
 import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer, playerDepth } from "./player.js";
-import { camera, canvas, ctx, isoPoint, scene } from "./scene.js";
+import { camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
 
 export function drawWorld(t) {
@@ -47,7 +47,7 @@ export function drawWorld(t) {
     ...beachActors(t),
     ...novaActors(t),
     ...walkerActors(t),
-    ...places.map(([id, loc]) => ({ depth: loc.x + loc.y, draw: () => drawLocation(id) })),
+    ...places.map(([id, loc]) => ({ depth: depthOf(loc.x, loc.y), draw: () => drawLocation(id) })),
     { depth: playerDepth(), draw: () => drawPlayer(t) },
   ];
   actors.sort((a, b) => a.depth - b.depth).forEach((actor) => actor.draw());

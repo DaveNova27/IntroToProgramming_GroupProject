@@ -14,11 +14,12 @@ import {
   drawFacadeBandY,
   drawPlane,
   drawRaisedSlab,
+  drawFootprintShadow,
   drawSoftShadow,
   drawWorldLabel,
 } from "./primitives.js";
 import { GALLERY_Z, drawInteriorFloor, drawInteriorWayfinding, roomActors } from "./rooms.js";
-import { ctx, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
+import { ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 // colours estimated from photographs of the real campus
 const WHITE = { top: "#f7f7f4", south: "#e4e5e2", east: "#c9cdd0" };
@@ -59,7 +60,7 @@ export function drawNovaGround() {
   const wings = world.nova.wings.map((wing) => wing.id);
   for (const id of wings) {
     const b = wingBounds(id);
-    drawSoftShadow(b.x + b.w / 2, b.y + b.h * 0.8, b.w * 27, b.h * 20, 0.17);
+    drawFootprintShadow(b.x + b.w / 2, b.y + b.h * 0.8, b.w, b.h, 0.17);
   }
   for (const id of wings) {
     const b = wingBounds(id);
@@ -113,12 +114,8 @@ function drawNovaFacade(wall, x, y, w, h, z) {
     drawRaisedSlab(x, face, w, 0.24, z * 0.53, 3.5, WHITE.top, WHITE.east, WHITE.south);
     drawFacadeBandY(x, face + 0.26, w, z - 12, z - 9, "#ff7b5b", 1);
     for (const at of fins(x, x + w)) drawBlock(at - 0.08, face, 0.16, 0.22, z * 0.93, "#ffffff", WHITE.east, WHITE.south);
-  } else if (wall.side === "east") {
-    const face = x + w;
-    drawFacadeBandX(face + 0.02, y, h, 0, 7, "#8f9a98", 1);
-    drawRaisedSlab(face, y, 0.24, h, z * 0.53, 3.5, WHITE.top, WHITE.east, WHITE.south);
-    for (const at of fins(y, y + h)) drawBlock(face, at - 0.08, 0.22, 0.16, z * 0.93, "#f2f3f0", WHITE.east, WHITE.south);
   }
+  // the east face is seen edge-on from the front (spec map-view): no ledge and no fins there
 }
 
 // The entrance: a stone apron with two steps, a dark header beam under the canopy between the two middle
@@ -157,10 +154,7 @@ function drawNovaSign() {
   drawRaisedSlab(from, y, to - from, 0.2, CANOPY_Z - 5, 9, "#4c7380", "#1d3a43", "#25444e");
   drawFacadeBandY(from + 0.12, y + 0.212, to - from - 0.24, CANOPY_Z - 17, CANOPY_Z - 15.5, "#ff7b5b", 1);
   const p = isoPoint((from + to) / 2, y + 0.22, CANOPY_Z - 11);
-  const slope = isoPoint(from + 1, y, 0).y - isoPoint(from, y, 0).y; // the face runs along x: skew the text with it
-  const along = isoPoint(from + 1, y, 0).x - isoPoint(from, y, 0).x;
   ctx.translate(p.x, p.y);
-  ctx.transform(1, slope / along, 0, 1, 0, 0);
   ctx.fillStyle = "#ffffff";
   ctx.font = "800 9px Menlo, Consolas, monospace";
   ctx.textAlign = "center";
@@ -189,11 +183,11 @@ function drawGallery(wall, x0, x1) {
   if (x1 > split) drawRaisedSlab(Math.max(x0, split), inner, x1 - Math.max(x0, split), 0.2, GALLERY_Z, 5, WHITE.top, WHITE.east, WHITE.south);
 }
 
-// How far up is a wall? A front wall (south, east) hides its own wing, so it sinks to a rim when that
-// roof is gone. A wall can also hide another wing behind it (`hides`), like the west wall of the Nova
-// hides the Learning Center. A back wall that hides nothing stays full height.
+// How far up is a wall? The front wall (south, the camera looks from there) hides its own wing, so it
+// sinks to a rim when that roof is gone. A wall can also hide another wing behind it (`hides`), like the
+// west wall of the Nova hides the Learning Center. A wall that hides nothing stays full height.
 function wallHeight(wall, full) {
-  const front = wall.side === "south" || wall.side === "east";
+  const front = wall.side === "south";
   const hides = wall.hides ?? (front ? [wall.wing] : []);
   if (!hides.length) return full;
   const closed = Math.min(...hides.map(roofOf));
@@ -227,12 +221,13 @@ function wallActors() {
         const h = alongX ? wall.h : size;
         const cx = x + w / 2;
         const cy = y + h / 2;
-        // The front walls sort by their front line (everything inside is behind them). The back walls
-        // sort by their back corner, so that everything standing in the rooms is drawn after them.
-        let depth = cx + wall.y + wall.h + 0.01;
-        if (wall.side === "north") depth = x + wall.y;
-        if (wall.side === "west") depth = wall.x + y;
-        if (wall.side === "east") depth = wall.x + wall.w + cy + 0.01;
+        // The front (south) walls sort by their front line: everything inside is behind them. The north
+        // walls sort by their back line, so everything standing in the rooms is drawn after them. The
+        // side walls sort by the front end of each slice.
+        let depth = depthOf(cx, wall.y + wall.h + 0.01);
+        if (wall.side === "north") depth = depthOf(x, wall.y);
+        if (wall.side === "west") depth = depthOf(wall.x, y + h);
+        if (wall.side === "east") depth = depthOf(wall.x + wall.w, y + h + 0.01);
         actors.push({
           depth,
           draw: () => {
@@ -279,7 +274,7 @@ function canopyActors() {
     for (let i = 0; i < slices; i++) {
       const x = from + i * size;
       actors.push({
-        depth: x + size / 2 + CANOPY_Y + 0.02,
+        depth: depthOf(x + size / 2, CANOPY_Y + CANOPY_DEPTH + 0.02), // overhead: sorts by its front edge
         draw: () => {
           // the canopy is part of the roof: it fades with it, so that it does not hide the floor
           const roof = roofOf("nova");
@@ -295,7 +290,7 @@ function canopyActors() {
   for (const x of COLUMNS.filter((column) => spans.some(([from, to]) => column > from && column < to))) {
     const y = CANOPY_Y + CANOPY_DEPTH - 0.15;
     actors.push({
-      depth: x + y + 0.02,
+      depth: depthOf(x, y + 0.02),
       draw: () => {
         ctx.save();
         ctx.globalAlpha = 0.35 + 0.65 * roofOf("nova");
@@ -450,14 +445,15 @@ function drawWingRoof(wing, t) {
 // A roof is drawn after every wall piece and every person under it, and before what stands in front.
 const roofDepth = (wingId) => {
   const b = wingBounds(wingId);
-  return b.x + b.w + b.y + b.h + 1;
+  return depthOf(b.x + b.w, b.y + b.h + 0.02); // just after the south wall (front line + 0.01)
 };
 
 // ---- everything of the Nova that is sorted with the rest of the scene -----------------------
 
 export function novaActors(t) {
   const actors = [...wallActors(), ...canopyActors(), ...roomActors(t)];
-  actors.push({ depth: COLUMNS[3] + CANOPY_Y + CANOPY_DEPTH - 0.2, draw: drawNovaSign });
+  // the sign hangs under the front edge of the canopy: drawn just after it
+  actors.push({ depth: depthOf(COLUMNS[3], CANOPY_Y + CANOPY_DEPTH + 0.03), draw: drawNovaSign });
   for (const wing of world.nova.wings) actors.push({ depth: roofDepth(wing.id), draw: () => drawWingRoof(wing, t) });
   return actors;
 }

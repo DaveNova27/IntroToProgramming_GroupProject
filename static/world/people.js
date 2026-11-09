@@ -80,10 +80,12 @@ export const personStyles = [
   },
 ];
 
+// Which side of a figure shows (spec map-view: the camera looks from the south). Facing north (y < 0)
+// shows the back, south the front, east or west (also on a diagonal) the profile.
 export function characterView(facing = { x: 0, y: 1 }) {
-  const sx = (facing.x || 0) - (facing.y || 0),
-    sy = ((facing.x || 0) + (facing.y || 0)) * 0.55,
-    side = Math.abs(sx) > 0.48;
+  const sx = facing.x || 0,
+    sy = facing.y || 0,
+    side = Math.abs(sx) > 0.6;
   return { side, back: !side && sy < -0.08, flip: sx < 0 ? -1 : 1 };
 }
 
@@ -190,9 +192,9 @@ export function drawCharacterProp(pose, style, frame, role) {
   }
 }
 
-// Lying along the bed, head to the north wall: the up axis of the figure turned onto the map's -y
-// direction on screen (TILE_W / 2, -TILE_H / 2).
-const LIE_ANGLE = Math.PI / 2 + Math.atan2(-1, 2);
+// Lying along the bed, head to the north wall. Seen from the front (spec map-view) north is up the
+// screen, so the figure keeps its direction and is only pressed flat, as a body seen lying from above.
+const LIE_SQUASH = 0.6;
 
 export function drawPersonFigure(x, y, t, index, options = {}) {
   const style = personStyles[Math.abs(index) % personStyles.length],
@@ -219,7 +221,7 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     flip = view.side ? view.flip : 1;
   ctx.save();
   ctx.translate(p.x, p.y);
-  if (lie) ctx.rotate(LIE_ANGLE);
+  if (lie) ctx.scale(1, LIE_SQUASH);
   ctx.scale(flip * scale, scale);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
