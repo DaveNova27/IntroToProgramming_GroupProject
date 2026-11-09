@@ -1,17 +1,17 @@
-# Campus Tycoon: Feature Roadmap (v3)
+# Campus Tycoon: Feature Roadmap (v4)
 
-Status: roadmap v3, state of 2026-11-09 (after PR #59). It replaces v2. What the team decided
+Status: roadmap v4, state of 2026-11-09 (after PR #80). It replaces v3. What the team decided
 stays marked "decided". Part A is the plan and the current state. Part B keeps the game
 design reference (core loop, weather and event factors, demo mode, glossary). Read
 `AGENTS.md` first for the working rules. The three roadmap rules stay (see B3): complete
 settable state, overridable day context, no randomness without the seed.
 
-What changed since v2: the whole foundation, the Nova, the four shops, the day played in a
-shop, the weather, the forecast, staff and the editor mode are built and merged. The open
-work is now the price logic, walking through the shift, popularity, events, the looks
-(`shop-art`, `nova-design`, `weather-visuals`), guests, badges, outfits, the demo and the
-polish. New in the notes of 2026-11-09: a day flow with a storage computer and a truck
-(section 4.2, `warehouse` and `day-cycle`).
+What changed since v3: the price logic (`pricing`), the day cycle at the Dorm, the straight map
+view, badges and the audit fixes (frames, calm panels, hidden weather) are built and merged. The
+open work is now the balance (`balance-pass`), walking through the shift, popularity, events, the
+looks (`shop-art`, `nova-design`, `weather-visuals`, `map-layout`), guests, outfits, the demo and the
+polish. The audit is in `docs/audit-report.md`. A day flow with a storage computer and a truck
+is proposed in section 4.2 (`warehouse`).
 
 # Part A: Plan and state
 
@@ -33,7 +33,10 @@ does not work earns nothing. Employees (refiller, seller; levels 1 to 3; wage pe
 the server in every shop. Before the day opens only a forecast of the weather is shown; the
 real weather appears once the day is open. The evening report shows tomorrow's forecast
 (wrong about 20 % of the time) and a tip per shop. Stock is still bought directly, on the dashboard and in the order panel on the campus page.
-The price logic is still the placeholder of the solo project (10, 5 or 0 customers).
+Customers come from two kinds (students, visitors) with price curves, a mix per shop and the
+weather (`pricing`); the screen explains every number ("Why this number?"). Before the day opens
+the numbers follow the forecast, not the real weather (`hidden-weather`). The day starts and ends
+at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are still placeholders.
 
 ### What is built (merged)
 
@@ -51,7 +54,16 @@ The price logic is still the placeholder of the solo project (10, 5 or 0 custome
 | `nova-zones` | #53 | The map around the Nova: Dorm, beach way, beach, outdoor shops |
 | `staff` | #54, #57, #58 | Employees: hire, level, dismiss, wages; they work in every shop |
 | `editor-mode` | #56 | Dev tools behind `CT_EDITOR=1` (cash, weather, skip days, state patch, reset) |
-| Rules | #25, #47 | AI review replaces the human review; the owner of a PR confirms test exceptions |
+| `pricing` | #62 | Two kinds of customers, price curves, a mix per shop, the weather as a factor, "Why this number?" |
+| `collapsible-stock-panel` | #63 | The stock card on the campus can be folded away |
+| `day-cycle` | #65 | The day starts and ends at the Dorm: go home, sleep, good-morning card |
+| `map-view`, `click-walk` | #67, #69 | The world is seen straight from the front; click-walk keeps a margin at corners |
+| `badges` | #79 | 20 badges with medals, awarded by the server |
+| `smooth-frames` | #77 | No blur filter for shadows, a slow frame advances the world by its real time (6 to 12 frames per second before, about 50 after) |
+| `hidden-weather` | #78 | Before the day opens no shown number depends on the real weather |
+| `calm-panels` | #80 | The side panels redraw only when changed, requests wait for each other |
+| Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
+| Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
 Tests: everything in `tests/` and `checks/` passes in CI (`uv run pytest`).
 
@@ -61,8 +73,7 @@ Done: collision and movement, the Nova room data format, zones and doors, the sm
 the characters (six-frame walk, poses), and the 2.5D renderer. Credit is in the README.
 Still to port, if needed: store silhouettes (`shop-art`), `environmentalProfile` and
 `drawSkyMotion` (`weather-visuals`), the eight designed spaces (`nova-design`), guest groups
-and destination scoring (`guests`), `createShowcaseRun` (`demo-scenarios`), `scenarioGoals`
-(`badges`). Not taken: 25 district businesses, DJ events, maintenance and cleaning,
+and destination scoring (`guests`), `createShowcaseRun` (`demo-scenarios`). Taken: `scenarioGoals` (the model of `badges`, built). Not taken: 25 district businesses, DJ events, maintenance and cleaning,
 management overlays, guest needs, progression levels, showcase editor.
 
 ## 2. Decisions the team gave so far
@@ -136,15 +147,15 @@ one branch, one issue, one pull request.
 
 | Spec | Issue | Track | Effort | Depends on | What |
 |---|---|---|---|---|---|
-| `pricing` | #38 | L | M | day-context, shop-process (both done) | Replaces the solo project's demand steps (`customers_for`, `demand`): customers from price, weather, events and later popularity. The weather factors (`WEATHER[..]["demand_percent"]`) are shown and used for the tips but do not change customers yet. This is also what makes staff levels matter. |
+| `balance-pass` | #76 | L | M | pricing (done) | Rebalance the shop numbers (the Surf Shop earns about 25000 euro a season, the whole Cafe about 1500), a warning against the dead end (cash 0 and no stock), the trap (a shop without an employee place sells nothing), the storeroom limit (counter units not counted), the simulation as a guard test. See `docs/audit-report.md` (G1, B2, B3, B4). |
 | `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
 | `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
-| `popularity` | #13 | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
+| `popularity` | #13 | L | M | pricing (done), `balance-pass` (#76: both change the tables in `logic.py`) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
 | `events-and-disruptions` | #14 | L | M | day-context | Campus events (exam period, party, career fair), trends, outages, strikes as entries in the day context. Felix' 7 day types are the event table. |
 | `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
-| `badges` | #15 | L | S | none | Badges awarded by the server after a day. Good first task. Felix' `scenarioGoals` as a model. |
+| `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
 | `guests` | #22 | L and V | L | pricing, shop-walk | Visible guests that choose a shop and walk there; replaces `ai-customers` and `walkways`. Open: sales per day on the server, or live guests. Decided later. |
 | `demo-scenarios` | #23 | L | M | the features chosen for the demo, editor-mode (done) | Built last. `scenarios.py`, loader, explanation overlay, free mode at the end. |
@@ -157,15 +168,15 @@ The team's notes describe a fuller day. Part of it is built, the rest is two new
 | Note | Status |
 |---|---|
 | Try staff further | See `staff` follow-up above. |
-| End the day and start it at a fixed place | Decided on 2026-11-08 (the Dorm), still to build: `day-cycle`. |
-| A storage computer to order goods; they arrive by truck | New: `warehouse`. |
+| End the day and start it at a fixed place | Built: `day-cycle` (#65). |
+| A storage computer to order goods; they arrive by truck | New: `warehouse` (proposal, no issue yet). |
 | From there the storerooms of the shops are supplied | New: `warehouse` (carrying from the central storage to each shop). |
 | Then the workday starts; always the same length (one shift); only then money is earned | Built: `SHIFT_TICKS`, "whoever does not work earns nothing". |
 | After work, walk around and do things | The rest of the opened day is free time. What there is to do is open (section 7, question 4). |
 
 | Spec | Track | Effort | Depends on | What | Out of scope |
 |---|---|---|---|---|---|
-| `day-cycle` | L and V | M | outlook, nova-zones (done) | The day starts at the Dorm and ends there: "End the day" at the Dorm opens the day-end screen (the evening report), the next day begins at the Dorm. The dashboard button stays a second way. The position decides no rule: the server takes the end of the day as a plain request. | Ordering, trucks, shop work |
+| `day-cycle` | L and V | M | built (#65): outlook, nova-zones | The day starts at the Dorm and ends there: "End the day" at the Dorm opens the day-end screen (the evening report), the next day begins at the Dorm. The dashboard button stays a second way. The position decides no rule: the server takes the end of the day as a plain request. | Ordering, trucks, shop work |
 | `warehouse` | L and V | L | shop-process (done), day-cycle | A central storage with a computer: the player orders stock there (server checks money and space), a truck brings it at a fixed time, the goods land in the central storage, and the player carries them to the storeroom of each shop. Replaces buying stock directly on the dashboard. Order, delivery and carrying are all server requests; the walk only decides when. | Pricing, guests, shop art, delivery events |
 
 Effects to agree before building `warehouse`: `buy` and the stock model change (today one `stock`
@@ -177,31 +188,32 @@ change in the spec. The old truck of the three.js map is only a reference for th
 
 - `specs/employees.md`, `investments.md`, `multi-business.md` and `net-worth.md` come from the
   first draft (PR #1) and belong to the dropped plan; delete or mark them as replaced.
+- The cleanup of the audit (dead code, this roadmap and the README, old specs, price text, product name fallback) is proposed as one spec: `cleanup-dead-code` (`docs/audit-report.md`, section 4). The two items above belong to it.
 - `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
-## 5. Issue status (2026-11-09)
+## 5. Issue status (2026-11-09, after PR #80)
 
 | Issue | State |
 |---|---|
-| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode` |
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #15 `badges`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #38 `pricing`, #40 `shop-walk` |
-| To open | `day-cycle`, `warehouse` |
+| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout`, #76 `balance-pass` |
+| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `render-cache`, `lean-responses`, `editor-staff`, `cleanup-dead-code`, `deploy-ready`) |
 
 ## 6. Suggested next steps (proposal)
 
-1. `pricing` (#38): it makes customers, weather and staff levels mean something. Everything in the depth phase builds on it. One person alone, it changes `customers_for` and the numbers of the shop tests.
-2. In parallel, small and independent: `badges` (#15), `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16).
-3. Agree on `day-cycle` and `warehouse` (section 4.2): write the specs, open the issues, decide the open questions below.
-4. `shop-walk` (#40) after `shop-art` has the shop places drawn; `popularity` (#13) after `pricing`.
+1. `balance-pass` (#76): the shops earn very different amounts (audit G1), and the dead end and the trap are open. Decided by David (owner of the spec) in the session of 2026-11-09, written in `specs/balance-pass.md`: warn before a purchase that leaves nothing to buy (no refusal; the audit's other option, a refusal, is dropped), no loan yet (a loan is the feature `F8` of the audit, a spec of its own), the day length is solved by the demo and a speed step, not by the numbers.
+2. In parallel, small and independent: `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
+3. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
+4. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
 5. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
 
-No one is assigned yet. Each spec gets its `specs/<name>.md` in its own PR.
+Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a spec without an assignee is free. Each spec gets its `specs/<name>.md` in its own PR.
 
 ## 7. Open decisions
 
 1. Forecast error rate (now 20 %) and the weather and event factors per shop: placeholders, to balance with `pricing`.
-2. Day length: an opened day is 300 ticks, a shift 90. Is one second a tick right, and how long should a play-through of 30 days take?
+2. Day length: an opened day is 300 ticks, a shift 90. Decided by David in the session of 2026-11-09 (to be confirmed by the team): the numbers stay; the demo mode (`demo-scenarios`) skips days for the presentation, and a speed step for the tick (several ticks per request, a feature of its own) is the comfort for normal play.
 3. Does `trade_day` (a day without a player) stay as it is, with no staff and no wages, or get staff too?
 4. What is there to do in the free time after the shift (`day-cycle`)? For example unlocking and levelling shops at their windows, hiring, walking to the Print Corner, rest at the Dorm.
 5. `warehouse`: one central storage for all shops or a storage per shop? How long does a truck take, and can a delivery fail (strike, shortage)? What does the storage hold at most?
@@ -231,7 +243,7 @@ Planned on top: demand from price, weather, events and popularity (`pricing`, `p
 `events-and-disruptions`): DEMAND = base from price x weather x event x trend x popularity
 x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
 shelves and too high prices; it affects the next day. The day starts and ends at the Dorm
-(`day-cycle`).
+(`day-cycle`, built).
 
 Everything is per shop: each shop has its own demand, stock, counter and staff.
 
