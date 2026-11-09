@@ -196,7 +196,10 @@ def view(state):
     finished = logic.is_finished(state)
     editor_on = has_request_context() and editor_switch_on()
     owned = logic.owned_products(state)
-    products = [product_view(state, pid, finished) for pid in logic.CATALOGUE if pid in owned]
+    # the numbers of customers come from what the player may know: before the day is opened
+    # that is the forecast, never the real weather (hidden-weather)
+    known = logic.known_state(state)
+    products = [product_view(known, pid, finished) for pid in logic.CATALOGUE if pid in owned]
     return {
         "day": state["day"],
         "last_day": logic.LAST_DAY,
@@ -204,13 +207,13 @@ def view(state):
         "starting_cash": logic.STARTING_CASH,
         "cash": state["cash"],
         "stock_value": logic.stock_value(state),
-        "stock_overview": logic.stock_overview(state),
+        "stock_overview": logic.stock_overview(known),
         "overall_gain": logic.overall_gain(state),
         "products": products,
         "shops": shops_view(state),
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
-        "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
+        "forecast": None if finished or state["shift"] else logic.trade_day(known)[1],
         "weather": weather_view(state),
         "outlook": outlook_view(state),
         "editor": editor_on,
@@ -329,7 +332,7 @@ def price_preview():
         state = load_run()
         try:
             price = logic.euros_to_cents(body.get("price", ""))
-            return jsonify({"preview": logic.price_preview(state, body.get("product"), price)})
+            return jsonify({"preview": logic.price_preview(logic.known_state(state), body.get("product"), price)})
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason)}), 400
 

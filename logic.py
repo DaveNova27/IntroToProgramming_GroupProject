@@ -613,6 +613,20 @@ def outlook_tips(state, forecast=None):
     return tips
 
 
+def known_state(state):
+    """The state as the player may reason about it: before the day is opened the weather is
+    only the forecast, so a number shown from this state cannot reveal the real weather.
+
+    For showing only (the screens' customers, the overview, the preview); the rules that book
+    a day always use the real state. An open day or a finished run returns the state itself."""
+    forecast = None if state.get("shift") is not None else outlook(state)
+    if forecast is None:
+        return state
+    shown = copy.deepcopy(state)
+    shown["day_override"] = {"weather": forecast["weather"]}
+    return shown
+
+
 def set_day_override(state, weather):
     """Fix the weather (a demo switch) or clear it with None."""
     if weather is not None and (not isinstance(weather, str) or weather not in WEATHER):
