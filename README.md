@@ -87,6 +87,7 @@ animate that answer.
 | `outlook.md` | `outlook` | Before *Open day* only a forecast of the day's weather is shown (picture and temperature range); the real weather appears once the day is opened, next to the forecast for tomorrow. Wrong about 20 % of the time (a neighbouring weather), drawn from the seed with its own roll so the real weather stays the same; always right with the demo override. The day summary on the campus page is an evening report: the forecast for the next day and a tip per open shop (more, fewer or the usual customers, from the weather table; the tips take effect with `pricing`, #38). The real weather is hidden in the display only: the API still sends it (see the spec's note). |
 | `pricing.md` | `pricing` | Customers from two segments (students, visitors) with price curves, a mix per shop and the day's factors (weather first, events and trend plug in later); the screen shows the same number everywhere and explains it ("Why this number?", live price preview). Replaces the old one-line demand rule. |
 | `day-cycle.md` | `day-cycle` | Built, waiting for review: the day ends at the Dorm. When a day closes it gets dark and a hint offers *Go home*: the player walks to the bed by itself (a move key or a click stops it), or *Skip the walk* goes there at once, lies down, and the day summary with the evening report shows there. *Sleep* goes black, shows the night (Zzz, lamp off), then a sunrise to 09:00; the player stands up beside the bed and a good-morning card lists the forecast, stock and what to do. Ending a day early asks first when nobody works or the own shift still runs. The bed panel says *Open day* in the morning and *End the day* while a day runs. No new endpoint and no new rule; the evening is kept only in the browser. |
+| `badges.md` | `badges` | 20 badges (first sale, good day, a team of three, profit streaks of 3, 7 and 14 days, every shop unlocked, season winner, ...), awarded only by the server at the end of a day and saved in the run; a badges panel on the dashboard and a "New badge" line in the evening report. Badges give no reward; all thresholds are placeholders (`BADGES` in `logic.py`). |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -96,7 +97,7 @@ The first specs above are the solo-project history, the rest is the group projec
 The plan, with what is built and what is open, is in
 [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v3, state of 2026-11-09).
 Still open: `shop-walk`, `shop-art`, `nova-design`, `popularity`,
-`events-and-disruptions`, `weather-visuals`, `badges`, `outfits`, `guests`,
+`events-and-disruptions`, `weather-visuals`, `outfits`, `guests`,
 `demo-scenarios` and `final-polish`; proposed: `day-cycle` and `warehouse`. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
 AI, credit: https://github.com/felix-anthes-png/nova-beach-ventures). Progress is

@@ -6,6 +6,7 @@
   <title>Campus Tycoon · Campus</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
   <link rel="stylesheet" href="/static/map.css">
+  <link rel="stylesheet" href="/static/badges.css">
 </head>
 <body>
   <div class="shell">
@@ -82,6 +83,9 @@
 
     <!-- the night between two days: black for a moment while the player sleeps -->
     <div id="night-fade" class="night-fade" aria-hidden="true"></div>
+
+    <!-- a badge was earned (specs/badges.md): a card at the top left that leaves by itself -->
+    <div id="badge-pop" class="badge-toast-area" aria-live="polite" hidden></div>
 
     <!-- end of day / end of run -->
     <div id="overlay" class="overlay" hidden>

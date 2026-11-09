@@ -220,6 +220,7 @@ def view(state):
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
+        "badges": logic.badges_view(state),
         "player": state["player"],
         "base_customers": logic.BASE_CUSTOMERS,
         "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
@@ -253,6 +254,9 @@ def apply(action):
         except logic.RejectedAction as reason:
             # nothing is saved; the dashboard gets the unchanged run back
             return jsonify({"error": str(reason), "state": view(state)}), 400
+        # a badge is reached the moment its condition is true, e.g. at the first sale
+        # (specs/badges.md); only the server gives it, never from the request
+        logic.award_badges(new_state)
         db.save(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 

@@ -121,7 +121,7 @@ run is affected. Revisit it before any deployment.
 | `outlook` | Built. The forecast is made on the server. Known: the API still sends the real weather, only the display hides it. Never expose the seed. |
 | `events-and-disruptions` | Events come from the seed. The browser cannot choose one, only the editor override can. |
 | `weather-visuals` | The browser only reads the weather it may show. No `eval`, no external scripts. |
-| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
+| `badges` | Awarded only by the server, after an accepted action or at the end of a day (`specs/badges.md`). No endpoint lets the browser grant a badge. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
 | `guests` | Number of guests is capped. Guest data comes only from the server. |
 | `demo-scenarios` | Loading a scenario needs the demo switch and works only on localhost. Validate the whole state shape. Never public. |

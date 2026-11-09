@@ -139,7 +139,7 @@ button, input { font: inherit; color: inherit; }
   margin-top: 40px;
 }
 .chart-card { grid-column: span 6; }
-.result-card, .history-card, .final-banner { grid-column: 1 / -1; }
+.result-card, .history-card, .badges-card, .final-banner { grid-column: 1 / -1; }
 .campus-card { grid-column: span 5; }
 .stock-card { grid-column: span 7; }
 
@@ -617,3 +617,31 @@ body.map-main { overflow: hidden; }
   .day-label { display: none; }
   .final-banner .headline { font-size: 26px; }
 }
+
+/* ---- badges (specs/badges.md) ---- */
+.badge-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.badge .medal { --size: 40px; }
+.badge-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.badge-text small { color: var(--muted); font-size: 12px; }
+.badge.earned { background: var(--surface); border-color: var(--good); }
+.badge.earned .badge-text small { color: var(--good-text); }
+.badge.locked .badge-text b { color: var(--ink-2); }
+.note.new-badge { font-weight: 600; color: var(--good-text); }
+.final-banner .final-badges { flex-basis: 100%; }
+

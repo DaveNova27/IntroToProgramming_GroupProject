@@ -33,6 +33,23 @@ function fmt(cents) {
 }
 const fmtSigned = (cents) => (cents > 0 ? "+" : "") + fmt(cents);
 
+// ---- badges (specs/badges.md): the medal markup, the same on the dashboard and the campus ----
+const TIER_NAME = { bronze: "Bronze medal", silver: "Silver medal", gold: "Gold medal" };
+
+// A badge from the server as a medal: its tier's metal, grey while not earned. Look in badges.css.
+function medalHtml(badge) {
+  const tier = badge.day === null ? "locked" : (TIER_NAME[badge.tier] ? badge.tier : "bronze");
+  return `<span class="medal ${tier}" aria-hidden="true"><span class="coin"><span>${esc(badge.icon)}</span></span></span>`;
+}
+
+// The earned badges of a run as a grid of medals (the end of the season), or a short line.
+function medalGridHtml(badges) {
+  const earned = (badges || []).filter((b) => b.day !== null);
+  if (!earned.length) return `<p class="note">No badges this run.</p>`;
+  return `<ul class="medal-grid">${earned.map((b) => `
+    <li>${medalHtml(b)}<b>${esc(b.name)}</b><small>Day ${esc(b.day)}</small></li>`).join("")}</ul>`;
+}
+
 // A short message in the corner; errors stay longer.
 function toast(text, kind = "ok") {
   const el = document.createElement("div");
