@@ -320,8 +320,11 @@ p { margin: 0; }
 }
 @media (max-width: 760px) {
   .stat-time { display: none; }
-  /* a phone has no room for the forecast next to today's weather (outlook) */
-  .stat-outlook { display: none; }
+  /* a phone shows the picture of tomorrow's forecast only, the range is in its title */
+  .stat-outlook strong span { display: none; }
+  .stat { padding: 5px 5px; }
+  .stat strong { font-size: 10px; }
+  .stat span { letter-spacing: 0.04em; }
   .topbar { gap: 8px; padding: 6px 10px; }
   .outline-button { padding: 6px 7px; font-size: 11px; }
   .brand-mark { width: 28px; height: 28px; font-size: 12px; }

@@ -156,10 +156,13 @@ def outlook_view(state):
     }
 
 
-def editor_info():
+def editor_info(state):
     """What the editor panel offers (ids and limits from the rules, never from the screen)."""
     return {
         "weather": [{"id": wid, "name": w["name"]} for wid, w in logic.WEATHER.items()],
+        # the fixed weather (none: the seed's), for the dropdown; the real weather of the
+        # day is not in the answer before the day is open
+        "weather_override": (state["day_override"] or {}).get("weather"),
         "max_level": {sid: 1 + len(shop["window"]) for sid, shop in logic.SHOPS.items()},
         "max_cash": logic.MAX_CASH,
         "max_seed": logic.MAX_SEED,
@@ -198,7 +201,7 @@ def view(state):
         "weather": weather_view(state),
         "outlook": outlook_view(state),
         "editor": editor_on,
-        "editor_info": editor_info() if editor_on else None,
+        "editor_info": editor_info(state) if editor_on else None,
         "shift": shift_view(state),
         "staff": staff_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),

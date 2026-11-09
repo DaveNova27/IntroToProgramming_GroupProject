@@ -302,7 +302,7 @@ function renderEditorPanel(body) {
   const info = state.editor_info;
   if (!info) return;
   // do not redraw under the user's fingers while they type: only when the state changed
-  const key = JSON.stringify([state.day, state.cash, state.finished, state.weather?.id, state.shops.map((s) => s.level), !!state.shift]);
+  const key = JSON.stringify([state.day, state.cash, state.finished, info.weather_override, state.shops.map((s) => s.level), !!state.shift]);
   if (key === editorKey) return;
   editorKey = key;
   const busy = state.shift ? "disabled title=\"A day is open: finish or skip it first\"" : "";
@@ -319,7 +319,7 @@ function renderEditorPanel(body) {
       <form class="editor-row" data-editor="weather">
         <select name="weather" aria-label="Weather">
           <option value="">Seed's forecast</option>
-          ${info.weather.map((w) => `<option value="${esc(w.id)}" ${state.weather?.id === w.id ? "selected" : ""}>${esc(w.name)}</option>`).join("")}
+          ${info.weather.map((w) => `<option value="${esc(w.id)}" ${info.weather_override === w.id ? "selected" : ""}>${esc(w.name)}</option>`).join("")}
         </select>
         <button class="btn" type="submit">Fix</button>
       </form>
@@ -831,12 +831,12 @@ function eveningReport() {
   const miss = o.miss_percent > 0
     ? `<p class="note">Forecasts are wrong about ${esc(o.miss_percent)} % of the time.</p>` : "";
   // remove this line once pricing (#38) applies the weather to the customers
-  const notYet = `<p class="note">The tips follow the weather table. The weather changes
-    the number of customers once the new price logic (#38) is in.</p>`;
+  const notYet = `<p class="note">The tips follow the weather table. The weather does not change
+    the number of customers yet.</p>`;
   return `
     <div class="evening-report">
       <p class="eyebrow">Forecast for day ${esc(o.day)}</p>
-      <p class="forecast"><span class="icon" aria-hidden="true">${WEATHER_ICON_SVG(o.id)}</span>
+      <p class="forecast"><span class="icon" aria-hidden="true">${weatherIconMarkup(o.id, 22)}</span>
         <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C</p>
       <ul class="tips">${tips}</ul>${miss}${notYet}
     </div>`;
