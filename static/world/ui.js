@@ -2,7 +2,8 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
-import { DAY_END, MORNING, reducedMotion, scene, server } from "./scene.js";
+import { inReach } from "./locations.js";
+import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
 
@@ -17,6 +18,13 @@ let panelMode = null;
 let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
 let placePlayer = () => {};
+let goHome = () => false;
+let jumpHome = () => false;
+let wakeAt = () => {};
+// The day cycle (spec day-cycle): after a day closed it is evening until the player has slept.
+// Kept only here, in the browser: it decides no rule, and after a reload it is simply morning.
+let evening = false;
+let fading = false;
 
 // What happened plays one after another, wherever the action came from.
 let chain = Promise.resolve();
@@ -97,6 +105,112 @@ function dayEnded() {
   runClock(scene.clock, DAY_END, 900);
 }
 
+// The day closed (clock ran out, skipped, or ended at the bed): no summary on the map; it waits in
+// the Dorm. Standing at the bed already (End the day), the player goes straight to bed.
+function startEvening() {
+  dayEnded();
+  evening = true; // an open panel stays open (a typed order is not lost); the hint shows beside it
+  renderAll();
+  const bed = world.locations?.bed;
+  if (bed && inReach(bed)) goToBed();
+}
+
+function walkHome() {
+  if (!evening || scene.sleeping) return;
+  closePanel();
+  if (!goHome()) toast("No way home from here. Walk to the Dorm yourself.", "error");
+}
+
+// Skip the walk: black for a moment, then the player lies in the bed (the report opens there).
+async function skipWalk() {
+  if (!evening || scene.sleeping || fading) return;
+  closePanel();
+  fading = true;
+  renderEvening();
+  $("#night-fade").classList.add("on");
+  try {
+    await pause(450);
+    if (!jumpHome()) toast("The Dorm could not be found. Walk there yourself.", "error");
+  } finally {
+    fading = false;
+    $("#night-fade").classList.remove("on");
+    renderEvening();
+  }
+}
+
+function renderEvening() {
+  const hint = $("#evening-hint");
+  const hidden = !evening || scene.sleeping || fading || !$("#overlay").hidden || scene.preview;
+  if (hint.hidden !== hidden) hint.hidden = hidden;
+  const last = state.history[state.history.length - 1];
+  const text = last ? `Day ${last.day} is over. Time to go home.` : "Time to go home.";
+  const el = $("#evening-text");
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// At the bed in the evening: lie down, then the day summary and the evening report.
+function goToBed() {
+  closePanel();
+  scene.sleeping = true;
+  scene.walking = false;
+  renderEvening();
+  showDaySummary(state.history[state.history.length - 1]);
+}
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
+
+// Sleep: the screen goes black, then the dark night with the player asleep, then the sun rises
+// (the clock runs from DAWN, 05:00, to the morning), and the player stands up beside the bed.
+async function sleep() {
+  hideOverlay();
+  evening = false;
+  fading = true;
+  $("#night-fade").classList.add("on");
+  try {
+    await pause(800);
+    clockRun++; // stops a clock still running to the evening
+    scene.clock = DAWN; // the dark night before the morning
+    renderAll();
+    const fade = $("#night-fade");
+    fade.classList.add("night"); // from black to a deep night, the player asleep (Zzz)
+    fade.classList.remove("on");
+    await pause(1900);
+    fade.classList.add("sunrise"); // the dark lifts as slowly as the sun rises
+    fade.classList.remove("night");
+    await runClock(DAWN, MORNING, 3600); // the sunrise
+    scene.sleeping = false;
+    const wake = world.dorm?.wake;
+    if (wake) wakeAt(wake);
+  } finally {
+    clockRun++;
+    scene.clock = MORNING;
+    scene.sleeping = false;
+    fading = false;
+    $("#night-fade").classList.remove("on", "night", "sunrise");
+    renderAll();
+  }
+  if (state.finished) showFinal();
+  else showMorning();
+}
+
+// The morning card: the day, the forecast with the tips, the stock and what to do. Everything in
+// it comes from the server's state; the card decides nothing.
+function showMorning() {
+  const stock = state.products.map((p) => `${EMOJI[p.id] ?? ""} ${esc(p.name)} ${esc(p.stock)}`).join(" · ");
+  const crews = state.staff?.employees?.length ?? 0;
+  showOverlay(`
+    <p class="eyebrow">Good morning · Day ${esc(state.day)} of ${esc(state.last_day)}</p>
+    <p class="big">☀ ${esc(state.day)}</p>
+    <p class="note">Cash ${fmt(state.cash)} · in stock: ${stock}</p>
+    ${eveningReport()}
+    <ol class="todo">
+      <li>Buy stock with the forecast in mind (<b>Stock</b>).</li>
+      <li>Check your prices (<b>Prices</b>).</li>
+      <li>Open the day, then start your shift (<b>Shift</b>)${crews ? "" : ": without a shift or staff nothing is sold"}.</li>
+    </ol>
+    <div class="actions"><button class="btn" type="button" data-dismiss>Let's go</button></div>`);
+}
+
 export function updateClock() {
   const minutes = Math.floor(scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -142,20 +256,24 @@ function renderToolbar() {
   $("#btn-editor").disabled = animating;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
+    : evening ? "Go home"
     : state.finished ? "Run complete"
     : dayButtonLabel();
+  if (evening) $("#btn-open").disabled = animating || scene.sleeping || fading;
   $("#btn-fast").hidden = !animating;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
 }
 
 function renderAll() {
+  if (state.shift) evening = false; // a day is open again (also when opened elsewhere)
   server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
   server.shift = state.shift;
   const open = state.shops.find((sh) => sh.id === state.shift?.shop);
   server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
   renderToolbar();
+  renderEvening();
   if (panelMode) renderPanel();
   syncShiftTimer();
   followDay();
@@ -190,7 +308,7 @@ function renderDormPanel(body) {
   const o = state.outlook;
   const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C`
     : o ? `Forecast: ${esc(o.name)}, ${esc(o.temp_low)}–${esc(o.temp_high)} °C` : "—";
-  const label = state.finished ? "The run is complete" : dayButtonLabel();
+  const label = state.finished ? "The run is complete" : state.shift ? "End the day" : dayButtonLabel();
   body.innerHTML = `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
     <dl class="dorm-facts">
@@ -374,7 +492,11 @@ async function editorAction(path, body, { moved = false } = {}) {
     if (el) el.textContent = data.error;
     return toast(data.error, "error");
   }
-  if (moved) placePlayer(state.player);
+  if (moved) {
+    evening = false; // a reset or a moved day starts in the morning
+    scene.sleeping = false;
+    placePlayer(state.player);
+  }
   renderAll();
   tellDashboard({ type: "action", after: data.state });
   toast(data.message);
@@ -548,9 +670,8 @@ async function shiftTick() {
     state = data.state;
     renderAll();
     if (state.day !== before) {
-      dayEnded();
       tellDashboard({ type: "action", after: data.state });
-      showDaySummary(state.history[state.history.length - 1]);
+      startEvening();
     }
   } finally {
     shiftBusy = false;
@@ -572,10 +693,7 @@ async function shiftAction(path, body) {
     }
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
-    if (path.endsWith("/skip")) {
-      dayEnded();
-      showDaySummary(state.history[state.history.length - 1]);
-    }
+    if (path.endsWith("/skip")) startEvening();
   } finally {
     shiftBusy = false;
   }
@@ -767,8 +885,41 @@ async function playDay(after) {
 // Open starts the day clock. The shift is started separately in the Shift panel while the
 // day runs; while it runs this button lets the time pass without any sale.
 async function openDay() {
+  if (evening) return walkHome();
   if (animating || state.finished) return;
+  if (state.shift) {
+    const warning = endDayWarning();
+    if (warning) return askEndDay(warning);
+  }
   return shiftAction(state.shift ? "/api/shift/skip" : "/api/day/open", {});
+}
+
+// Ending a day early lets the rest pass without the player serving (skip_shift on the server).
+// Ask first when that costs sales: nobody works today, or the player's own shift still runs.
+// Only a question in the browser; the server decides the skip as before.
+function endDayWarning() {
+  const sh = state.shift;
+  if (!sh) return "";
+  if (!sh.shop && !(sh.crews?.length)) {
+    return "Nobody works today: no shift has started and no staff are on duty. If you end the day now, nothing is sold.";
+  }
+  if (sh.shop && !sh.over && !sh.staffed) { // a staffed shift runs on without the player
+    const name = state.shops.find((shop) => shop.id === sh.shop)?.name ?? "shop";
+    return `Your shift in the ${name} is still running. If you end the day now, the customers still to come are lost.`;
+  }
+  return "";
+}
+
+function askEndDay(text) {
+  $("#end-day-text").textContent = text;
+  const dialog = $("#end-day-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+}
+
+function endDayConfirmed() {
+  if (!state.shift || animating) return;
+  return shiftAction("/api/shift/skip", {});
 }
 
 // The dashboard did something: its own screen already shows the numbers.
@@ -778,12 +929,14 @@ function syncFromDashboard(msg) {
       closePanel();
       hideOverlay();
       await playDay(msg.after);
-      await runClock(DAY_END, MORNING, 900);
+      startEvening();
     } else {
       state = msg.after;
       if (msg.kind === "new-run") {
         closePanel();
         hideOverlay();
+        evening = false;
+        scene.sleeping = false;
         scene.clock = MORNING;
         placePlayer(state.player);
       }
@@ -796,7 +949,10 @@ function syncFromDashboard(msg) {
 export function useLocation(action) {
   if (action === "stock") openPanel("order");
   if (action === "prices") openPanel("prices");
-  if (action === "dorm") openPanel("dorm");
+  if (action === "dorm") {
+    if (evening) return goToBed();
+    openPanel("dorm");
+  }
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 
@@ -830,12 +986,12 @@ function showDaySummary(result) {
       <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
     </table>${eveningReport()}
     <div class="actions">
-      <button class="btn" type="button" data-next>${state.finished ? "See the final result" : `Start day ${state.day}`}</button>
+      <button class="btn" type="button" data-next>${state.finished ? "Sleep · see the final result" : "Sleep"}</button>
     </div>`);
 }
 
 // The forecast for the next day and one tip per open shop (outlook). Shown in the day
-// summary; the tips and the forecast come from the server.
+// summary and on the morning card; the tips and the forecast come from the server.
 function eveningReport() {
   const o = state.outlook;
   if (!o || state.finished) return "";
@@ -881,6 +1037,7 @@ function askNewRun() {
 function wireOverlay() {
   $("#overlay").addEventListener("click", (e) => {
     if (e.target.closest("[data-next]")) {
+      if (scene.sleeping) return sleep();
       hideOverlay();
       runClock(scene.clock, MORNING, 500);
       if (state.finished) showFinal();
@@ -900,6 +1057,8 @@ function wireOverlay() {
     if (data.error) return toast(data.error, "error");
     closePanel();
     hideOverlay();
+    evening = false;
+    scene.sleeping = false;
     scene.clock = MORNING;
     placePlayer(state.player);
     renderAll();
@@ -918,7 +1077,7 @@ function setMode(mode) {
 
 // while a card or dialog is open, the figure stays where it is
 export function inputBlocked() {
-  return !$("#overlay").hidden || $("#new-run-dialog").open;
+  return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || scene.sleeping || fading;
 }
 
 // The stock card can be folded away. The toggle sits outside #hud-stock, which is redrawn on
@@ -947,6 +1106,9 @@ function wireStockToggle() {
 export function initUi(firstState, actions) {
   state = firstState;
   placePlayer = actions.placePlayer;
+  goHome = actions.goHome;
+  jumpHome = actions.jumpHome;
+  wakeAt = actions.wakeAt;
   wirePanel();
   wireEditor();
   wireOverlay();
@@ -960,6 +1122,11 @@ export function initUi(firstState, actions) {
   $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));
   $("#btn-new-run").addEventListener("click", askNewRun);
+  $("#btn-go-home").addEventListener("click", walkHome);
+  $("#btn-skip-walk").addEventListener("click", skipWalk);
+  $("#end-day-dialog").addEventListener("close", (e) => {
+    if (e.target.returnValue === "confirm") endDayConfirmed();
+  });
   window.addEventListener("message", (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
     const msg = e.data || {};

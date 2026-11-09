@@ -14,6 +14,9 @@ export const WALK_SPEED = 3.5; // tiles per second
 export const DAY_START = 450;
 export const DAY_END = 1170;
 export const MORNING = 540;
+// The night before the morning (spec day-cycle): after sleeping the light starts dark at 05:00 and the
+// sun rises until DAY_START. Only the light; no rule reads it.
+export const DAWN = 300;
 
 export const canvas = document.querySelector("#world");
 export const ctx = canvas.getContext("2d");
@@ -40,6 +43,7 @@ export const scene = {
   roofs: {}, // opacity of the roof of each wing of the Nova: 1 = closed, 0 = gone (see roofs.js)
   wing: null, // the wing the player is in, or null outside
   inNova: false, // the player stands under the roof of any wing
+  sleeping: false, // the player lies in the Dorm's bed (spec day-cycle): only drawn, no rule
 };
 
 // A wing without an entry is closed. The rooms of a wing are drawn while its roof is thinner than this.

@@ -32,6 +32,7 @@ let stuckFor = 0; // seconds without getting closer to the target
 let lastTime = 0;
 let wasWalking = false;
 let savedSpot = "";
+let saving = Promise.resolve(); // one save after the other, so the last spot is the one that stays
 
 // ---- position on the server ---------------------------------------------------------
 
@@ -39,12 +40,16 @@ function savePlayer() {
   const { x, y } = scene.player;
   const spot = `${scene.zoneId}:${x.toFixed(2)}:${y.toFixed(2)}`;
   if (spot === savedSpot) return;
-  fetch("/api/player", {
-    method: "POST",
-    keepalive: true,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zone: scene.zoneId, x, y }),
-  })
+  const body = JSON.stringify({ zone: scene.zoneId, x, y });
+  // Saves go out in order: a walk stopped by "Skip the walk" saves its spot, then the Dorm's spot,
+  // and an older answer can never overwrite the newer position on the server.
+  saving = saving
+    .then(() => fetch("/api/player", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body,
+    }))
     .then((res) => {
       if (res.ok) savedSpot = spot;
     })
@@ -98,6 +103,46 @@ function placePlayer({ zone, x, y }) {
   pendingUse = null;
   savedSpot = `${zone}:${x.toFixed(2)}:${y.toFixed(2)}`;
   updateRoof(0, true);
+}
+
+// "Go home" (spec day-cycle): walk to the bed by itself, the same way a click on it does. A move key
+// or a click on the map stops it. Gives false when no way was found.
+function goHome() {
+  const bed = world.locations.bed;
+  if (!bed) return false;
+  if (inReach(bed)) {
+    use("bed");
+    return true;
+  }
+  pendingUse = "bed";
+  walkTo(bed);
+  if (route.length) return true;
+  pendingUse = null;
+  return false;
+}
+
+// "Skip the walk" (spec day-cycle): straight to the bed without walking there. Only the shown position
+// changes; it is saved like any other stop. Gives false when the Dorm data is missing.
+function jumpHome() {
+  const wake = world.dorm?.wake;
+  if (!wake || !world.locations.bed) return false;
+  keys.clear();
+  wakeAt(wake);
+  use("bed");
+  return true;
+}
+
+// after sleeping: standing beside the bed, facing the room, and the spot saved like any other stop
+function wakeAt({ zone, x, y }) {
+  scene.zoneId = zone;
+  scene.player = safePoint({ x, y }, world.zones[zone]);
+  scene.facing = { x: 0, y: 1 };
+  camera.x = scene.player.x;
+  camera.y = scene.player.y;
+  route = [];
+  pendingUse = null;
+  updateRoof(0, true);
+  savePlayer();
 }
 
 function use(id) {
@@ -244,7 +289,7 @@ function moveCamera(dt) {
 
 function renderHint() {
   const near = nearestLocation();
-  const hidden = !near || scene.preview;
+  const hidden = !near || scene.preview || scene.sleeping;
   const hint = $("#interaction-hint");
   if (hint.hidden !== hidden) hint.hidden = hidden;
   const name = $("#interaction-name");
@@ -289,7 +334,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }

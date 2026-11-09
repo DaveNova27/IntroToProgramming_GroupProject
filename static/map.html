@@ -52,6 +52,14 @@
       <span><small>INTERACT</small><strong id="interaction-name"></strong></span>
     </button>
 
+    <!-- the evening (spec day-cycle): the day is over, the report waits in the Dorm -->
+    <div id="evening-hint" class="evening-hint" role="status" hidden>
+      <span class="moon" aria-hidden="true">☾</span>
+      <span id="evening-text"></span>
+      <button id="btn-go-home" class="btn" type="button">Go home</button>
+      <button id="btn-skip-walk" class="btn skip" type="button" title="Straight to bed, without the walk">Skip the walk</button>
+    </div>
+
     <nav class="toolbar" aria-label="Actions">
       <button id="btn-order" class="tool" type="button"><span class="ico" aria-hidden="true">▦</span><span class="txt">Stock</span></button>
       <button id="btn-prices" class="tool" type="button"><span class="ico" aria-hidden="true">€</span><span class="txt">Prices</span></button>
@@ -72,6 +80,9 @@
       <div id="panel-body"></div>
     </aside>
 
+    <!-- the night between two days: black for a moment while the player sleeps -->
+    <div id="night-fade" class="night-fade" aria-hidden="true"></div>
+
     <!-- end of day / end of run -->
     <div id="overlay" class="overlay" hidden>
       <div class="card-pop" role="dialog" aria-modal="true" id="overlay-card"></div>
@@ -85,6 +96,17 @@
       <div class="dialog-actions">
         <button class="btn ghost" value="cancel" autofocus>Cancel</button>
         <button class="btn danger" value="confirm">Start new run</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="end-day-dialog" class="dialog" aria-labelledby="end-day-title">
+    <form method="dialog">
+      <h2 id="end-day-title">End the day now?</h2>
+      <p id="end-day-text"></p>
+      <div class="dialog-actions">
+        <button class="btn ghost" value="cancel" autofocus>Keep playing</button>
+        <button class="btn danger" value="confirm">End the day</button>
       </div>
     </form>
   </dialog>

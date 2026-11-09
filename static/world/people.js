@@ -192,6 +192,10 @@ export function drawCharacterProp(pose, style, frame, role) {
   }
 }
 
+// Lying along the bed, head to the north wall. Seen from the front (spec map-view) north is up the
+// screen, so the figure keeps its direction and is only pressed flat, as a body seen lying from above.
+const LIE_SQUASH = 0.6;
+
 export function drawPersonFigure(x, y, t, index, options = {}) {
   const style = personStyles[Math.abs(index) % personStyles.length],
     moving = Boolean(options.moving),
@@ -209,20 +213,24 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
         ? Math.abs(Math.sin(t * 0.009 + phase)) * 2
         : Math.sin(t * 0.002 + phase) * 0.35,
     view = characterView(options.facing || { x: options.direction || 1, y: 0 }),
-    p = isoPoint(x, y, 4 + bob),
+    p = isoPoint(x, y, (options.z ?? 4) + (pose === "lie" ? 0 : bob)),
     scale = (options.player ? 1.2 : 1.02) * (style.build || 1),
     shirt = options.player ? WORLD_MATERIALS.lime : options.color || "#64cbc8",
     sit = pose === "sit",
+    lie = pose === "lie", // in bed (spec day-cycle): the whole figure turned flat, eyes closed
     flip = view.side ? view.flip : 1;
   ctx.save();
   ctx.translate(p.x, p.y);
+  if (lie) ctx.scale(1, LIE_SQUASH);
   ctx.scale(flip * scale, scale);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.fillStyle = "rgba(6,31,36,.2)";
-  ctx.beginPath();
-  ctx.ellipse(2 * flip, 4, sit ? 15 : 13.5, sit ? 5.5 : 4.7, 0, 0, Math.PI * 2);
-  ctx.fill();
+  if (!lie) {
+    ctx.fillStyle = "rgba(6,31,36,.2)";
+    ctx.beginPath();
+    ctx.ellipse(2 * flip, 4, sit ? 15 : 13.5, sit ? 5.5 : 4.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.strokeStyle = "#183740";
   ctx.lineWidth = 1.15;
   ctx.fillStyle = style.pants;
@@ -323,7 +331,16 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
   ctx.lineWidth = 1.1;
   ctx.stroke();
   drawCharacterHair(style, index, view);
-  if (!view.back) {
+  if (lie) {
+    // closed eyes: two small arcs
+    ctx.strokeStyle = "#173743";
+    ctx.lineWidth = 0.8;
+    for (const eye of [-2.1, 2.1]) {
+      ctx.beginPath();
+      ctx.arc(eye, -44.8, 1, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+    }
+  } else if (!view.back) {
     ctx.fillStyle = "#173743";
     if (view.side) {
       ctx.beginPath();
@@ -353,10 +370,12 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     ctx.lineTo(5, -32);
     ctx.stroke();
     roundedRect(-5.4, -34.5, 10.8, 3, 1, "#173743");
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(view.side ? 3 : 2.2, -44, 1.1, 0, Math.PI * 2);
-    ctx.fill();
+    if (!lie) {
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(view.side ? 3 : 2.2, -44, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.restore();
 }

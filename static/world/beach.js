@@ -21,7 +21,7 @@ import {
   drawWorldLabel,
   mixColor,
 } from "./primitives.js";
-import { DEPTH, TILE, ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, world } from "./scene.js";
+import { DEPTH, TILE, ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 const TEAL = "#31545b";
 const AQUA = "#64cbc8";
@@ -1670,6 +1670,11 @@ function drawDormFront(t, amount) {
   const doorEnd = door.x + door.width;
   // the lamp's light on the ground stays, also while the roof is gone
   if (amount > 0.05) glow(doorEnd - 0.3, front + 0.4, 36, 90, amount);
+  // the lamp in the room, seen while its roof is gone: on in the evening, off while the player sleeps
+  // (spec day-cycle)
+  if (amount > 0.05 && !scene.sleeping && wingIsOpen("dorm")) {
+    glow(part.x + part.w / 2, part.y + part.h / 2, 8, 150, amount * 0.9);
+  }
   // Seen from the front, the canopy and the flower boxes stand over the first row of the room: they
   // are part of the roof and fade with it, like the Nova's canopy (spec map-view).
   const roof = roofOf("dorm");

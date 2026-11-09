@@ -3,10 +3,15 @@
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
 import { mixColor } from "./primitives.js";
-import { DAY_END, DAY_START, ctx, isoPoint, reducedMotion, scene } from "./scene.js";
+import { DAWN, DAY_END, DAY_START, ctx, isoPoint, reducedMotion, scene } from "./scene.js";
 
+// `progress` is how far the light has gone towards the dark: 0 in the morning, 1 at dusk. Before
+// DAY_START (the dawn after sleeping, spec day-cycle) it runs from 1 at DAWN back to 0, so the lamps,
+// the shade and the sun's path fade out while the sun rises, the same way they came in the evening.
 export function lightingProfile(minutes) {
   const stops = [
+    { minute: DAWN, top: "#203e58", bottom: "#80606a", overlay: "#173747", alpha: 0.24, stage: "night" },
+    { minute: 390, top: "#6d91ae", bottom: "#efb177", overlay: "#ef795f", alpha: 0.1, stage: "dawn" },
     {
       minute: DAY_START,
       top: "#79aebd",
@@ -20,7 +25,7 @@ export function lightingProfile(minutes) {
     { minute: 1050, top: "#6d91ae", bottom: "#efb177", overlay: "#ef795f", alpha: 0.1, stage: "sunset" },
     { minute: DAY_END, top: "#203e58", bottom: "#80606a", overlay: "#173747", alpha: 0.24, stage: "dusk" },
   ];
-  const value = Math.max(DAY_START, Math.min(DAY_END, minutes)),
+  const value = Math.max(DAWN, Math.min(DAY_END, minutes)),
     right = stops.find((stop) => stop.minute >= value) || stops.at(-1),
     left = stops[Math.max(0, stops.indexOf(right) - 1)] || right,
     span = Math.max(1, right.minute - left.minute),
@@ -31,7 +36,9 @@ export function lightingProfile(minutes) {
     overlay: mixColor(left.overlay, right.overlay, mix),
     alpha: left.alpha + (right.alpha - left.alpha) * mix,
     stage: mix > 0.55 ? right.stage : left.stage,
-    progress: (value - DAY_START) / (DAY_END - DAY_START),
+    progress: value >= DAY_START
+      ? (value - DAY_START) / (DAY_END - DAY_START)
+      : 1 - (value - DAWN) / (DAY_START - DAWN),
   };
 }
 
