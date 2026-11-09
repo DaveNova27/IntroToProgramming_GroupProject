@@ -2,7 +2,7 @@
 // Which places exist comes from the server (world.py).
 
 import { roundedRect } from "./primitives.js";
-import { ctx, isoPoint, scene, world } from "./scene.js";
+import { ctx, isoPoint, scene, wingIsOpen, world } from "./scene.js";
 
 const MONO = "Menlo, Consolas, monospace";
 const REACH = 1.65; // tiles
@@ -10,6 +10,10 @@ const REACH = 1.65; // tiles
 const distanceToPlayer = (loc) => Math.hypot(scene.player.x - loc.x, scene.player.y - loc.y);
 
 export const locationsHere = () => Object.entries(world.locations).filter(([, loc]) => loc.zone === scene.zoneId);
+
+// the places that show: a place inside a wing shows while that wing's roof is gone (the desks are in the
+// Nova, the bed is in the Dorm)
+export const openPlaces = () => locationsHere().filter(([, loc]) => wingIsOpen(loc.wing ?? "nova"));
 
 export const inReach = (loc) => distanceToPlayer(loc) < REACH;
 

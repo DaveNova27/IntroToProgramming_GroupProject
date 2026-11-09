@@ -11,7 +11,7 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
   - `app.py`: Flask server and JSON API; it calls the rules, the browser never decides them
   - `static/index.html`, `style.css`, `app.js`: dashboard
   - `static/map.html`, `map.css`: campus page with its display on top
-  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and the roof of the Nova; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `nova.js` (walls, canopy and roofs of the Nova and its wings), `rooms.js` (their rooms), `roofs.js` (when each wing's roof fades), `environment.js`, `primitives.js`, `locations.js` drawing; `physics.js`, `paths.js` collision and finding a way
+  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and the roof of the Nova; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `nova.js` (walls, canopy and roofs of the Nova and its wings), `rooms.js` (their rooms), `roofs.js` (when each wing's roof fades), `beach.js` (the beach front, the boardwalk, the outdoor shops, the Dorm's surroundings), `zones.js` (joins the Dorm to the Nova's data), `environment.js`, `primitives.js`, `locations.js` drawing; `physics.js`, `paths.js` collision and finding a way
   - `static/views.js`: switching between campus and dashboard, keeps both in sync
   - `static/common.js`: helpers shared by dashboard and campus
 - `logic.py`: rules (what is valid, how results are calculated)

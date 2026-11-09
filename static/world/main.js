@@ -1,8 +1,7 @@
 // The 2.5D world: loads the data, runs the frame loop, walking, camera and doors.
 // Walking and the camera are only for showing. Every rule stays on the server.
 
-import { inReach, locationsHere, nearestLocation } from "./locations.js";
-import { novaIsOpen } from "./nova.js";
+import { inReach, nearestLocation, openPlaces } from "./locations.js";
 import { findPath } from "./paths.js";
 import { nearestFreePoint, pointBlocked, resolveMovement } from "./physics.js";
 import { drawWorld } from "./render.js";
@@ -21,6 +20,7 @@ import {
 } from "./scene.js";
 import { initUi, inputBlocked, updateClock, useLocation } from "./ui.js";
 import { createWalkers, updateWalkers } from "./walkers.js";
+import { joinDorm } from "./zones.js";
 
 const CLICK_REACH = 1.35; // tiles around a door or desk that count as clicking it
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
@@ -127,7 +127,7 @@ function onClick(event) {
   const point = canvasWorldPoint(event);
   // the desks stand inside the Nova and are only drawn while its roof is gone: a click on the
   // closed roof must not pick one
-  const places = novaIsOpen() ? locationsHere() : [];
+  const places = openPlaces();
   const hit = places.find(([, loc]) => Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH);
   if (!hit) {
     pendingUse = null;
@@ -281,6 +281,7 @@ async function boot() {
   let state;
   try {
     Object.assign(world, await (await fetch("/api/world")).json());
+    joinDorm(world);
     state = await (await fetch("/api/state")).json();
   } catch {
     $("#loading").textContent = "Could not load the campus. Start the server with: uv run python app.py";
