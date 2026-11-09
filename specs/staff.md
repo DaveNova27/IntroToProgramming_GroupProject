@@ -1,11 +1,12 @@
 # Employees: hire, level up, wages (`staff`, issue #20)
 
-DRAFT: agreed with David in the session on 2026-11-09, to be built after the spec is read by the team.
+Agreed with David in the session on 2026-11-09. Built on the branch `staff`.
 
 ## What
 
 A shop can have employees. The flow is the one the team asked for: buy the shop
-(`shop-unlock`), then pay to hire an employee, then pay to level the employee up. An
+(`shop-unlock`), buy an employee place in its window (**this hires the employee at once**, no
+second fee), then pay to level the employee up. An
 employee costs a daily wage in cents. The wage is deducted at the end of the day and
 shown in the day report.
 
@@ -19,8 +20,10 @@ If the wage cannot be paid the employee does not leave: they just **stop working
 
 ### Places and jobs (data per shop)
 
-- A **place** is what the player already buys in the shop window (`staff_1`, `staff_2`,
-  €60, `shop-unlock`). This spec does not change that. `state["shops"][shop]["staff_places"]`
+- A **place** is what the player buys in the shop window (`staff_1`, `staff_2`, €60,
+  `shop-unlock`). **Buying a place hires the employee of that place straight away** (level 1,
+  working), for the place price only; `buy_upgrade` does it, but only for shops in
+  `SHIFT_SHOPS` and places that have a job. The place purchase itself is unchanged. `state["shops"][shop]["staff_places"]`
   says how many places the shop has bought; the shop's level limits it as before.
 - Each shop lists its jobs as data: `SHOPS[shop]["jobs"] = ["refiller", "seller"]`. Place `n`
   has job `jobs[n-1]`. So the Cafe's first place is a refiller and the second a seller.
@@ -53,7 +56,8 @@ state. One employee per place. `working` is `false` while the wage could not be 
 
 ### Actions (pure functions that return a new state, like `buy`)
 
-- `hire(state, shop, place)`: shop id from `SHOPS`, shop unlocked, `place` a whole number
+- `hire(state, shop, place)`: only for a **free** bought place, i.e. one that was emptied by
+  `fire_employee` (buying a place already hires). Shop id from `SHOPS`, shop in `SHIFT_SHOPS` (only the Cafe first), shop unlocked, `place` a whole number
   (not bool) with `1 <= place <= staff_places` and `place <= len(jobs)`, place still free,
   run not finished, `HIRE_PRICE` affordable. Cash - `HIRE_PRICE`, new employee on level 1.
 - `upgrade_employee(state, employee_id)`: whole number id of an existing employee, level
@@ -81,6 +85,10 @@ state. One employee per place. `working` is `false` while the wage could not be 
    is only reached through `open_day`; the shift is the same one.
 4. **Each tick**, after the tick counter went up and before impatient customers leave, in
    this fixed order: the refillers, then the sellers, each in order of `id`.
+   **One employee covers the missing job:** if the shop has no working refiller, its working
+   employees refill too; if it has no working seller, they sell too. They do the covered job
+   at the speed of their own level. So a single employee runs the counter alone; with
+   two employees each keeps his own job.
    - *Refiller*: moves up to its units-per-tick from the storeroom to the counter, product
      with the fewest units on the counter first (ties in `CATALOGUE` order), stopping at
      the storeroom stock and at the counter space. It calls the same checks as `refill`.
@@ -133,9 +141,10 @@ Nova or outside the shop.
 
 ## Done when
 
-1. A hired refiller and seller in the Cafe run a whole day with no player action: stock
+1. A refiller and a seller in the Cafe, and also a lone employee, run a whole day with no
+   player action: stock
    goes to the counter, units are sold, cash rises, and the wages are deducted at the end.
-2. `hire`, `upgrade_employee` and the wage cost exactly the listed prices, in integer cents.
+2. Buying a place hires its employee for the place price only; `hire` (a free place), `upgrade_employee` and the wage cost exactly the listed prices, in integer cents.
    `fire_employee` frees the place, refunds nothing and drops the level.
 3. Refused, and the saved run stays identical: unknown or locked shop, place not bought, place
    without a job, place already taken, unknown or non-whole employee id, bool/float/string/

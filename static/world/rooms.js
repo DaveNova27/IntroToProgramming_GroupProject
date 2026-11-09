@@ -9,7 +9,7 @@
 
 import { drawPersonFigure } from "./people.js";
 import { drawBlock, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
-import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, roofOf, scene, wingIsOpen, world } from "./scene.js";
+import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
 
 const FLOOR_Z = 4;
 export const GALLERY_Z = 54; // the upper floor along the north wall of the atrium
@@ -906,6 +906,81 @@ function tableStools(item, sides = "both") {
   return spots;
 }
 
+// ---- the employees (staff) -----------------------------------------------------------------
+// Drawn from what the server sent: job, whether they work, and whether the shift is running.
+// The spots are data from world.py; a figure only walks between them for show.
+
+const lerp = (a, b, k) => a + (b - a) * k;
+
+function employeeState(employee, t, index) {
+  const spots = world.work_spots?.[employee.shop];
+  if (!spots) return null;
+  const shift = server.shift;
+  const busy = employee.working && shift && shift.shop === employee.shop && !shift.over;
+  const rest = spots.break[index % spots.break.length];
+  if (!busy) return { x: rest.x, y: rest.y, pose: "idle", moving: false, facing: { x: 0, y: 1 }, spots };
+  if (employee.job === "seller") {
+    return { x: spots.seller.x, y: spots.seller.y, pose: "service", role: "service", moving: false, facing: { x: 0, y: 1 }, spots };
+  }
+  // a refiller carries stock from the storeroom to the counter and walks back for more. He only
+  // does it while the server has stock to carry and room on the counter; the speed follows the level
+  const from = spots.storeroom, to = spots.counter;
+  const room = shift.counter_space > 0 && server.storeroom > 0;
+  if (!room) return { x: from.x, y: from.y, pose: "idle", role: "technician", moving: false, facing: { x: 0, y: 1 }, spots };
+  const period = 5200 / employee.level;
+  const u = ((t + employee.id * 770) % period) / period; // 0..1
+  const out = u < 0.5; // going to the counter with the stock
+  const k = out ? u * 2 : (1 - u) * 2;
+  const pause = k < 0.05 || k > 0.95;
+  return {
+    x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k), pose: "walk", role: "technician",
+    moving: !pause, carrying: out && !pause, facing: { x: out ? -1 : 1, y: 0 }, spots,
+  };
+}
+
+function drawEmployee(employee, t, index) {
+  const view = employeeState(employee, t, index);
+  if (!view) return;
+  drawPersonFigure(view.x, view.y, t, employee.id + 30, {
+    color: SHIRTS[(employee.id + 2) % SHIRTS.length],
+    phase: employee.id * 0.9,
+    moving: view.moving,
+    facing: view.facing,
+    pose: view.pose,
+    role: view.role,
+  });
+  if (view.carrying) { // the crate he carries to the counter
+    const c = isoPoint(view.x, view.y, 30);
+    roundedRect(c.x - 6, c.y - 4, 12, 8, 2, "#c89a5b");
+    ctx.fillStyle = "#8a6638";
+    ctx.fillRect(c.x - 6, c.y - 1, 12, 1.6);
+  }
+  if (Math.hypot(scene.player.x - view.x, scene.player.y - view.y) < 2.4) {
+    const p = isoPoint(view.x, view.y, 67);
+    const text = `${employee.name} · ${employee.job_name} L${employee.level}${employee.working ? "" : " · no pay"}`;
+    roundedRect(p.x - 46, p.y - 6, 92, 12, 5, "rgba(12,39,47,.9)");
+    ctx.fillStyle = employee.working ? "#f5c95e" : "#ff8060";
+    ctx.textAlign = "center";
+    ctx.font = "800 4.7px Menlo, Consolas, monospace";
+    ctx.fillText(text.toUpperCase(), p.x, p.y + 1.5);
+  }
+}
+
+function employeeActors(t) {
+  const staff = server.staff?.employees ?? [];
+  const actors = [];
+  const perShop = {};
+  for (const employee of staff) {
+    const spots = world.work_spots?.[employee.shop];
+    if (!spots || !wingIsOpen(spots.wing)) continue;
+    const index = (perShop[employee.shop] = (perShop[employee.shop] ?? -1) + 1);
+    const view = employeeState(employee, t, index);
+    if (!view) continue;
+    actors.push({ depth: view.x + view.y + 0.03, draw: () => drawEmployee(employee, t, index) });
+  }
+  return actors;
+}
+
 export function roomActors(t) {
   const actors = [];
   for (const item of layout().solid) {
@@ -979,5 +1054,6 @@ export function roomActors(t) {
     if (!wingIsOpen(activity.wing)) return;
     actors.push({ depth: activity.x + activity.y + 0.03, draw: () => drawRoomPerson(activity, t, index) });
   });
+  actors.push(...employeeActors(t));
   return actors;
 }

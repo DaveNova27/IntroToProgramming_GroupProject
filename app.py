@@ -73,12 +73,44 @@ def shift_view(state):
         "shift_end": shift.get("shift_end", logic.DAY_TICKS) if shift["shop"] else None,
         "shift_ticks": logic.SHIFT_TICKS,
         "over": bool(shift.get("over")),
+        "staffed": bool(shift.get("staffed")),
         "counter": shift["counter"],
         "counter_space": size - sum(shift["counter"].values()),
         "counter_size": size,
         "waiting": waiting,
         "sold": shift["sold"],
         "lost": shift["lost"],
+    }
+
+
+def staff_view(state):
+    """The employees and the places of the shops where they can work, prices from the rules."""
+    employees = []
+    for e in state["employees"]:
+        level = e["level"]
+        employees.append({
+            "id": e["id"], "name": e["name"], "shop": e["shop"], "place": e["place"],
+            "job": e["job"], "job_name": logic.JOBS[e["job"]]["name"],
+            "level": level, "working": e["working"], "wage": logic.employee_wage(e),
+            "upgrade_price": (logic.UPGRADE_PRICES[level + 1]
+                              if level < logic.EMPLOYEE_MAX_LEVEL else None),
+        })
+    places = []
+    for shop in logic.SHIFT_SHOPS:
+        taken = {e["place"]: e["id"] for e in state["employees"] if e["shop"] == shop}
+        for place, job in enumerate(logic.SHOPS[shop]["jobs"], start=1):
+            places.append({
+                "shop": shop, "place": place, "job": job,
+                "job_name": logic.JOBS[job]["name"],
+                "bought": place <= state["shops"][shop]["staff_places"],
+                "employee": taken.get(place),
+            })
+    return {
+        "hire_price": logic.HIRE_PRICE,
+        "max_level": logic.EMPLOYEE_MAX_LEVEL,
+        "employees": employees,
+        "places": places,
+        "wages_today": sum(e["wage"] for e in employees if e["working"]),
     }
 
 
@@ -125,6 +157,7 @@ def view(state):
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
         "weather": weather_view(state),
         "shift": shift_view(state),
+        "staff": staff_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
@@ -253,6 +286,47 @@ def buy_upgrade():
         cost = state["cash"] - new_state["cash"]
         name = logic.SHOPS[shop]["name"]
         return new_state, f"Bought {logic.offer_name(shop, item)} for {name}: {logic.fmt(cost)}."
+
+    return apply(action)
+
+
+@app.post("/api/staff/hire")
+def hire():
+    body = json_body()
+
+    def action(state):
+        shop, place = body.get("shop"), body.get("place")
+        new_state = logic.hire(state, shop, place)
+        who = new_state["employees"][-1]
+        return new_state, (f"{who['name']} hired as {logic.JOBS[who['job']]['name']} for "
+                           f"{logic.fmt(state['cash'] - new_state['cash'])}.")
+
+    return apply(action)
+
+
+@app.post("/api/staff/upgrade")
+def upgrade_employee():
+    body = json_body()
+
+    def action(state):
+        employee_id = body.get("employee_id")
+        new_state = logic.upgrade_employee(state, employee_id)
+        who = next(e for e in new_state["employees"] if e["id"] == employee_id)
+        return new_state, (f"{who['name']} is on level {who['level']} now for "
+                           f"{logic.fmt(state['cash'] - new_state['cash'])}.")
+
+    return apply(action)
+
+
+@app.post("/api/staff/fire")
+def fire_employee():
+    body = json_body()
+
+    def action(state):
+        employee_id = body.get("employee_id")
+        new_state = logic.fire_employee(state, employee_id)
+        who = next(e for e in state["employees"] if e["id"] == employee_id)
+        return new_state, f"{who['name']} was dismissed."
 
     return apply(action)
 

@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS meta (             -- the seed and the weather overri
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS employees (        -- the people working in the shops (staff)
+    id      INTEGER PRIMARY KEY CHECK (id > 0),
+    name    TEXT NOT NULL,
+    shop    TEXT NOT NULL,
+    place   INTEGER NOT NULL CHECK (place > 0),
+    job     TEXT NOT NULL,
+    level   INTEGER NOT NULL CHECK (level > 0),
+    working INTEGER NOT NULL CHECK (working IN (0, 1)),
+    UNIQUE (shop, place)                       -- one employee per place
+);
 CREATE TABLE IF NOT EXISTS shift (            -- the day played live in a shop, none if no shift
     id   INTEGER PRIMARY KEY CHECK (id = 1),
     data TEXT NOT NULL                         -- counter, queue, tick as JSON
@@ -86,6 +96,9 @@ def load(path=DEFAULT_PATH):
             "SELECT shop, unlocked, level, staff_places FROM shops").fetchall()
         shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
         shift = conn.execute("SELECT data FROM shift WHERE id = 1").fetchone()
+        employee_rows = conn.execute(
+            "SELECT id, name, shop, place, job, level, working FROM employees ORDER BY id"
+        ).fetchall()
         meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
     # products added to the catalogue after the save was made start with stock 0
     stock = {pid: 0 for pid in logic.CATALOGUE}
@@ -102,6 +115,12 @@ def load(path=DEFAULT_PATH):
         "prices": prices,
         "shops": _shops(shop_rows, shop_products, [p for p, _, _ in products]),
         "shift": json.loads(shift[0]) if shift else None,
+        "employees": [
+            {"id": i, "name": n, "shop": s, "place": p, "job": j, "level": lv,
+             "working": bool(w)}
+            for i, n, s, p, j, lv, w in employee_rows
+            if s in logic.SHOPS and j in logic.JOBS  # a save with a removed shop or job
+        ],  # a save from before staff has no rows: no employees
         "history": [json.loads(r) for (r,) in history],
         "player": _player(player),
     }
@@ -200,6 +219,13 @@ def _write(conn, state):
             "INSERT INTO meta (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, json.dumps(state[key])),
+        )
+    conn.execute("DELETE FROM employees")
+    for e in state["employees"]:
+        conn.execute(
+            "INSERT INTO employees (id, name, shop, place, job, level, working) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (e["id"], e["name"], e["shop"], e["place"], e["job"], e["level"], int(e["working"])),
         )
     conn.execute("DELETE FROM shift")
     if state["shift"] is not None:
