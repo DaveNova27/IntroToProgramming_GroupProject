@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS employees (        -- the people working in the shops
     working INTEGER NOT NULL CHECK (working IN (0, 1)),
     UNIQUE (shop, place)                       -- one employee per place
 );
+CREATE TABLE IF NOT EXISTS badges (           -- the badges earned in this run (specs/badges.md)
+    id  TEXT PRIMARY KEY,                      -- a badge is earned at most once
+    day INTEGER NOT NULL CHECK (day > 0)
+);
 CREATE TABLE IF NOT EXISTS shift (            -- the day played live in a shop, none if no shift
     id   INTEGER PRIMARY KEY CHECK (id = 1),
     data TEXT NOT NULL                         -- counter, queue, tick as JSON
@@ -100,6 +104,7 @@ def load(path=DEFAULT_PATH):
             "SELECT id, name, shop, place, job, level, working FROM employees ORDER BY id"
         ).fetchall()
         meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
+        badge_rows = conn.execute("SELECT id, day FROM badges ORDER BY day, rowid").fetchall()
     # products added to the catalogue after the save was made start with stock 0
     stock = {pid: 0 for pid in logic.CATALOGUE}
     prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}
@@ -125,6 +130,8 @@ def load(path=DEFAULT_PATH):
             and 1 <= p <= len(logic.SHOPS[s]["jobs"])
         ],  # a save from before staff has no rows: no employees
         "history": [json.loads(r) for (r,) in history],
+        # a save from before badges has no rows: none earned; a removed badge is dropped
+        "badges": [{"id": i, "day": d} for i, d in badge_rows if i in logic.BADGE_IDS],
         "player": _player(player),
     }
 
@@ -188,7 +195,7 @@ def save_new_run(state, path=DEFAULT_PATH):
 
 
 def _write(conn, state):
-    """Write day, cash, stock, prices, shops, player and new history records (inside a transaction)."""
+    """Write day, cash, stock, prices, shops, player, badges and new history records (inside a transaction)."""
     conn.execute(
         "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
         "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
@@ -235,6 +242,9 @@ def _write(conn, state):
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (e["id"], e["name"], e["shop"], e["place"], e["job"], e["level"], int(e["working"])),
         )
+    conn.execute("DELETE FROM badges")
+    for badge in state.get("badges", []):
+        conn.execute("INSERT INTO badges (id, day) VALUES (?, ?)", (badge["id"], badge["day"]))
     conn.execute("DELETE FROM shift")
     if state["shift"] is not None:
         conn.execute("INSERT INTO shift (id, data) VALUES (1, ?)", (json.dumps(state["shift"]),))

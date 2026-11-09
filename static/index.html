@@ -6,6 +6,7 @@
   <title>Campus Tycoon</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/badges.css">
 </head>
 <body>
   <!-- the dashboard: a slide-in panel over the campus, or its own page (#dashboard) -->
@@ -127,6 +128,15 @@
       <div id="result-table" class="table-wrap"></div>
     </section>
 
+
+    <!-- Badges (specs/badges.md): awarded by the server at the end of a day -->
+    <section class="card badges-card" aria-labelledby="badges-title">
+      <div class="chart-head">
+        <h2 id="badges-title">Badges</h2>
+        <p id="badges-sub" class="chart-sub"></p>
+      </div>
+      <ul id="badge-grid" class="badge-grid"></ul>
+    </section>
 
     <!-- Run history (review of earlier days) -->
     <section class="card history-card" aria-labelledby="history-title">
