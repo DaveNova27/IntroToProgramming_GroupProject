@@ -363,3 +363,11 @@ body.preview .loading { font-size: 13px; }
 .dorm-facts div { padding: 9px 11px; border-radius: 5px; background: var(--cream-deep); }
 .dorm-facts dt { color: var(--ink-soft); font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .dorm-facts dd { margin: 3px 0 0; font: 700 15px var(--mono); }
+
+/* editor mode (specs/editor-mode.md) */
+.editor-block { border-top: 1px solid rgba(128, 128, 128, 0.3); padding: 10px 0; }
+.editor-block h3 { margin: 0 0 6px; font-size: 15px; }
+.editor-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.editor-row label { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.editor-row input, .editor-row select { min-width: 0; flex: 1; min-height: 34px; padding: 0 8px; border: 1px solid rgba(128, 128, 128, 0.5); border-radius: 4px; background: var(--cream-deep); color: var(--ink); font: 600 14px var(--mono); }
+.editor-row .btn { min-height: 34px; padding: 0 10px; font-size: 13px; }
