@@ -11,7 +11,7 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
   - `app.py`: Flask server and JSON API; it calls the rules, the browser never decides them
   - `static/index.html`, `style.css`, `app.js`: dashboard
   - `static/map.html`, `map.css`: campus page with its display on top
-  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and doors; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `rooms.js`, `environment.js`, `primitives.js`, `locations.js` drawing; `physics.js`, `paths.js` collision and finding a way
+  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and the roof of the Nova; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `nova.js` (walls, canopy and roofs of the Nova and its wings), `rooms.js` (their rooms), `roofs.js` (when each wing's roof fades), `beach.js` (the beach front, the boardwalk, the outdoor shops, the Dorm's surroundings), `zones.js` (joins the Dorm to the Nova's data), `environment.js`, `primitives.js`, `locations.js` drawing; `physics.js`, `paths.js` collision and finding a way
   - `static/views.js`: switching between campus and dashboard, keeps both in sync
   - `static/common.js`: helpers shared by dashboard and campus
 - `logic.py`: rules (what is valid, how results are calculated)
@@ -24,6 +24,9 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
 - After every change, run the tests for the task and paste the final output. The output is the proof, not a sentence.
 - Never edit, delete or skip anything in `tests/`. If a test looks wrong, say so and stop.
+  - Exception, no one else needed: the member who owns the spec/PR may confirm a test change for their own PR, in their own words in the session. The AI never confirms for them.
+  - Allowed only when the old test refers to data the spec changes on purpose (names, counts, thresholds). Never weaken a check, never skip or delete a test.
+  - Write each changed test and the reason into the spec ("Decide") and the PR description. New checks go in new test files.
 - One spec per task. Stay inside its "Out of scope" fence.
 - Store money as integer cents, never floats.
 - A rejected action must not change any saved data.

@@ -2,7 +2,7 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
-import { DAY_END, MORNING, reducedMotion, scene } from "./scene.js";
+import { DAY_END, MORNING, reducedMotion, scene, server } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
 
@@ -14,6 +14,7 @@ let animating = false;
 let dayRunning = null;
 let fast = false;
 let panelMode = null;
+let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
 let placePlayer = () => {};
 
@@ -86,6 +87,20 @@ function runClock(from, to, ms) {
   });
 }
 
+// While a day runs the clock follows the server's ticks (display only, no rule reads it).
+// A big gap, e.g. after loading the page in the middle of a day, is closed at once.
+function followDay() {
+  const sh = state.shift;
+  if (!sh || animating) return;
+  const target = MORNING + (DAY_END - MORNING) * Math.min(sh.tick / sh.day_ticks, 1);
+  runClock(scene.clock, target, Math.abs(target - scene.clock) > 60 ? 0 : 1000);
+}
+
+// The day closed on the server: the clock goes on to the evening, not with a jump.
+function dayEnded() {
+  runClock(scene.clock, DAY_END, 900);
+}
+
 export function updateClock() {
   const minutes = Math.floor(scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -127,27 +142,35 @@ function renderToolbar() {
   $("#btn-shift").disabled = locked;
   $("#btn-shift").querySelector(".txt").textContent = "Shift";
   $("#btn-open").disabled = locked;
+  $("#btn-editor").hidden = !state.editor;
+  $("#btn-editor").disabled = animating;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
     : state.finished ? "Run complete"
-    : state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`;
+    : dayButtonLabel();
   $("#btn-fast").hidden = !animating;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
 }
 
 function renderAll() {
+  server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
+  server.shift = state.shift;
+  const open = state.shops.find((sh) => sh.id === state.shift?.shop);
+  server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
   renderToolbar();
   if (panelMode) renderPanel();
   syncShiftTimer();
+  followDay();
 }
 
 // ---- panels --------------------------------------------------------------------------
 
 function openPanel(mode) {
-  if (animating || state.finished) return;
+  if (animating || (state.finished && mode !== "editor")) return;
   panelMode = mode;
+  editorKey = "";
   $("#panel").hidden = false;
   tellDashboard({ type: "panel-open" }); // both use the right side of the screen
   renderPanel();
@@ -158,6 +181,25 @@ function closePanel() {
   panelMode = null;
   $("#panel").hidden = true;
   tellDashboard({ type: "panel-closed" });
+}
+
+// The Dorm (spec nova-zones): what the server already knows about the day, as text, and one button
+// that does what the Open button does. No rule here: the server decides, as before.
+// what the Open button says: skip while a shift is on, otherwise open the day
+const dayButtonLabel = () => (state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`);
+
+function renderDormPanel(body) {
+  $("#panel-title").textContent = "Your room";
+  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C` : "—";
+  const label = state.finished ? "The run is complete" : dayButtonLabel();
+  body.innerHTML = `
+    <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
+    <dl class="dorm-facts">
+      <div><dt>Day</dt><dd>${state.finished ? "Done" : `${esc(state.day)} / ${esc(state.last_day)}`}</dd></div>
+      <div><dt>Cash</dt><dd>${fmt(state.cash)}</dd></div>
+      <div><dt>Weather</dt><dd>${weather}</dd></div>
+    </dl>
+    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`;
 }
 
 function renderPanel() {
@@ -191,6 +233,9 @@ function renderPanel() {
         <button class="btn wide" type="submit">Order</button>
       </form>`;
     updateOrderTotal();
+  } else if (panelMode === "editor") {
+    $("#panel-title").textContent = "Editor";
+    renderEditorPanel(body);
   } else if (panelMode === "shops") {
     $("#panel-title").textContent = "Shops";
     body.innerHTML = `
@@ -203,6 +248,7 @@ function renderPanel() {
             <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
               ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
               storeroom ${s.storage}, counter ${s.counter}</p>
+            ${staffBlock(s)}
             ${s.offers.map((o) => `
               <div class="shop-offer">
                 <span class="nm">${esc(o.name)}</span>
@@ -218,6 +264,8 @@ function renderPanel() {
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
             </div>`}
         </section>`).join("")}`;
+  } else if (panelMode === "dorm") {
+    renderDormPanel(body);
   } else if (panelMode === "shift") {
     renderShiftPanel(body);
   } else if (panelMode === "prices") {
@@ -235,6 +283,175 @@ function renderPanel() {
           <p class="error" data-error></p>
         </form>`).join("")}`;
   }
+}
+
+// ---- editor mode (spec editor-mode) -------------------------------------------------
+// Only shown when the server says editor:true. Every button sends one request; the server
+// checks the switch and every value, and answers with the new state or the reason.
+
+const centsOf = (text) => { // "12.5" or "12,50" euros -> whole cents, or NaN
+  const m = /^(-?)(\d+)(?:[.,](\d{1,2}))?$/.exec(String(text).trim());
+  return m ? Number(m[1] + m[2]) * 100 + (m[3] ? Number(m[1] + m[3].padEnd(2, "0")) : 0) : NaN;
+};
+
+let editorKey = "";
+function renderEditorPanel(body) {
+  const info = state.editor_info;
+  if (!info) return;
+  // do not redraw under the user's fingers while they type: only when the state changed
+  const key = JSON.stringify([state.day, state.cash, state.finished, state.weather?.id, state.shops.map((s) => s.level), !!state.shift]);
+  if (key === editorKey) return;
+  editorKey = key;
+  const busy = state.shift ? "disabled title=\"A day is open: finish or skip it first\"" : "";
+  body.innerHTML = `
+    <p class="note">Dev tools. Day ${state.day}, cash ${fmt(state.cash)}. The server only accepts them with CT_EDITOR=1 on this computer.</p>
+    <p class="error" id="editor-error"></p>
+    <section class="editor-block"><h3>Cash</h3>
+      <form class="editor-row" data-editor="cash">
+        <input name="euros" inputmode="decimal" aria-label="Amount in euro" value="1000">
+        <button class="btn" type="submit" value="set">Set</button>
+        <button class="btn ghost" type="submit" value="add">Add</button>
+      </form></section>
+    <section class="editor-block"><h3>Weather</h3>
+      <form class="editor-row" data-editor="weather">
+        <select name="weather" aria-label="Weather">
+          <option value="">Seed's forecast</option>
+          ${info.weather.map((w) => `<option value="${esc(w.id)}" ${state.weather?.id === w.id ? "selected" : ""}>${esc(w.name)}</option>`).join("")}
+        </select>
+        <button class="btn" type="submit">Fix</button>
+      </form>
+      <p class="note">Stays fixed for today and the days after, until set back to the forecast.</p></section>
+    <section class="editor-block"><h3>Skip days</h3>
+      <form class="editor-row" data-editor="skip">
+        <input name="days" inputmode="numeric" aria-label="Days" value="5">
+        <button class="btn" type="submit" ${busy}>Skip</button>
+      </form></section>
+    <section class="editor-block"><h3>Day</h3>
+      <form class="editor-row" data-editor="day">
+        <input name="day" inputmode="numeric" aria-label="Day" value="${state.day}">
+        <button class="btn" type="submit" ${busy}>Set day</button>
+      </form>
+      <p class="note">Going back cuts the history from that day.</p></section>
+    <section class="editor-block"><h3>Shops</h3>
+      <form data-editor="shops">
+        ${state.shops.map((s) => `<div class="editor-row"><label for="lvl-${esc(s.id)}">${esc(s.name)}</label>
+          <select id="lvl-${esc(s.id)}" name="${esc(s.id)}">
+            ${Array.from({ length: info.max_level[s.id] + 1 }, (_, n) => `<option value="${n}" ${n === s.level ? "selected" : ""}>${n === 0 ? "Locked" : `Level ${n}`}</option>`).join("")}
+          </select></div>`).join("")}
+        <button class="btn wide" type="submit" ${busy}>Set levels</button>
+      </form>
+      <div class="editor-row"><button class="btn ghost" type="button" data-editor-fill ${busy}>Fill storerooms</button></div></section>
+    <section class="editor-block"><h3>Seed</h3>
+      <form class="editor-row" data-editor="seed">
+        <input name="seed" inputmode="numeric" aria-label="Seed" placeholder="0 to ${info.max_seed}">
+        <button class="btn" type="submit" ${busy}>Set seed</button>
+      </form></section>
+    <section class="editor-block"><h3>Teleport (${esc(state.player.zone)})</h3>
+      <form class="editor-row" data-editor="teleport">
+        <input name="x" inputmode="decimal" aria-label="x" value="${Number(state.player.x).toFixed(1)}">
+        <input name="y" inputmode="decimal" aria-label="y" value="${Number(state.player.y).toFixed(1)}">
+        <button class="btn" type="submit" ${busy}>Go</button>
+      </form></section>
+    <section class="editor-block"><h3>Reset the run</h3>
+      <form class="editor-row" data-editor="reset">
+        <input name="seed" inputmode="numeric" aria-label="Seed (optional)" placeholder="seed (optional)">
+        <button class="btn danger" type="submit">Reset</button>
+      </form></section>`;
+}
+
+async function editorAction(path, body, { moved = false } = {}) {
+  if (animating) return;
+  const data = await send(path, body);
+  if (!data) return;
+  state = data.state;
+  editorKey = ""; // the numbers changed: redraw the panel
+  if (data.error) {
+    renderAll();
+    const el = $("#editor-error");
+    if (el) el.textContent = data.error;
+    return toast(data.error, "error");
+  }
+  if (moved) placePlayer(state.player);
+  renderAll();
+  tellDashboard({ type: "action", after: data.state });
+  toast(data.message);
+}
+
+const wholeOrNull = (text) => (String(text).trim() === "" ? null : Number(text));
+
+function wireEditor() {
+  const panel = $("#panel");
+  panel.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-editor]");
+    if (!form) return;
+    e.preventDefault();
+    const kind = form.dataset.editor;
+    const f = form.elements;
+    if (kind === "cash") {
+      const mode = e.submitter?.value || "set";
+      return editorAction("/api/editor/cash", { mode, cents: centsOf(f.euros.value) });
+    }
+    if (kind === "weather") return editorAction("/api/editor/weather", { weather: f.weather.value || null });
+    if (kind === "skip") return editorAction("/api/editor/skip-days", { days: wholeOrNull(f.days.value) });
+    if (kind === "day") return editorAction("/api/editor/state", { patch: { day: wholeOrNull(f.day.value) } });
+    if (kind === "seed") return editorAction("/api/editor/state", { patch: { seed: wholeOrNull(f.seed.value) } });
+    if (kind === "shops") {
+      const shops = {};
+      for (const s of state.shops) shops[s.id] = { level: Number(f[s.id].value) };
+      return editorAction("/api/editor/state", { patch: { shops } });
+    }
+    if (kind === "teleport") {
+      const player = { zone: state.player.zone, x: Number(f.x.value), y: Number(f.y.value) };
+      return editorAction("/api/editor/state", { patch: { player } }, { moved: true });
+    }
+    if (kind === "reset") {
+      if (!confirm("Reset the whole run to day 1?")) return;
+      const seed = wholeOrNull(f.seed.value);
+      return editorAction("/api/editor/reset", seed === null ? { confirm: true } : { confirm: true, seed }, { moved: true });
+    }
+  });
+  panel.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-editor-fill]")) return;
+    // an even share of each storeroom per product; the server checks the limits
+    const stock = {};
+    for (const s of state.shops) {
+      if (s.unlocked && s.products.length) for (const id of s.products) stock[id] = Math.floor(s.storage / s.products.length);
+    }
+    editorAction("/api/editor/state", { patch: { stock } });
+  });
+}
+
+// ---- employees in the shop window ----------------------------------------------------
+// Only shows what the server sent (state.staff) and forwards the clicks. Names come from the
+// server's fixed list and go through esc().
+
+function staffBlock(shop) {
+  const staff = state.staff;
+  const places = staff.places.filter((p) => p.shop === shop.id);
+  if (!places.length) return "";
+  const rows = places.map((p) => {
+    const e = staff.employees.find((x) => x.id === p.employee);
+    if (e) {
+      return `<div class="shop-offer staff-row">
+        <span class="nm">${esc(e.name)} · ${esc(e.job_name)} · level ${e.level}
+          <small>${e.working ? `wage ${fmt(e.wage)} a day` : "stopped working: no money for the wage"}</small></span>
+        ${e.upgrade_price === null ? `<span class="owned">Top level</span>`
+          : `<button class="btn" type="button" data-staff-upgrade="${e.id}"
+              ${e.upgrade_price > state.cash ? "disabled" : ""}>Level up ${fmt(e.upgrade_price)}</button>`}
+        <button class="btn ghost" type="button" data-staff-fire="${e.id}">${armedFire === e.id ? "Sure? Click again" : "Dismiss"}</button>
+      </div>`;
+    }
+    if (!p.bought) {
+      return `<div class="shop-offer staff-row"><span class="nm">${esc(p.job_name)}
+        <small>buy "Employee place ${p.place}" below: it hires them</small></span></div>`;
+    }
+    return `<div class="shop-offer staff-row"><span class="nm">${esc(p.job_name)}
+      <small>place ${p.place} is free</small></span>
+      <button class="btn" type="button" data-hire-shop="${esc(p.shop)}" data-hire-place="${p.place}"
+        ${staff.hire_price > state.cash ? "disabled" : ""}>Hire ${fmt(staff.hire_price)}</button></div>`;
+  });
+  const free = places.some((p) => p.bought && p.employee === null);
+  return `<h4 class="staff-title">Employees</h4>${free ? `<p class="note">A free place is one you dismissed someone from. Hire a new employee for it (${fmt(staff.hire_price)}): they refill and sell on their own while the day runs.</p>` : ""}${rows.join("")}`;
 }
 
 // ---- a day played live in the Cafe ---------------------------------------------------
@@ -328,6 +545,7 @@ async function shiftTick() {
     state = data.state;
     renderAll();
     if (state.day !== before) {
+      dayEnded();
       tellDashboard({ type: "action", after: data.state });
       showDaySummary(state.history[state.history.length - 1]);
     }
@@ -351,7 +569,10 @@ async function shiftAction(path, body) {
     }
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
-    if (path.endsWith("/skip")) showDaySummary(state.history[state.history.length - 1]);
+    if (path.endsWith("/skip")) {
+      dayEnded();
+      showDaySummary(state.history[state.history.length - 1]);
+    }
   } finally {
     shiftBusy = false;
   }
@@ -376,6 +597,10 @@ function wirePanel() {
   const panel = $("#panel");
   panel.addEventListener("click", (e) => {
     if (e.target.closest("[data-close]")) return closePanel();
+    if (e.target.closest("[data-dorm-open]")) {
+      closePanel();
+      return openDay();
+    }
     const unlockBtn = e.target.closest("[data-unlock]");
     if (unlockBtn) return shopAction("/api/shop/unlock", { shop: unlockBtn.dataset.unlock });
     const upgradeBtn = e.target.closest("[data-upgrade-item]");
@@ -384,6 +609,24 @@ function wirePanel() {
         shop: upgradeBtn.dataset.upgradeShop,
         item: upgradeBtn.dataset.upgradeItem,
       });
+    }
+    const hireBtn = e.target.closest("[data-hire-shop]");
+    if (hireBtn) {
+      return shopAction("/api/staff/hire", {
+        shop: hireBtn.dataset.hireShop, place: Number(hireBtn.dataset.hirePlace),
+      });
+    }
+    const levelBtn = e.target.closest("[data-staff-upgrade]");
+    if (levelBtn) return shopAction("/api/staff/upgrade", { employee_id: Number(levelBtn.dataset.staffUpgrade) });
+    const fireBtn = e.target.closest("[data-staff-fire]");
+    if (fireBtn) {
+      const id = Number(fireBtn.dataset.staffFire);
+      if (armedFire !== id) { // the level is lost, so ask once
+        armedFire = id;
+        return renderPanel();
+      }
+      armedFire = null;
+      return shopAction("/api/staff/fire", { employee_id: id });
     }
     const startBtn = e.target.closest("[data-shift-start]");
     if (startBtn) return shiftAction("/api/shift/start", { shop: startBtn.dataset.shiftStart });
@@ -536,6 +779,7 @@ function syncFromDashboard(msg) {
 export function useLocation(action) {
   if (action === "stock") openPanel("order");
   if (action === "prices") openPanel("prices");
+  if (action === "dorm") openPanel("dorm");
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 
@@ -561,6 +805,8 @@ function showDaySummary(result) {
     <p class="eyebrow">Day ${result.day} closed</p>
     <p class="big ${gp > 0 ? "up" : gp < 0 ? "down" : ""}">${fmtSigned(gp)}</p>
     <p class="note">gross profit · cost of goods sold ${fmt(result.cogs)} · cash now ${fmt(result.cash_after)}</p>
+    ${result.wages || result.wages_unpaid?.length ? `<p class="note">wages paid ${fmt(result.wages)} · result after wages ${fmtSigned(result.net)}${
+      result.wages_unpaid.length ? ` · ${result.wages_unpaid.length} employee(s) stopped working: no money for the wage` : ""}</p>` : ""}
     <table>
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -662,7 +908,9 @@ export function initUi(firstState, actions) {
   state = firstState;
   placePlayer = actions.placePlayer;
   wirePanel();
+  wireEditor();
   wireOverlay();
+  $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));
   $("#btn-shops").addEventListener("click", () => openPanel("shops"));

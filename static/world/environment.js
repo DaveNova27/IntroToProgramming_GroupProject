@@ -82,17 +82,17 @@ export function drawSkyMotion(t, environment, w, h) {
 export function drawCoastalMotion(t, environment) {
   ctx.save();
   ctx.lineCap = "round";
-  for (let band = 0; band < 5; band++) {
-    const y = 25.55 + band * 0.78,
-      amplitude = 2.2 + band * 0.7 + environment.sea * 2,
-      alpha = 0.18 + band * 0.07;
+  for (let band = 0; band < 11; band++) {
+    const y = 34.55 + band * 0.9,
+      amplitude = 2.2 + Math.min(band, 5) * 0.7 + environment.sea * 2,
+      alpha = 0.18 + Math.min(band, 5) * 0.07 - Math.max(0, band - 6) * 0.03;
     ctx.strokeStyle = `rgba(229,251,247,${alpha})`;
-    ctx.lineWidth = 1.2 + band * 0.3;
+    ctx.lineWidth = 1.2 + Math.min(band, 5) * 0.3;
     ctx.beginPath();
-    for (let x = -1; x <= 58; x += 0.35) {
+    for (let x = -14; x <= 58; x += 0.35) {
       const phase = x * 0.55 - (reducedMotion ? 0 : t * 0.0011 * (0.65 + environment.sea)) + band * 0.9,
         p = isoPoint(x, y + Math.sin(phase) * 0.075 * environment.sea, 5 + Math.sin(phase) * amplitude);
-      if (x === -1) ctx.moveTo(p.x, p.y);
+      if (x === -14) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
@@ -103,7 +103,7 @@ export function drawCoastalMotion(t, environment) {
     ctx.beginPath();
     for (let x = 0; x <= 58; x += 0.3) {
       const phase = x * 0.48 - (reducedMotion ? 0 : t * 0.0015 * (0.8 + environment.sea)) + ribbon * 1.7,
-        p = isoPoint(x, 25.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
+        p = isoPoint(x, 34.1 + ribbon * 0.16 + Math.sin(phase) * 0.09, 7);
       if (x === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -111,11 +111,60 @@ export function drawCoastalMotion(t, environment) {
   }
   for (let i = 0; i < 11; i++) {
     const progress = reducedMotion ? i / 11 : (t * 0.000035 * (0.8 + environment.wind) + i / 11) % 1,
-      p = isoPoint(2 + i * 5.1, 25.25 + progress * 3.9, 8);
+      p = isoPoint(2 + i * 5.1, 34.25 + progress * 3.9, 8);
     ctx.fillStyle = `rgba(240,255,250,${0.3 * (1 - progress)})`;
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, 7 + progress * 5, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // wave sets rolling in: a crest that rises, turns white and breaks on the shore, a shaded face behind it
+  for (let k = 0; k < 6; k++) {
+    const progress = reducedMotion ? k / 6 : (t * 0.000052 * (0.75 + environment.sea) + k / 6) % 1;
+    const y = 43 - progress * 8.2; // far to the shore (the sea starts at y 35)
+    const rise = Math.sin(Math.min(1, progress * 1.15) * Math.PI);
+    ctx.lineCap = "round";
+    for (const [dy, alpha, width, color] of [[0.42, 0.1 + 0.1 * progress, 5 + progress * 5, "20,70,90"], [0, 0.18 + 0.55 * progress * progress, 1.3 + progress * 2.8, "255,255,255"]]) {
+      ctx.strokeStyle = `rgba(${color},${alpha})`;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      for (let x = -14; x <= 58; x += 0.4) {
+        const yy = y + dy + 0.28 * Math.sin(x * 0.42 + k * 2.3) + 0.12 * Math.sin(x * 1.3 + k);
+        const lift = 4 + 9 * rise * (0.7 + 0.3 * Math.sin(x * 0.33 + k * 1.7));
+        const p = isoPoint(x, yy, lift);
+        if (x === -14) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+  }
+  // the sun's path on the water at sunset: orange dashes in a column, brighter the lower the sun
+  const dusk = Math.max(0, Math.min(1, (lightingProfile(scene.clock).progress - 0.5) / 0.4));
+  if (dusk > 0.02) {
+    // bright dashes along a column under the sun
+    for (let i = 0; i < 140; i++) {
+      const row = (i * 0.37) % 9;
+      const spread = 0.5 + row * 0.5;
+      const flick = reducedMotion ? 0.7 : 0.4 + 0.6 * Math.sin(t * 0.003 + i * 2.1);
+      const p = isoPoint(26 + Math.sin(i * 2.3) * spread, 35.3 + row, 7);
+      ctx.strokeStyle = `rgba(255,${170 + (i % 4) * 14},${100 + (i % 3) * 25},${0.9 * dusk * Math.max(0.1, flick)})`;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(p.x - 10 - spread * 5, p.y);
+      ctx.lineTo(p.x + 10 + spread * 5, p.y);
+      ctx.stroke();
+    }
+  }
+  // sun glitter: short bright dashes that twinkle in turn (fixed places, nothing random)
+  for (let i = 0; i < 60; i++) {
+    const twinkle = reducedMotion ? 0.5 : Math.max(0, Math.sin(t * 0.0026 + i * 1.7)) * Math.max(0, Math.sin(t * 0.0011 + i * 0.6));
+    if (twinkle < 0.05) continue;
+    const p = isoPoint(-8 + ((i * 7.3) % 58), 36 + ((i * 3.7) % 9), 7);
+    ctx.strokeStyle = `rgba(255,255,240,${0.65 * twinkle})`;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 3 - twinkle * 2, p.y);
+    ctx.lineTo(p.x + 3 + twinkle * 2, p.y);
+    ctx.stroke();
   }
   ctx.restore();
 }

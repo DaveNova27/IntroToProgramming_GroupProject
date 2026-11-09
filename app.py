@@ -11,7 +11,7 @@ Run it with:  uv run python app.py   (then open http://127.0.0.1:8000)
 import os
 import threading
 
-from flask import Flask, jsonify, redirect, request, send_from_directory
+from flask import Flask, has_request_context, jsonify, redirect, request, send_from_directory
 
 import db
 import logic
@@ -73,12 +73,51 @@ def shift_view(state):
         "shift_end": shift.get("shift_end", logic.DAY_TICKS) if shift["shop"] else None,
         "shift_ticks": logic.SHIFT_TICKS,
         "over": bool(shift.get("over")),
+        "staffed": bool(shift.get("staffed")),
+        "crews": [{"shop": sid, "counter": sub["counter"], "sold": sub["sold"], "lost": sub["lost"],
+                   "over": bool(sub.get("over"))} for sid, sub in sorted(shift.get("extra", {}).items())],
         "counter": shift["counter"],
         "counter_space": size - sum(shift["counter"].values()),
         "counter_size": size,
         "waiting": waiting,
         "sold": shift["sold"],
         "lost": shift["lost"],
+    }
+
+
+def staff_view(state):
+    """The employees and the places of the shops where they can work, prices from the rules."""
+    employees = []
+    for e in state["employees"]:
+        level = e["level"]
+        employees.append({
+            "id": e["id"], "name": e["name"], "shop": e["shop"], "place": e["place"],
+            "job": e["job"], "job_name": logic.JOBS[e["job"]]["name"],
+            "level": level, "working": e["working"], "wage": logic.employee_wage(e),
+            "upgrade_price": (logic.UPGRADE_PRICES[level + 1]
+                              if level < logic.EMPLOYEE_MAX_LEVEL else None),
+        })
+    # an open day pays only the shops that run a shift; before it every unlocked shop would
+    shift = state["shift"]
+    paid_shops = ({s for s in [shift["shop"], *shift.get("extra", {})] if s} if shift
+                  else {sid for sid, shop in state["shops"].items() if shop["unlocked"]})
+    places = []
+    for shop in logic.STAFF_SHOPS:
+        taken = {e["place"]: e["id"] for e in state["employees"] if e["shop"] == shop}
+        for place, job in enumerate(logic.SHOPS[shop]["jobs"], start=1):
+            places.append({
+                "shop": shop, "place": place, "job": job,
+                "job_name": logic.JOBS[job]["name"],
+                "bought": place <= state["shops"][shop]["staff_places"],
+                "employee": taken.get(place),
+            })
+    return {
+        "hire_price": logic.HIRE_PRICE,
+        "max_level": logic.EMPLOYEE_MAX_LEVEL,
+        "employees": employees,
+        "places": places,
+        "wages_today": sum(e["wage"] for e in employees
+                           if e["working"] and e["shop"] in paid_shops),
     }
 
 
@@ -116,9 +155,21 @@ def outlook_view(state):
     }
 
 
+def editor_info():
+    """What the editor panel offers (ids and limits from the rules, never from the screen)."""
+    return {
+        "weather": [{"id": wid, "name": w["name"]} for wid, w in logic.WEATHER.items()],
+        "max_level": {sid: 1 + len(shop["window"]) for sid, shop in logic.SHOPS.items()},
+        "max_cash": logic.MAX_CASH,
+        "max_seed": logic.MAX_SEED,
+        "storage": logic.STORAGE_UNITS,
+    }
+
+
 def view(state):
     """Everything the dashboard shows, calculated by the rules, never by the browser."""
     finished = logic.is_finished(state)
+    editor_on = has_request_context() and editor_switch_on()
     owned = logic.owned_products(state)
     products = [{
         "id": pid,
@@ -145,7 +196,10 @@ def view(state):
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
         "weather": weather_view(state),
         "outlook": outlook_view(state),
+        "editor": editor_on,
+        "editor_info": editor_info() if editor_on else None,
         "shift": shift_view(state),
+        "staff": staff_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
@@ -278,13 +332,67 @@ def buy_upgrade():
     return apply(action)
 
 
-def demo_switch_on():
-    """The weather override is a demo hook: only with the switch on and from this computer."""
+@app.post("/api/staff/hire")
+def hire():
+    body = json_body()
+
+    def action(state):
+        shop, place = body.get("shop"), body.get("place")
+        new_state = logic.hire(state, shop, place)
+        who = new_state["employees"][-1]
+        return new_state, (f"{who['name']} hired as {logic.JOBS[who['job']]['name']} for "
+                           f"{logic.fmt(state['cash'] - new_state['cash'])}.")
+
+    return apply(action)
+
+
+@app.post("/api/staff/upgrade")
+def upgrade_employee():
+    body = json_body()
+
+    def action(state):
+        employee_id = body.get("employee_id")
+        new_state = logic.upgrade_employee(state, employee_id)
+        who = next(e for e in new_state["employees"] if e["id"] == employee_id)
+        return new_state, (f"{who['name']} is on level {who['level']} now for "
+                           f"{logic.fmt(state['cash'] - new_state['cash'])}.")
+
+    return apply(action)
+
+
+@app.post("/api/staff/fire")
+def fire_employee():
+    body = json_body()
+
+    def action(state):
+        employee_id = body.get("employee_id")
+        new_state = logic.fire_employee(state, employee_id)
+        who = next(e for e in state["employees"] if e["id"] == employee_id)
+        return new_state, f"{who['name']} was dismissed."
+
+    return apply(action)
+
+
+def local_request():
+    """True only for a request from this computer, with no proxy in between."""
     # a proxy in front would make every client look local: refuse when one has been involved
     if request.headers.get("X-Forwarded-For") or request.headers.get("Forwarded"):
         return False
-    return (os.environ.get("CAMPUS_TYCOON_DEMO") == "1"
-            and request.remote_addr in ("127.0.0.1", "::1", "::ffff:127.0.0.1"))
+    if request.remote_addr not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+        return False
+    # DNS rebinding: a web page can point its own name at 127.0.0.1, so the Host must be local too
+    host = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
+    return host in ("127.0.0.1", "localhost", "[::1]")
+
+
+def demo_switch_on():
+    """The weather override is a demo hook: only with the switch on and from this computer."""
+    return os.environ.get("CAMPUS_TYCOON_DEMO") == "1" and local_request()
+
+
+def editor_switch_on():
+    """The editor mode (specs/editor-mode.md): CT_EDITOR=1 and a request from this computer."""
+    return os.environ.get("CT_EDITOR") == "1" and local_request()
 
 
 @app.post("/api/day-override")
@@ -301,6 +409,74 @@ def day_override():
         return new_state, f"Weather fixed to {logic.WEATHER[weather]['name']}."
 
     return apply(action)
+
+
+def editor_action(rule):
+    """Run an editor rule on the saved run: only with the switch on, saved with save_new_run
+    (an edit may move the day back and cut the history). Nothing is saved when refused."""
+    with _lock:
+        state = load_run()
+        try:
+            if not editor_switch_on():
+                raise logic.RejectedAction("The editor is off.")
+            new_state, message = rule(state)
+        except logic.RejectedAction as reason:
+            return jsonify({"error": str(reason), "state": view(state)}), 400
+        db.save_new_run(new_state)
+        return jsonify({"message": message, "state": view(new_state)})
+
+
+@app.post("/api/editor/cash")
+def editor_cash():
+    body = json_body()
+    return editor_action(lambda state: (
+        logic.editor_cash(state, body.get("mode"), body.get("cents")), "Cash changed."))
+
+
+@app.post("/api/editor/weather")
+def editor_weather():
+    body = json_body()
+
+    def rule(state):
+        weather = body.get("weather")
+        new_state = logic.set_day_override(state, weather)
+        return new_state, ("Weather back to the seed's forecast." if weather is None
+                           else f"Weather fixed to {logic.WEATHER[weather]['name']}.")
+
+    return editor_action(rule)
+
+
+@app.post("/api/editor/skip-days")
+def editor_skip_days():
+    body = json_body()
+
+    def rule(state):
+        days = body.get("days")
+        new_state = logic.editor_skip_days(state, days)
+        return new_state, f"Skipped {days} day(s). It is day {new_state['day']}."
+
+    return editor_action(rule)
+
+
+@app.post("/api/editor/state")
+def editor_state():
+    body = json_body()
+    return editor_action(lambda state: (
+        logic.editor_set_state(state, body.get("patch")), "State set."))
+
+
+@app.post("/api/editor/reset")
+def editor_reset():
+    body = json_body()
+
+    def rule(state):
+        if body.get("confirm") is not True:
+            raise logic.RejectedAction("A reset needs confirm: true.")
+        seed = body["seed"] if body.get("seed") is not None else logic.new_seed()
+        logic.check_seed(seed)
+        return logic.new_state(seed), "Run reset to day 1."
+
+    return editor_action(rule)
 
 
 @app.post("/api/day/open")

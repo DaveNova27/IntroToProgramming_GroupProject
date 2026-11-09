@@ -151,7 +151,25 @@ export function drawColumnLine(x, y, length, count, z = 28, axis = "x", color = 
 }
 
 export function drawLinearPlanter(x, y, w, h, z = 13) {
+  // it must stand on the ground, not hover over it: a contact shadow, a darker footing and soil on top
+  const g = 0.3;
+  drawPlane(
+    [isoPoint(x, y + h, 0), isoPoint(x + w, y + h, 0), isoPoint(x + w + g, y + h + g, 0), isoPoint(x + g, y + h + g, 0)],
+    "rgba(30,44,44,.2)",
+    null,
+  );
+  drawPlane(
+    [isoPoint(x + w, y, 0), isoPoint(x + w + g, y + g, 0), isoPoint(x + w + g, y + h + g, 0), isoPoint(x + w, y + h, 0)],
+    "rgba(30,44,44,.2)",
+    null,
+  );
+  drawBlock(x - 0.05, y - 0.05, w + 0.1, h + 0.1, 3.5, "#b3ad9f", "#6f7a76", "#8e9792");
   drawBlock(x, y, w, h, z, "#d9d3c6", "#8d9792", "#adb2ab");
+  drawPlane(
+    [isoPoint(x + 0.07, y + 0.07, z), isoPoint(x + w - 0.07, y + 0.07, z), isoPoint(x + w - 0.07, y + h - 0.07, z), isoPoint(x + 0.07, y + h - 0.07, z)],
+    "#6b5a45",
+    null,
+  );
   const count = Math.max(2, Math.round(w * 1.5));
   for (let i = 0; i < count; i++) {
     const p = isoPoint(x + 0.25 + ((w - 0.5) * i) / (count - 1), y + h * 0.5, z + 5 + (i % 2) * 2);
@@ -239,20 +257,6 @@ export function drawFacadeBandX(x, y, h, zBottom, zTop, color = "#1f4652", mulli
     const py = y + (h * i) / mullions,
       a = isoPoint(x, py, zBottom + 2),
       b = isoPoint(x, py, zTop - 2);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-}
-
-export function drawTimberScreen(x, y, w, zBottom, zTop, count = 8) {
-  ctx.strokeStyle = "#ad8152";
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i <= count; i++) {
-    const px = x + (w * i) / count,
-      a = isoPoint(px, y, zBottom),
-      b = isoPoint(px, y, zTop);
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);

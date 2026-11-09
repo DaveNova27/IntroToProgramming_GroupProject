@@ -7,19 +7,14 @@ import {
   WORLD_MATERIALS,
   drawBladeSign,
   drawBlock,
-  drawColumnLine,
   drawConcreteSeams,
-  drawFacadeBandX,
-  drawFacadeBandY,
   drawGroundSlab,
   drawLinearPlanter,
   drawPavingInlay,
   drawPlane,
   drawRaisedSlab,
-  drawSoftShadow,
   drawSpaceCaption,
   drawTile,
-  drawTimberScreen,
   drawWorldLabel,
   mixColor,
 } from "./primitives.js";
@@ -42,8 +37,9 @@ export function drawTerrain(t) {
     center = isoPoint(camera.x, camera.y),
     viewX = canvas.clientWidth / (2 * camera.zoom) + TILE_W * 2,
     viewY = canvas.clientHeight / (2 * camera.zoom) + TILE_H * 3;
+  // the ground also runs a little west of the map, so no void shows beside the beach
   for (let y = 0; y < zone.height; y++)
-    for (let x = 0; x < zone.width; x++) {
+    for (let x = -14; x < zone.width; x++) {
       const point = isoPoint(x, y);
       if (Math.abs(point.x - center.x) <= viewX && Math.abs(point.y - center.y) <= viewY)
         tiles.push({ x, y, d: x + y });
@@ -53,16 +49,24 @@ export function drawTerrain(t) {
     let color = zone.floor || "#79aa67",
       depth = 4;
     if (zone.outdoor) {
-      if (y >= 26) {
-        color = x % 5 === 0 ? "#448fa0" : "#3f899b";
+      if (y >= 35) {
+        // shallow, light water along the shore, deeper and darker further out
+        const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b", "#397f93", "#33758b", "#2e6b83"][Math.min(y - 35, 7)];
+        color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
         depth = 0;
-      } else if (y >= 23) color = x % 4 === 0 ? "#e4c986" : "#dec27e";
-      else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18)
+      } else if (y >= 25) color = y >= 34 ? "#d3b575" : y >= 33 ? "#d9bc7b" : x % 4 === 0 ? "#e4c986" : "#dec27e";
+      else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18) {
         color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
-      else color = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 ? "#7ca66b" : "#78a267";
+        // the paving turns warm and sandy towards the beach, so the two do not meet on a line
+        if (y >= 20) color = mixColor(color, "#e6d3a2", Math.min(0.72, (y - 19.5) * 0.15));
+      } else {
+        // lawn: soft drifting patches of two greens, not a chessboard
+        const f = 0.5 + 0.25 * Math.sin(x * 0.43 + y * 0.21) + 0.25 * Math.sin(y * 0.57 - x * 0.17 + 1.3);
+        color = mixColor("#78a267", "#82ad70", f * 0.9 + ((x * 7 + y * 13) % 5) * 0.02);
+      }
     } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
     drawTile(x, y, color, depth);
-    if (zone.outdoor && y === 25) {
+    if (zone.outdoor && y === 34) {
       const p = isoPoint(x + 0.5, y + 0.5, 5);
       ctx.strokeStyle = "rgba(255,255,255,.55)";
       ctx.lineWidth = 2;
@@ -206,7 +210,7 @@ export function drawAcademicCourtyard(t) {
   for (let i = 0; i < 4; i++) drawLinearPlanter(12.95 + i * 4.65, 12.94, 1.45, 0.68, 14);
   drawCampusBench(13.35, 11.8);
   drawCampusBench(24.8, 11.75);
-  drawSpaceCaption(13.05, 9.75, "Academic Courtyard", "#31545b");
+  drawSpaceCaption(22.3, 10.95, "Academic Courtyard", "#31545b");
   const pulse = 2 + Math.sin(t * 0.002) * 0.7,
     p = isoPoint(20.1, 12.72, 9);
   ctx.fillStyle = `rgba(100,203,200,${0.12 + pulse * 0.015})`;
@@ -228,11 +232,16 @@ export function drawCafeTerrace() {
   drawSpaceCaption(13.8, 16.25, "Shaded Terrace", "#8b6645");
 }
 
+// The delivery lane runs along the west side of the Mercado and stops where the building stops,
+// so lorries never cross the plaza: asphalt, a kerb against the wall, centre dashes, a barrier at the south end.
 export function drawServiceLane() {
-  drawGroundSlab(2.15, 17.15, 12.35, 2.15, "#9da39e", 4);
-  for (let i = 0; i < 8; i++) {
-    const a = isoPoint(2.55 + i * 1.45, 18.22, 6),
-      b = isoPoint(3.18 + i * 1.45, 18.22, 6);
+  const y0 = 8.0, y1 = 13.5;
+  drawGroundSlab(-1.4, y0, 4.3, y1 - y0, "#9da39e", 4);
+  drawGroundSlab(2.9, y0, 0.25, y1 - y0, "#c9c9c0", 5);
+  drawGroundSlab(-1.4, y1 - 0.12, 4.3, 0.12, "#c9c9c0", 5); // a kerb closes the lane at the south end
+  for (let j = 0; j < 5; j++) {
+    const a = isoPoint(0.95, 8.5 + j * 1.0, 6),
+      b = isoPoint(0.95, 8.9 + j * 1.0, 6);
     ctx.strokeStyle = "rgba(245,241,230,.62)";
     ctx.lineWidth = 2.2;
     ctx.beginPath();
@@ -240,37 +249,51 @@ export function drawServiceLane() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  for (let i = 0; i < 3; i++) {
-    const x = 3.05 + i * 2.15;
-    drawGroundSlab(x, 17.38, 1.3, 0.72, "#c5c6be", 5);
-    const p = isoPoint(x + 0.65, 17.76, 7);
-    ctx.strokeStyle = "#e8e5dc";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(p.x - 15, p.y - 6, 30, 12);
+  // loading bay marks in front of the dock, and pallets with boxes
+  for (const y of [9.0, 12.2]) {
+    const a = isoPoint(1.3, y, 6),
+      b = isoPoint(2.8, y, 6);
+    ctx.strokeStyle = "rgba(245,241,230,.55)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
   }
-  drawSpaceCaption(2.55, 19.03, "Service & deliveries", "#5d6765");
-}
-
-export function drawFoodCourt() {
-  drawPavingInlay(24.05, 17.25, 8.3, 4.45, "#dfd8ca", 1.2);
-  drawPergola(24.65, 17.75, 3.05, 1.15, "#f5c95e");
-  drawPergola(28.25, 17.75, 3.25, 1.15, "#64cbc8");
-  [
-    [25.35, 19.75],
-    [27.2, 20.35],
-    [29.25, 19.75],
-    [31, 20.45],
-  ].forEach(([x, y], index) => drawTerraceTable(x, y, index % 2 ? "#64cbc8" : "#f5c95e"));
-  drawSpaceCaption(24.4, 21.35, "Food Court", "#8b6645");
+  drawGroundSlab(2.05, 9.5, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 9.55, 0.65, 0.85, "#d8c59c", 7);
+  drawGroundSlab(2.05, 10.9, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 10.95, 0.65, 0.85, "#c9a878", 8);
+  // the barrier at the gate: a post at the building's corner with a red and white arm, lifted
+  const bx = 2.7, by = 13.2;
+  const post = isoPoint(bx, by, 5),
+    top = isoPoint(bx, by, 30);
+  ctx.strokeStyle = "#31545b";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(post.x, post.y);
+  ctx.lineTo(top.x, top.y);
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) {
+    const a = isoPoint(bx - i * 0.33, by, 30 + i * 9),
+      b = isoPoint(bx - (i + 1) * 0.33, by, 30 + (i + 1) * 9);
+    ctx.strokeStyle = i % 2 ? "#ffffff" : "#e24d3f";
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  drawSpaceCaption(0.0, 13.0, "Service & deliveries", "#5d6765");
 }
 
 export function drawStudentLawn() {
-  drawGroundSlab(32.35, 17.15, 6.8, 5.1, "#83a774", 3);
+  drawGroundSlab(32.35, 17.15, 6.8, 2.7, "#83a774", 3);
   const patches = [
     [33.2, 18.2, "#e5c86f"],
-    [35.2, 20.4, "#ed7458"],
+    [35.2, 18.9, "#ed7458"],
     [37.25, 18.75, "#d8e8d0"],
-    [33.8, 21.25, "#64cbc8"],
+    [33.8, 19.0, "#64cbc8"],
   ];
   patches.forEach(([x, y, color], index) => {
     const p = isoPoint(x, y, 5);
@@ -286,57 +309,8 @@ export function drawStudentLawn() {
     ctx.globalAlpha = 1;
     if (index < 2) drawCampusBench(x + 0.35, y - 0.2, index);
   });
-  drawLinearPlanter(38.4, 17.55, 0.48, 4.15, 13);
-  drawSpaceCaption(32.75, 22.05, "Student Lawn", "#456549");
-}
-
-export function drawBeachPromenade(t) {
-  drawGroundSlab(2.1, 21.62, 37.2, 1.38, "#c2b39a", 5);
-  for (let x = 2.4; x < 39; x += 1.1) {
-    const a = isoPoint(x, 21.72, 7),
-      b = isoPoint(x, 22.88, 7);
-    ctx.strokeStyle = "rgba(91,72,53,.18)";
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-  for (let x = 5; x < 39; x += 5.4) {
-    const base = isoPoint(x, 22.15, 7),
-      top = isoPoint(x, 22.15, 35);
-    ctx.strokeStyle = "#31545b";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(base.x, base.y);
-    ctx.lineTo(top.x, top.y);
-    ctx.stroke();
-    ctx.fillStyle = "#f5c95e";
-    ctx.beginPath();
-    ctx.arc(top.x, top.y, 3 + Math.sin(t * 0.002 + x) * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  for (let x = 7.7, index = 0; x < 38; x += 7.6, index++)
-    drawWindFlag(x, 21.9, 48, index % 2 ? "#64cbc8" : "#ed7458", t + index * 190, environment, 0.58);
-  drawSpaceCaption(31.5, 22.8, "Beach Promenade", "#6d5944");
-}
-
-export function drawEventSquare() {
-  drawPavingInlay(17.05, 19.55, 7, 4.15, "#d9d2c4", 0.95);
-  const center = isoPoint(20.55, 21.45, 7);
-  ctx.save();
-  ctx.translate(center.x, center.y);
-  ctx.scale(1, 0.5);
-  for (let ring = 0; ring < 3; ring++) {
-    ctx.strokeStyle = ring === 1 ? WORLD_MATERIALS.coral : "rgba(49,84,91,.28)";
-    ctx.lineWidth = ring === 1 ? 2 : 1;
-    ctx.beginPath();
-    ctx.arc(0, 0, 28 + ring * 14, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.restore();
-  drawSpaceCaption(17.35, 23.3, "Event Square", WORLD_MATERIALS.coral);
+  drawLinearPlanter(38.4, 17.55, 0.48, 2.1, 13);
+  drawSpaceCaption(32.75, 19.75, "Student Lawn", "#456549");
 }
 
 export function drawCampusGroundPlan(t) {
@@ -346,11 +320,7 @@ export function drawCampusGroundPlan(t) {
   drawAcademicCourtyard(t);
   drawCafeTerrace();
   drawServiceLane();
-  drawFoodCourt();
   drawStudentLawn();
-  drawBeachPromenade(t);
-  drawEventSquare();
-  drawColumnLine(11.95, 8.75, 18.2, 12, 27, "x", "#365861");
   drawBladeSign(8.6, 16.15, 32, "NOVA", WORLD_MATERIALS.coral);
   drawBladeSign(33.2, 16.15, 32, "COAST", WORLD_MATERIALS.lime);
   const routeA = isoPoint(7.2, 15.25, 8),
@@ -396,163 +366,9 @@ export function drawRoofLights(x, y, w, h, z) {
     }
 }
 
-export function drawCampusWing(x, y, w, h, z, options = {}) {
-  const white = options.white || WORLD_MATERIALS.chalk,
-    side = options.side || "#aebbb6",
-    shadow = options.shadow || WORLD_MATERIALS.chalkShade;
-  drawSoftShadow(x + w * 0.55, y + h * 0.62, Math.max(36, w * 12), Math.max(13, h * 5), 0.2);
-  drawBlock(x - 0.16, y - 0.12, w + 0.32, h + 0.24, 8, "#d6d5ce", "#8d9b97", "#abb3ae");
-  drawBlock(x, y, w, h, z, white, side, shadow);
-  const levels = Math.max(1, Math.floor((z - 18) / 27));
-  for (let level = 0; level < levels; level++) {
-    const low = 14 + level * 27,
-      high = Math.min(z - 9, low + 15);
-    if (high > low) {
-      drawFacadeBandY(
-        x + 0.28,
-        y + h + 0.015,
-        w - 0.56,
-        low,
-        high,
-        options.glass || "#285761",
-        Math.max(3, Math.round(w)),
-      );
-      drawFacadeBandX(
-        x + w + 0.015,
-        y + 0.25,
-        h - 0.5,
-        low,
-        high,
-        options.glassDark || "#204650",
-        Math.max(2, Math.round(h)),
-      );
-    }
-  }
-  drawRaisedSlab(x - 0.18, y - 0.18, w + 0.36, h + 0.36, z + 4, 5, "#fbf8ef", "#9eaaa6", "#bdc4bf");
-  const capA = isoPoint(x - 0.18, y + h + 0.18, z + 5),
-    capB = isoPoint(x + w + 0.18, y + h + 0.18, z + 5);
-  ctx.strokeStyle = "rgba(255,255,255,.72)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(capA.x, capA.y);
-  ctx.lineTo(capB.x, capB.y);
-  ctx.stroke();
-  drawRoofLights(x + 0.45, y + 0.4, w - 0.9, h - 0.8, z + 4);
-  if (options.slats)
-    drawTimberScreen(
-      x + 0.35,
-      y + h + 0.04,
-      w - 0.7,
-      13,
-      Math.min(z - 8, 72),
-      Math.max(5, Math.round(w * 1.4)),
-    );
-  if (options.roofGarden)
-    drawRoofGarden(x + 0.55, y + 0.45, Math.max(1, w - 1.1), Math.max(0.7, h - 1), z + 4);
-  if (options.accent) {
-    const a = isoPoint(x + w * 0.12, y + h + 0.05, Math.min(z - 7, 46)),
-      b = isoPoint(x + w * 0.42, y + h + 0.05, Math.min(z - 7, 46));
-    ctx.strokeStyle = options.accent;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-}
-
-export function drawCanopy(x, y, w, h, z = 31, baseZ = 0) {
-  drawRaisedSlab(x, y, w, h, z + 4, 5, "#f5f3ea", "#aeb9b5", "#c5cac5");
-  const posts = [
-    [x + 0.2, y + 0.2],
-    [x + w - 0.2, y + 0.2],
-    [x + 0.2, y + h - 0.2],
-    [x + w - 0.2, y + h - 0.2],
-  ];
-  ctx.strokeStyle = "#31545b";
-  ctx.lineWidth = 2;
-  posts.forEach(([px, py]) => {
-    const a = isoPoint(px, py, baseZ),
-      b = isoPoint(px, py, z);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  });
-}
-
-export function drawCampusWestWing(t) {
-  const { x, y, w, h } = world.buildings.academicWest;
-  drawCampusWing(x, y, w, h, 90, { glass: "#245761", roofGarden: true, slats: true });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(13.25, 3.6, 112, "#ed7458", t, environment, 0.86);
-}
-
-export function drawCampusCentreWing(t) {
-  const { x, y, w, h } = world.buildings.academicCentre;
-  drawCampusWing(x, y, w, h, 70, { glass: "#2b6670", accent: "#f2c85f" });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(24.8, 3.5, 133, "#f5c95e", t + 180, environment, 0.86);
-}
-
-export function drawCampusEastWing(t) {
-  const { x, y, w, h } = world.buildings.academicEast;
-  drawCampusWing(x, y, w, h, 111, { glass: "#214e5b", slats: true, roofGarden: true, accent: "#ed7458" });
-  const environment = environmentalProfile(scene.clock, scene.day, t);
-  drawWindFlag(29.1, 4.15, 119, "#64cbc8", t + 340, environment, 0.86);
-}
-
-export function drawCampusBridgeAndIdentity() {
-  const bridgeA = isoPoint(17.8, 5.6, 60),
-    bridgeB = isoPoint(24.25, 5.6, 60);
-  ctx.strokeStyle = "#e8e8e2";
-  ctx.lineWidth = 14;
-  ctx.beginPath();
-  ctx.moveTo(bridgeA.x, bridgeA.y);
-  ctx.lineTo(bridgeB.x, bridgeB.y);
-  ctx.stroke();
-  ctx.strokeStyle = "#315c65";
-  ctx.lineWidth = 8;
-  ctx.stroke();
-  drawWorldLabel(21.2, 8.55, 127, "NOVA COAST CAMPUS", "#f5c95e");
-}
-
-export function drawLibrary() {
-  const { x, y, w, h } = world.buildings.library;
-  drawCampusWing(x, y, w, h, 73, { glass: "#285d67", slats: true, roofGarden: true, accent: "#64cbc8" });
-  drawWorldLabel(6.4, 8.05, 88, "LEARNING CENTER", "#64cbc8");
-}
-
-export function drawMercadoExterior() {
-  const { x, y, w, h } = world.buildings.mercado;
-  drawCampusWing(x, y, w, h, 58, { glass: "#2b555b", slats: true, accent: "#f5c95e" });
-  drawWorldLabel(7.3, 13.15, 74, "MERCADO SUPPLY", "#f5c95e");
-}
-
-export function drawStudentHub() {
-  const { x, y, w, h } = world.buildings.studentHub;
-  drawCampusWing(x, y, w, h, 84, { glass: "#225762", roofGarden: true, accent: "#ff7458", slats: true });
-  drawWorldLabel(34.65, 10.95, 100, "STUDENT HUB", "#ff7458");
-}
-
+// the low planters along the facades (the Learning Center, the Mercado and the Hub draw their own fronts)
 export function architecturalForegroundActors() {
   const actors = [];
-  const addCanopy = (x, y, w, h, z, maxSlice = 3) => {
-    const slices = Math.max(1, Math.ceil(w / maxSlice)),
-      slice = w / slices;
-    for (let index = 0; index < slices; index++) {
-      const sx = x + index * slice;
-      actors.push({ depth: sx + slice + y + h + 0.015, draw: () => drawCanopy(sx, y, slice, h, z) });
-    }
-  };
-  const addColumns = (x, y, length, count, z, axis = "x", color = "#244b54") => {
-    for (let index = 0; index < count; index++) {
-      const amount = count === 1 ? 0.5 : index / (count - 1),
-        px = x + (axis === "x" ? length * amount : 0),
-        py = y + (axis === "y" ? length * amount : 0);
-      actors.push({ depth: px + py + 0.02, draw: () => drawColumnLine(px, py, 0, 1, z, axis, color) });
-    }
-  };
   const addPlanter = (x, y, w, h, z, maxSlice = 1.15) => {
     const slices = Math.max(1, Math.ceil(w / maxSlice)),
       slice = w / slices;
@@ -561,14 +377,6 @@ export function architecturalForegroundActors() {
       actors.push({ depth: sx + slice + y + h + 0.025, draw: () => drawLinearPlanter(sx, y, slice, h, z) });
     }
   };
-  addCanopy(12, 8.25, 18.3, 1.15, 31, 3.05);
-  addColumns(12.3, 9.36, 17.7, 11, 30);
-  addCanopy(9.8, 6.75, 3.1, 1.2, 28, 1.55);
-  addColumns(2.55, 8.42, 7.7, 7, 27);
-  addCanopy(10.75, 10.4, 2.1, 1.4, 26, 1.05);
-  addColumns(3.45, 13.27, 7.55, 6, 25);
-  addCanopy(29.25, 8.15, 2.2, 1.25, 29, 1.1);
-  addColumns(30.35, 11.17, 8.45, 8, 28);
   world.planters.forEach((planter) => addPlanter(planter.x, planter.y, planter.w, planter.h, planter.z));
   return actors;
 }
@@ -634,16 +442,7 @@ export function drawBeachStage(t) {
 
 export function campusActors(t) {
   const environment = environmentalProfile(scene.clock, scene.day, t);
-  const buildingDepth = (building) =>
-    Math.max(building.x, Math.min(building.x + building.w, scene.player.x)) + building.y + building.h + 0.02;
   return [
-    { depth: buildingDepth(world.buildings.library), draw: () => drawLibrary() },
-    { depth: buildingDepth(world.buildings.mercado), draw: () => drawMercadoExterior() },
-    { depth: buildingDepth(world.buildings.academicWest), draw: () => drawCampusWestWing(t) },
-    { depth: 29.9, draw: () => drawCampusBridgeAndIdentity() },
-    { depth: buildingDepth(world.buildings.academicCentre), draw: () => drawCampusCentreWing(t) },
-    { depth: buildingDepth(world.buildings.academicEast), draw: () => drawCampusEastWing(t) },
-    { depth: buildingDepth(world.buildings.studentHub), draw: () => drawStudentHub() },
     { depth: 46.98, draw: () => drawBeachStage(t) },
     ...architecturalForegroundActors(),
     ...world.trees.map((tree, i) => ({

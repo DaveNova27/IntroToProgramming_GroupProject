@@ -597,7 +597,9 @@ function renderResult() {
       <tbody>${rows}</tbody>
       <tfoot><tr><td>Total</td><td></td><td></td><td>${sold}</td>
         <td>${fmt(last.revenue)}</td><td>${fmt(last.cogs)}</td><td>${money(last.gross_profit)}</td></tr></tfoot>
-    </table>`;
+    </table>${last.wages || (last.wages_unpaid || []).length ? `
+    <p class="note">Wages paid ${fmt(last.wages)} · result after wages ${money(last.net)}${
+      last.wages_unpaid.length ? ` · ${last.wages_unpaid.length} employee(s) stopped working: no money for the wage` : ""}</p>` : ""}`;
 }
 
 // ---- final result, history, new run ------------------------------------------

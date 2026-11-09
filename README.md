@@ -36,7 +36,7 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 7) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
 2. Create a branch named after the spec, e.g. `day-context`, from an up-to-date `main`. Never commit a feature to `main` directly.
 3. Write `specs/<name>.md` (What, Out of scope, Done when), then build only that.
-4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec.
+4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec. If your spec changes data that an old test names on purpose, you may confirm that change yourself (rules in `AGENTS.md`).
 5. Open a pull request into `main` with the PR template. It needs a passing `Tests` check (GitHub Actions runs `uv run pytest`) and an AI code review (for example `/code-review` in Claude Code) whose findings are fixed or answered in the PR. No human approval is required.
 6. One spec per branch and per pull request. Keep it inside the spec's "Out of scope" fence.
 
@@ -46,13 +46,13 @@ Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`
 
 | Layer | Files | Job |
 |---|---|---|
-| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`, `unlock_shop`, `buy_upgrade`. The shops and products are data tables (`SHOPS`, `CATALOGUE`). A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
+| Rules | `logic.py` | Pure functions: `new_state`, `buy`, `set_price`, `demand`, `trade_day`, `stock_overview`, `overall_gain`, `unlock_shop`, `buy_upgrade`, `hire`, `upgrade_employee`, `fire_employee`. The shops and products are data tables (`SHOPS`, `CATALOGUE`). A refused action raises `RejectedAction`; every function returns a new state. Money is integer cents. |
 | Storage | `db.py` | SQLite, one run (day, cash, products, shops, player, history). An old save without shops still loads. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
-| World data | `world.py` | The campus as data: zones, doors, desks, solid objects, room layouts. No rules and no drawing. |
-| Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`, `/api/shop/unlock`, `/api/shop/upgrade`. Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
+| World data | `world.py` | The campus as data: the zone, the Nova building (parts, walls, entrance), desks, solid objects, room layouts. No rules and no drawing. |
+| Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`, `/api/shop/unlock`, `/api/shop/upgrade`, `/api/staff/hire`, `/api/staff/upgrade`, `/api/staff/fire`, and `/api/editor/*` (only with `CT_EDITOR=1`). Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
 | View switch | `static/views.js` | One campus iframe that is never reloaded: full screen (the default), or over the "Campus live" window of the dashboard page (`#dashboard`). Dashboard as a slide-in panel over the campus. Syncs both views with `postMessage` (`action`, `mode`, `ready`, `open-dashboard`, `panel-open`, `panel-closed`). |
-| Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, doors between the zones, light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
+| Campus | `static/map.html`, `map.css`, `static/world/` | The 2.5D world from Felix Antes' Nova Beach Ventures, drawn on a canvas: walking with W A S D or by click, collision, finding a way, smooth camera, walking into the Nova (the roof fades out and the rooms show), light and sea. `main.js` runs the loop, `ui.js` shows the display and panels and talks to the API. Modes `preview` (small window, no display) and `main`. |
 | Shared | `static/common.js` | `$`, `esc`, `fmt`, `fmtSigned`, `toast`, product emoji and colours. |
 
 The browser never decides a rule: it sends the action, the server answers with
@@ -75,7 +75,12 @@ animate that answer.
 | `world-api.md` | `world-api` | The campus as data in `world.py`, player position in the state |
 | `world-core.md` | `world-core` | The 2.5D world replaces the three.js map; the campus opens first |
 | `world-art.md` | `world-art` | Felix' figures for the player and the people in rooms, passers-by outdoors |
+| `walk-in.md` | `walk-in` | One big Nova building: walk in, the roof fades out; replaces the room zones; the three desks inside |
+| `nova-wings.md` | `nova-wings` | Merged (#50): more wings for the Nova: the Learning Center and the Mercado can be walked into, a Student Hub, one roof per wing |
+| `nova-zones.md` | `nova-zones` | Built, waiting for review: the map around the Nova: a walkable Dorm with a bed panel, a detailed beach way and beach, the Surf Shop and the Beach Cafe outdoors |
 | `shop-unlock.md` | `shop-unlock` | Four shops (Cafe, Beach Cafe, Merchandise, Surf Shop): a run starts with the Cafe and its coffee; more shops are unlocked and more products and employee places bought with money, each purchase is one level. Shops window on the campus page. Prices are placeholders. |
+| `staff.md` | `staff` | Employees for the Cafe: hire on a bought place (refiller, seller), level them up, dismiss them. They run on the server every tick like the player's refill and sell, the shift starts by itself when the day opens, wages are paid at the end of the day (without money they stop working). They are named figures in the Cafe. Numbers are placeholders. |
+| `editor-mode.md` | `editor-mode` | Dev tools, off unless the server starts with `CT_EDITOR=1` (and only for requests from this computer): set or add cash, fix the weather, skip several days, one validated state patch (day, shops and levels, stock, prices, seed, player), reset the run. Editor panel on the campus page. Base for `demo-scenarios`. Employees and popularity are not settable yet. |
 | `shop-process.md` | `shop-process` | A day played live in the Cafe: *Open day* starts the day clock (300 ticks), *Shift* starts the one 90-tick shift of the day (carry stock from the storeroom to the counter, 20 units, and serve a queue), *Skip* lets the rest of the day pass with no sale. Whoever does not work earns nothing. The day closes into the history like `trade_day`, which stays for the day without a player (later: with staff) and is refused while a day is open. Shift panel on the campus page. Walking in the shop is not wired to it yet. |
 | `outlook.md` | `outlook` | Before *Open day* only a forecast of the day's weather is shown (picture and temperature range); the real weather appears once the day is opened, next to the forecast for tomorrow. Wrong about 20 % of the time (a neighbouring weather), drawn from the seed with its own roll so the real weather stays the same; always right with the demo override. The day summary on the campus page is an evening report: the forecast for the next day and a tip per open shop (more, fewer or the usual customers, from the weather table; the tips take effect with `pricing`, #38). The real weather is hidden in the display only: the API still sends it (see the spec's note). |
 
@@ -85,8 +90,8 @@ The tag `v1.0` is the dashboard-only version before the map.
 
 The specs above are the solo-project history. The group project continues with
 the specs listed in [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v2):
-`world-core`, `world-art`, `world-api`, `day-context`, `badges`, `nova-zones`,
-`nova-design`, `shop-unlock`, `shop-process`, `shop-art`,
+`world-core`, `world-art`, `world-api`, `day-context`, `badges`, `nova-wings`,
+`nova-zones`, `nova-design`, `shop-unlock`, `shop-process`, `shop-art`,
 `outlook`, `popularity`, `events-and-disruptions`, `weather-visuals`, `staff`,
 `outfits`, `guests`, `demo-scenarios` and `final-polish`. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
@@ -95,11 +100,13 @@ tracked in the GitHub Issues (label `spec`).
 
 ## Known issues and ideas
 
+- Staff: wages, hire and level prices and the speed per level are placeholders. With the current demand (10 customers per product) a level 1 seller already serves everyone, so levels only matter once `pricing` brings more customers. `trade_day` (day without a player) has no staff and no wages. Employees work in every shop (`STAFF_SHOPS`, logic only): the Cafe on the player's shift, the other shops in `shift["extra"]`. Only the Cafe has figures in the world so far (`WORK_SPOTS`).
 - The shop prices, unlock prices and levels are placeholders to balance. The price logic itself is replaced in `pricing` (#38).
 - The opened day (300 ticks) is a placeholder length; a shift must fit into what is left of it, one shift per day.
 - A played day (`shop-process`) is paced by the browser: it sends one tick request a second, and the server counts them. Two open pages double the speed, and a script can play a day in an instant. Only the player's own run is affected. Walking in the shop is not wired to the rules yet.
 - Ideas not yet a spec: customers of the Merchandise shop wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on campus (refill paper and ink).
-- The campus still shows Felix' layout. `nova-zones` and `nova-design` turn it into the real Nova with its beach cafe.
+- The Nova has its first form: four wings joined by openings (the main block of 22 × 8 tiles with a glass-roofed atrium, gallery, Cafe, Merchandise and Print Corner; the Learning Center with a Study Hall and a Seminar; the Mercado Supply Hall; the Student Hub with a Lounge and a Meeting Room). Each wing has its own roof, and the whole floor inside can be walked on. The new wings are places only: nobody works there yet and no rule happens there (`shop-walk`, `staff`). The Dorm, the way to the beach, the Surf Shop and the Beach Cafe outside are `nova-zones`; its look is `nova-design`.
+- Cafe, Merchandise and the three printers in the Nova are places only: no rule works there yet.
 - A trading day only moves the light and then shows its result. The old map's truck, queues and live ticker went with three.js; customers on the map are the spec `guests`.
 - The passers-by are decoration: they cause no sale.
 - Water in the courtyard basin is not solid: people can walk through it.

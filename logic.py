@@ -41,6 +41,8 @@ STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
 STORAGE_UNITS = 100  # storeroom space per shop, checked when buying stock
 COUNTER_UNITS = 20  # counter space per shop (limits refills in a shift)
 FIRST_SHOP = "cafe"
+MAX_CASH = 100_000_000  # cents, the most the editor can give (editor-mode)
+MAX_SEED = 2**32 - 1  # new_seed() draws 32 bits
 DEFAULT_SEED = 1  # only for tests and the demo; real runs draw one with new_seed()
 
 # The weather (day-context, issue #10). weight: how often it appears, in percent.
@@ -79,6 +81,20 @@ SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
 OPEN_DAY_TICKS = 300   # how long an opened day lasts (placeholder; the shift is a part of it)
 PATIENCE_TICKS = 15  # a customer leaves this many ticks after arriving
 
+# Employees (specs/staff.md). All numbers are placeholders to balance.
+# A place of a shop (bought in its window) has the job SHOPS[shop]["jobs"][place - 1].
+# Per level (index 0 = level 1): refiller carries "per_tick" units from the storeroom to the
+# counter each tick; seller sells one unit every "every" ticks; "wage" in cents per day.
+HIRE_PRICE = 3_000  # cents = 30 euro, once per hire
+EMPLOYEE_MAX_LEVEL = 3
+UPGRADE_PRICES = {2: 5_000, 3: 8_000}  # cents, the price to reach that level
+JOBS = {
+    "refiller": {"name": "Refiller", "per_tick": (1, 2, 3), "wage": (800, 1_200, 1_800)},
+    "seller": {"name": "Seller", "every": (4, 3, 2), "wage": (800, 1_200, 1_800)},
+}
+# Names are taken by employee id, so the same state always gives the same people.
+EMPLOYEE_NAMES = ("Mia", "Leo", "Nora", "Ben", "Ines", "Tom", "Lara", "Rui")
+
 
 def _window(product_offers):
     """What a shop's window sells: its extra products, then two employee places."""
@@ -97,25 +113,30 @@ def _window(product_offers):
 SHOPS = {
     "cafe": {
         "name": "Cafe", "unlock_price": 0, "start_product": "coffee",
-        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS, "jobs": ["refiller", "seller"],
         "window": _window([("cake", 4_000), ("bagel", 3_000)]),
     },
     "beach_cafe": {
         "name": "Beach Cafe", "unlock_price": 20_000, "start_product": "beer",
-        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS, "jobs": ["refiller", "seller"],
         "window": _window([("coke_zero", 6_000), ("sandwich", 8_000)]),
     },
     "merchandise": {
         "name": "Merchandise", "unlock_price": 35_000, "start_product": "hoodie",
-        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS, "jobs": ["refiller", "seller"],
         "window": _window([("tshirt", 8_000), ("cap", 6_000)]),
     },
     "surf_shop": {
         "name": "Surf Shop", "unlock_price": 50_000, "start_product": "surfboard",
-        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS,
+        "storage": STORAGE_UNITS, "counter": COUNTER_UNITS, "jobs": ["refiller", "seller"],
         "window": _window([("wetsuit", 12_000), ("surf_lesson", 15_000)]),
     },
 }
+
+
+# Shops where employees can work: all of them. SHIFT_SHOPS is where the PLAYER can play a
+# shift (the live walk comes with shop-walk); the staff of the other shops work on their own.
+STAFF_SHOPS = tuple(SHOPS)
 
 
 def shop_product_ids(shop_id):
@@ -149,6 +170,8 @@ def new_state(seed=DEFAULT_SEED):
         "prices": {pid: item["ref_price"] for pid, item in CATALOGUE.items()},
         "shops": {sid: new_shop(sid) for sid in SHOPS},
         "shift": None,
+        "employees": [],
+        "employee_seq": 0,  # the last employee id given out: ids are never used twice
         "history": [],
         "player": world.start_player(),
     }
@@ -355,7 +378,91 @@ def buy_upgrade(state, shop, item):
         new_entry["products"].append(offer["product"])
     else:
         new_entry["staff_places"] += 1
+        # the bought place comes with its employee (if the shop has a job for that place)
+        if offer["place"] <= len(SHOPS[shop]["jobs"]):
+            _add_employee(new, shop, offer["place"])
     new_entry["level"] += 1
+    # only a new employee can start a crew on an open day, not a new product
+    return _open_staffed_shift(new) if offer["kind"] == "staff" else new
+
+
+def _add_employee(new, shop, place):
+    """Put a new level 1 employee on a place. The job comes from the shop's data."""
+    employee_id = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0)) + 1
+    new["employee_seq"] = employee_id
+    new["employees"].append({
+        "id": employee_id, "name": EMPLOYEE_NAMES[(employee_id - 1) % len(EMPLOYEE_NAMES)],
+        "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
+        "level": 1, "working": True,
+    })
+
+
+def employee_wage(employee):
+    """The daily wage of one employee in cents, from the job and the level."""
+    return JOBS[employee["job"]]["wage"][employee["level"] - 1]
+
+
+def _check_whole(value, what):
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RejectedAction(f"{what} must be a whole number.")
+
+
+def _find_employee(state, employee_id):
+    _check_whole(employee_id, "The employee id")
+    for employee in state["employees"]:
+        if employee["id"] == employee_id:
+            return employee
+    raise RejectedAction(f"Unknown employee '{employee_id}'.")
+
+
+def hire(state, shop, place):
+    """Hire an employee on a free bought place of a shop (a place that was emptied by
+    dismissing someone: buying a place hires its employee already)."""
+    _check_shop(shop)
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Nobody can be hired.")
+    name = SHOPS[shop]["name"]
+    if not state["shops"][shop]["unlocked"]:
+        raise RejectedAction(f"The {name} is not unlocked.")
+    _check_whole(place, "The place")
+    jobs = SHOPS[shop]["jobs"]
+    if place < 1 or place > state["shops"][shop]["staff_places"] or place > len(jobs):
+        raise RejectedAction(f"The {name} has no employee place {place} yet.")
+    if any(e["shop"] == shop and e["place"] == place for e in state["employees"]):
+        raise RejectedAction(f"Place {place} of the {name} is already taken.")
+    if HIRE_PRICE > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: hiring costs {fmt(HIRE_PRICE)}, you have {fmt(state['cash'])}.")
+    new = copy.deepcopy(state)
+    new["cash"] -= HIRE_PRICE
+    _add_employee(new, shop, place)
+    return _open_staffed_shift(new)
+
+
+def upgrade_employee(state, employee_id):
+    """Raise an employee by one level. They work faster and cost a higher wage."""
+    employee = _find_employee(state, employee_id)
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Nobody can be upgraded.")
+    if employee["level"] >= EMPLOYEE_MAX_LEVEL:
+        raise RejectedAction(f"{employee['name']} is already on the highest level.")
+    price = UPGRADE_PRICES[employee["level"] + 1]
+    if price > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: the upgrade costs {fmt(price)}, you have {fmt(state['cash'])}.")
+    new = copy.deepcopy(state)
+    new["cash"] -= price
+    _find_employee(new, employee_id)["level"] += 1
+    return new
+
+
+def fire_employee(state, employee_id):
+    """Dismiss an employee. The place stays bought and is free again; nothing is refunded."""
+    employee = _find_employee(state, employee_id)
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Nobody can be dismissed.")
+    new = copy.deepcopy(state)
+    new["employees"] = [e for e in new["employees"] if e["id"] != employee["id"]]
     return new
 
 
@@ -506,6 +613,172 @@ def set_day_override(state, weather):
     return new
 
 
+# --- Editor mode (specs/editor-mode.md): rules for the dev tools. The server decides
+# whether the editor is on; these functions only check the values and never change a state
+# they refuse. ---
+
+def _whole(value, low, high, what):
+    """A whole number (no bool, no float) from low to high, or a refusal."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RejectedAction(f"{what} must be a whole number.")
+    if not low <= value <= high:
+        raise RejectedAction(f"{what} must be from {low} to {high}.")
+    return value
+
+
+def check_seed(seed):
+    return _whole(seed, 0, MAX_SEED, "The seed")
+
+
+def _check_no_open_day(state):
+    if state.get("shift") is not None:
+        raise RejectedAction("A day is open. Finish or skip it first.")
+
+
+def editor_cash(state, mode, cents):
+    """Set the cash to an amount ("set") or add to it ("add"), in whole cents."""
+    if mode not in ("set", "add"):
+        raise RejectedAction("The mode must be 'set' or 'add'.")
+    if isinstance(cents, bool) or not isinstance(cents, int):
+        raise RejectedAction("The amount must be a whole number of cents.")
+    total = cents if mode == "set" else state["cash"] + cents
+    if not 0 <= total <= MAX_CASH:
+        raise RejectedAction(f"The cash must stay between {fmt(0)} and {fmt(MAX_CASH)}.")
+    new = copy.deepcopy(state)
+    new["cash"] = total
+    return new
+
+
+def editor_skip_days(state, days):
+    """Let several days pass with trade_day (current prices and stock). All or nothing."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Trading is closed.")
+    _check_no_open_day(state)
+    _whole(days, 1, LAST_DAY - state["day"] + 1, "The number of days")
+    for _ in range(days):
+        state, _result = trade_day(state)
+    return state
+
+
+def shop_at_level(shop_id, level):
+    """The entry of a shop on a level: 0 is locked, level n has the start product and the
+    first n - 1 offers of its window (in window order)."""
+    _check_shop(shop_id)
+    offers = list(SHOPS[shop_id]["window"].values())
+    _whole(level, 0, 1 + len(offers), "The level")
+    if level == 0:
+        return {"unlocked": False, "level": 0, "products": [], "staff_places": 0}
+    bought = offers[:level - 1]
+    return {
+        "unlocked": True,
+        "level": level,
+        "products": [SHOPS[shop_id]["start_product"]]
+                    + [o["product"] for o in bought if o["kind"] == "product"],
+        "staff_places": sum(1 for o in bought if o["kind"] == "staff"),
+    }
+
+
+def _check_shop_entry(shop_id, entry):
+    """A shop entry that could have come from play, or a refusal. Returns the clean entry."""
+    if isinstance(entry, dict) and set(entry) == {"level"}:
+        return shop_at_level(shop_id, entry["level"])
+    keys = {"unlocked", "level", "products", "staff_places"}
+    if not isinstance(entry, dict) or set(entry) != keys:
+        raise RejectedAction(f"A shop needs exactly: {', '.join(sorted(keys))} (or just a level).")
+    if not isinstance(entry["unlocked"], bool):
+        raise RejectedAction("'unlocked' must be true or false.")
+    products = entry["products"]
+    if not isinstance(products, list) or any(not isinstance(p, str) for p in products) \
+            or len(set(products)) != len(products):
+        raise RejectedAction("'products' must be a list of different product ids.")
+    allowed = shop_product_ids(shop_id)
+    if any(p not in allowed for p in products):
+        raise RejectedAction(f"{SHOPS[shop_id]['name']} does not sell those products.")
+    _whole(entry["staff_places"], 0, 2, "The employee places")
+    _whole(entry["level"], 0, 1 + len(SHOPS[shop_id]["window"]), "The level")
+    if entry["unlocked"]:
+        if SHOPS[shop_id]["start_product"] not in products:
+            raise RejectedAction("An unlocked shop always has its first product.")
+        if entry["level"] != len(products) + entry["staff_places"]:
+            raise RejectedAction("The level must equal the products plus the employee places.")
+    elif entry["level"] or products or entry["staff_places"]:
+        raise RejectedAction("A locked shop has level 0 and nothing in it.")
+    return {"unlocked": entry["unlocked"], "level": entry["level"],
+            "products": [p for p in allowed if p in products],
+            "staff_places": entry["staff_places"]}
+
+
+def _check_player(player):
+    if not isinstance(player, dict) or set(player) != {"zone", "x", "y"}:
+        raise RejectedAction("A position needs zone, x and y.")
+    return move_player({"player": None}, player["zone"], player["x"], player["y"])["player"]
+
+
+def editor_set_state(state, patch):
+    """Set any part of the run from a patch. Everything is checked first; a refused patch
+    changes nothing. Keys not in the patch stay as they are.
+
+    The keys: day, cash, seed, day_override, stock, prices, shops, player. Setting an earlier
+    day cuts the history to the days before it. Refused while a day is open."""
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player"}
+    if not isinstance(patch, dict) or not patch:
+        raise RejectedAction("The patch must be a dictionary with at least one field.")
+    unknown = sorted(str(k) for k in patch if k not in keys)
+    if unknown:
+        raise RejectedAction(f"Unknown field: {', '.join(unknown)}.")
+    _check_no_open_day(state)
+    new = copy.deepcopy(state)
+    if "day" in patch:
+        new["day"] = _whole(patch["day"], 1, LAST_DAY + 1, "The day")
+        new["history"] = [r for r in new["history"] if r["day"] < new["day"]]
+    if "cash" in patch:
+        new["cash"] = _whole(patch["cash"], 0, MAX_CASH, "The cash")
+    if "seed" in patch:
+        new["seed"] = check_seed(patch["seed"])
+    if "day_override" in patch:
+        override = patch["day_override"]
+        if override is None:
+            weather = None
+        elif isinstance(override, dict) and set(override) == {"weather"}:
+            weather = override["weather"]
+        else:
+            raise RejectedAction("'day_override' must be null or {\"weather\": id}.")
+        new["day_override"] = set_day_override(new, weather)["day_override"]
+    for field in ("stock", "prices"):
+        if field in patch:
+            if not isinstance(patch[field], dict):
+                raise RejectedAction(f"'{field}' must map products to numbers.")
+            for pid, value in patch[field].items():
+                if not isinstance(pid, str) or pid not in CATALOGUE:
+                    raise RejectedAction(f"Unknown product '{pid}'.")
+                if field == "prices":
+                    new[field][pid] = _whole(value, 1, MAX_PRICE, f"The price of {pid}")
+                else:
+                    new[field][pid] = _whole(value, 0, STORAGE_UNITS, f"The stock of {pid}")
+    if "shops" in patch:
+        if not isinstance(patch["shops"], dict):
+            raise RejectedAction("'shops' must map shop ids to entries.")
+        for sid, entry in patch["shops"].items():
+            _check_shop(sid)
+            new["shops"][sid] = _check_shop_entry(sid, entry)
+            if sid == FIRST_SHOP and not new["shops"][sid]["unlocked"]:
+                raise RejectedAction(f"{SHOPS[sid]['name']} is open from the start and stays open.")
+        # an employee needs the place he works on: those whose place is gone are dismissed
+        new["employees"] = [e for e in new["employees"]
+                            if new["shops"][e["shop"]]["unlocked"]
+                            and e["place"] <= new["shops"][e["shop"]]["staff_places"]]
+    if "player" in patch:
+        new["player"] = _check_player(patch["player"])
+    # the storeroom limit is per shop: check it for the stock as a whole
+    touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
+               if pid in shop_product_ids(sid)}
+    for sid in touched:
+        if sum(new["stock"][p] for p in shop_product_ids(sid)) > SHOPS[sid]["storage"]:
+            raise RejectedAction(f"The {SHOPS[sid]['name']} storeroom holds at most "
+                                 f"{SHOPS[sid]['storage']} units.")
+    return new
+
+
 def customers_for(price_cents, ref_price_cents):
     """How many customers want one product on a played day.
 
@@ -540,6 +813,35 @@ def _check_shift_product(state, shift, product):
         raise RejectedAction(f"{CATALOGUE[product]['name']} is not sold in this shop.")
 
 
+def _open_staffed_shift(new):
+    """On an open day, every shop with a working employee and no shift yet opens a staffed
+    shift by itself (specs/staff.md), if a whole shift still fits into the rest of the day.
+
+    The state holds the player's shift in state["shift"] (one shop, the first of SHIFT_SHOPS
+    when it is free) and every other staffed shop in state["shift"]["extra"][shop]: the same
+    fields, run by the same rules, only by their employees."""
+    shift = new.get("shift")
+    if shift is None or shift["day_end"] - shift["tick"] < SHIFT_TICKS:
+        return new
+    for shop in STAFF_SHOPS:
+        if (not new["shops"][shop]["unlocked"] or shop == shift["shop"]
+                or shop in shift.get("extra", {})
+                or not any(e["shop"] == shop and e["working"] for e in new["employees"])):
+            continue
+        if shift["shop"] is None and shop in SHIFT_SHOPS:  # the player's own shift is free
+            extra = shift.get("extra")
+            new = start_shift(new, shop)
+            new["shift"]["staffed"] = True
+            if extra:
+                new["shift"]["extra"] = extra
+            shift = new["shift"]
+        else:
+            sub = _new_shift(new, shop, shift["tick"], shift["day_end"])
+            sub["staffed"] = True
+            shift.setdefault("extra", {})[shop] = sub
+    return new
+
+
 def open_day(state):
     """Open the day: the clock starts running. Nobody is serving yet. The player starts a
     shift in a shop while the day runs (start_shift), or lets the day pass and earns nothing."""
@@ -551,7 +853,7 @@ def open_day(state):
     new["shift"] = {"shop": None, "tick": 0, "counter": {}, "queue": [],
                     "planned": {}, "sold": {}, "lost": 0,
                     "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False}
-    return new
+    return _open_staffed_shift(new)
 
 
 def start_shift(state, shop):
@@ -569,10 +871,20 @@ def start_shift(state, shop):
     open_shift = state.get("shift")
     if open_shift is not None and open_shift["shop"] is not None:
         raise RejectedAction("A shift is already running.")
-    products = state["shops"][shop]["products"]
     start = open_shift["tick"] if open_shift else 0  # the shift clock starts now
     if open_shift and open_shift["day_end"] - start < SHIFT_TICKS:
         raise RejectedAction("Too late for a shift: the day ends before it could be played.")
+    new = copy.deepcopy(state)
+    new["shift"] = _new_shift(state, shop, start, open_shift["day_end"] if open_shift else DAY_TICKS)
+    if open_shift and open_shift.get("extra"):  # the staffed shops of this day keep running
+        new["shift"]["extra"] = copy.deepcopy(open_shift["extra"])
+    return new
+
+
+def _new_shift(state, shop, start, day_end):
+    """A shift of one shop from tick `start`: the counter, the queue of customers (no
+    randomness) and the clock. Used for the player's shift and for the staffed shops."""
+    products = state["shops"][shop]["products"]
     planned, queue = {}, []
     for k, pid in enumerate(products):
         count = customers_for(state["prices"][pid], CATALOGUE[pid]["ref_price"])
@@ -582,20 +894,17 @@ def start_shift(state, shop):
             queue.append({"product": pid, "arrives": arrives,
                           "patience_until": arrives + PATIENCE_TICKS})
     queue.sort(key=lambda c: c["arrives"])  # stable: products keep their order per tick
-    new = copy.deepcopy(state)
-    new["shift"] = {
+    return {
         "shop": shop, "tick": start,
         "counter": {pid: 0 for pid in products},
         "queue": queue, "planned": planned,
         "sold": {pid: 0 for pid in products}, "lost": 0,
-        "day_end": open_shift["day_end"] if open_shift else DAY_TICKS,
-        "shift_end": start + SHIFT_TICKS, "over": False,
+        "day_end": day_end, "shift_end": start + SHIFT_TICKS, "over": False,
     }
-    return new
 
 
-def refill(state, product, quantity):
-    """Carry units from the storeroom to the counter. The counter space is limited."""
+def _check_refill(state, product, quantity):
+    """All the checks of a refill, or a refusal. Changes nothing."""
     shift = _check_open_shift(state)
     _check_shift_product(state, shift, product)
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
@@ -607,14 +916,24 @@ def refill(state, product, quantity):
     space = SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values())
     if quantity > space:
         raise RejectedAction(f"The counter has room for only {space} more units.")
+
+
+def _carry(state, product, quantity):
+    """Move units from the storeroom to the counter in this very state (already checked)."""
+    state["stock"][product] -= quantity
+    state["shift"]["counter"][product] += quantity
+
+
+def refill(state, product, quantity):
+    """Carry units from the storeroom to the counter. The counter space is limited."""
+    _check_refill(state, product, quantity)
     new = copy.deepcopy(state)
-    new["stock"][product] -= quantity
-    new["shift"]["counter"][product] += quantity
+    _carry(new, product, quantity)
     return new
 
 
-def sell(state, product):
-    """Sell one unit from the counter to the first customer waiting for it."""
+def _check_sale(state, product):
+    """All the checks of a sale. Returns the index of the customer who is served."""
     shift = _check_open_shift(state)
     _check_shift_product(state, shift, product)
     name = CATALOGUE[product]["name"]
@@ -624,14 +943,23 @@ def sell(state, product):
     for i, customer in enumerate(shift["queue"]):
         if (customer["product"] == product
                 and customer["arrives"] <= tick < customer["patience_until"]):
-            break
-    else:
-        raise RejectedAction(f"Nobody is waiting for {name}.")
+            return i
+    raise RejectedAction(f"Nobody is waiting for {name}.")
+
+
+def _serve(state, i, product):
+    """Sell one unit to customer i of the queue in this very state (already checked)."""
+    state["shift"]["queue"].pop(i)
+    state["shift"]["counter"][product] -= 1
+    state["shift"]["sold"][product] += 1
+    state["cash"] += state["prices"][product]
+
+
+def sell(state, product):
+    """Sell one unit from the counter to the first customer waiting for it."""
+    i = _check_sale(state, product)
     new = copy.deepcopy(state)
-    new["shift"]["queue"].pop(i)
-    new["shift"]["counter"][product] -= 1
-    new["shift"]["sold"][product] += 1
-    new["cash"] += new["prices"][product]
+    _serve(new, i, product)
     return new
 
 
@@ -642,15 +970,11 @@ def tick(state):
     otherwise None."""
     _check_open_shift(state)
     new = copy.deepcopy(state)
+    new["shift"]["tick"] += 1
+    _employees_work(new)  # same rules as the player's refill and sell
     shift = new["shift"]
-    shift["tick"] += 1
-    waiting = []
-    for customer in shift["queue"]:
-        if customer["patience_until"] <= shift["tick"]:
-            shift["lost"] += 1
-        else:
-            waiting.append(customer)
-    shift["queue"] = waiting
+    _expire_customers(shift)
+    _tick_staffed_shops(new)
     if _shift_running(shift) and shift["tick"] >= shift.get("shift_end", DAY_TICKS):
         _end_shift(new)
     if shift["tick"] < shift.get("day_end", DAY_TICKS):
@@ -658,10 +982,77 @@ def tick(state):
     return _close_shift(new)
 
 
-def _end_shift(new):
+def _expire_customers(shift):
+    """Customers past their patience go home."""
+    waiting = []
+    for customer in shift["queue"]:
+        if customer["patience_until"] <= shift["tick"]:
+            shift["lost"] += 1
+        else:
+            waiting.append(customer)
+    shift["queue"] = waiting
+
+
+def _tick_staffed_shops(new):
+    """One tick for the other staffed shops of the day: their employees act on the shared
+    stock and cash through the very same rules (a view of the state whose shift is theirs)."""
+    shift = new["shift"]
+    for shop in sorted(shift.get("extra", {})):
+        sub = shift["extra"][shop]
+        sub["tick"] = shift["tick"]
+        view = {**new, "shift": sub}  # shares stock and the crew's shift with `new`
+        _employees_work(view)
+        new.update({key: value for key, value in view.items() if key != "shift"})  # cash etc.
+        _expire_customers(sub)
+        if _shift_running(sub) and sub["tick"] >= sub["shift_end"]:
+            _end_shift(new, sub)
+
+
+def _employees_work(state):
+    """Every working employee of the running shift's shop acts once, in a fixed order:
+    refilling first, then selling, each by id. No randomness. An action that is not
+    possible (nothing to carry, nobody waiting) is simply skipped. Works on this very state
+    (the caller owns the copy) with the same checks as the player's refill and sell.
+
+    If the shop has nobody for one of the two jobs, the employees it has do that job too,
+    at the speed of their own level, so a single employee runs the counter alone."""
+    shift = state["shift"]
+    if not _shift_running(shift):
+        return
+    team = sorted((e for e in state["employees"] if e["shop"] == shift["shop"] and e["working"]),
+                  key=lambda e: e["id"])
+    refillers = [e for e in team if e["job"] == "refiller"] or team
+    sellers = [e for e in team if e["job"] == "seller"] or team
+    order = {pid: i for i, pid in enumerate(CATALOGUE)}
+    for employee in refillers:
+        for _ in range(JOBS["refiller"]["per_tick"][employee["level"] - 1]):
+            # only products somebody wants at today's price (planned customers), with stock
+            wanted = [pid for pid in shift["counter"]
+                      if state["stock"][pid] > 0 and shift["planned"].get(pid, 0) > 0]
+            if not wanted:
+                break
+            wanted.sort(key=lambda pid: (shift["counter"][pid], order[pid]))
+            try:
+                _check_refill(state, wanted[0], 1)
+            except RejectedAction:  # the counter is full
+                break
+            _carry(state, wanted[0], 1)
+    for employee in sellers:
+        if shift["tick"] % JOBS["seller"]["every"][employee["level"] - 1] != 0:
+            continue
+        for customer in shift["queue"]:  # the first customer who can be served now
+            try:
+                i = _check_sale(state, customer["product"])
+            except RejectedAction:  # nothing of it on the counter, or he is not here yet
+                continue
+            _serve(state, i, customer["product"])
+            break
+
+
+def _end_shift(new, shift=None):
     """The shift is over, the day goes on: whoever still waits goes home, the counter is
     cleared back into the storeroom. What was sold stays booked for the day."""
-    shift = new["shift"]
+    shift = shift or new["shift"]
     shift["lost"] += len(shift["queue"])
     shift["queue"] = []
     for pid in shift["counter"]:
@@ -681,31 +1072,74 @@ def skip_shift(state):
     return state, result
 
 
+def _pay_wages(new, shops):
+    """End of the day: every working employee of a shop that ran today (`shops`: one id or
+    several) is paid, by id, as far as the cash goes. Who cannot be paid stops working (stays hired). Employees of a shop
+    where no shift ran earn nothing and cost nothing. Afterwards, whoever stopped earlier
+    restarts tomorrow if the cash left covers all the wages of those restarting (by id).
+    Cash never goes below 0. Returns (cents paid, ids who stopped today)."""
+    shops = {shops} if isinstance(shops, str) or shops is None else set(shops)
+    paid, stopped = 0, []
+    by_id = sorted(new["employees"], key=lambda e: e["id"])
+    for employee in by_id:
+        if not employee["working"] or employee["shop"] not in shops:
+            continue
+        wage = employee_wage(employee)
+        if wage <= new["cash"]:
+            new["cash"] -= wage
+            paid += wage
+        else:
+            employee["working"] = False
+            stopped.append(employee["id"])
+    budget = new["cash"]
+    for employee in by_id:
+        if employee["working"] or employee["id"] in stopped:
+            continue
+        wage = employee_wage(employee)
+        if wage <= budget:
+            budget -= wage
+            employee["working"] = True
+    return paid, stopped
+
+
 def _close_shift(new):
     """Book the day like trade_day does; unsold counter units go back to the storeroom."""
     shift = new["shift"]
     shift["lost"] += len(shift["queue"])  # whoever is still in the queue goes home
     shift["queue"] = []
     lines = []
-    for pid, sold in shift["sold"].items():
-        item = CATALOGUE[pid]
-        price = new["prices"][pid]
-        lines.append({
-            "product": pid, "price": price, "demand": shift["planned"][pid],
-            "sold": sold, "revenue": sold * price, "cogs": sold * item["cost"],
-            "gross_profit": sold * (price - item["cost"]),
-        })
-        new["stock"][pid] += shift["counter"][pid]
+    ran = {shift["shop"]} if shift["shop"] else set()
+    lost = 0
+    # the player's shift (or the open day) and the other staffed shops, booked the same way
+    for sub in [shift, *(shift["extra"][sid] for sid in sorted(shift.get("extra", {})))]:
+        if sub is not shift:
+            ran.add(sub["shop"])
+        lost += sub["lost"] + (len(sub["queue"]) if sub is not shift else 0)
+        for pid, sold in sub["sold"].items():
+            item = CATALOGUE[pid]
+            price = new["prices"][pid]
+            lines.append({
+                "product": pid, "price": price, "demand": sub["planned"][pid],
+                "sold": sold, "revenue": sold * price, "cogs": sold * item["cost"],
+                "gross_profit": sold * (price - item["cost"]),
+            })
+            new["stock"][pid] += sub["counter"][pid]
+    wages, stopped = _pay_wages(new, ran)
+    gross_profit = sum(line["gross_profit"] for line in lines)
     result = {
         "day": new["day"],
         "shop": shift["shop"],
         "lines": lines,
         "revenue": sum(line["revenue"] for line in lines),
         "cogs": sum(line["cogs"] for line in lines),
-        "gross_profit": sum(line["gross_profit"] for line in lines),
-        "lost": shift["lost"],
+        "gross_profit": gross_profit,
+        "wages": wages,
+        "wages_unpaid": stopped,
+        "net": gross_profit - wages,
+        "lost": lost,
         "cash_after": new["cash"],
     }
+    result["shops"] = sorted(ran)  # always: the shops that ran (shop is only the player's)
     new["history"].append(result)
     new["day"] += 1
     new["shift"] = None
@@ -730,8 +1164,9 @@ def move_player(state, zone, x, y):
 
 def stock_value(state):
     """Remaining stock valued at purchase cost (CT R4), counter units included."""
-    counter = (state.get("shift") or {}).get("counter", {})
-    return sum((state["stock"][pid] + counter.get(pid, 0)) * CATALOGUE[pid]["cost"]
+    shift = state.get("shift") or {}
+    counters = [shift.get("counter", {})] + [s["counter"] for s in shift.get("extra", {}).values()]
+    return sum((state["stock"][pid] + sum(c.get(pid, 0) for c in counters)) * CATALOGUE[pid]["cost"]
                for pid in owned_products(state))
 
 
