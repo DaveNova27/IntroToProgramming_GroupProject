@@ -1,4 +1,4 @@
-# The day starts and ends at the Dorm (`day-cycle`, issue to be opened)
+# The day starts and ends at the Dorm (`day-cycle`, issue #64)
 
 Written by Christopher, 2026-11-09; decision 2 taken by him, the others are recommendations
 waiting for the team (and decision 6 for Felix). Builds on `outlook` (#12, the evening report) and
