@@ -68,6 +68,12 @@ function showOutlook(el, outlook, prefix = "") {
     `Forecast for day ${outlook.day}: ${outlook.name}, ${range}`, prefix);
 }
 
+// An event as short text ("Surf festival 2/3"); no event gives "". Shown only while the day is open.
+function eventText(event) {
+  if (!event) return "";
+  return event.days > 1 ? `${event.name} ${event.day_of}/${event.days}` : event.name;
+}
+
 // The weather picture as an SVG element; only ids from the fixed list above give a picture.
 function weatherIconEl(id, size) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
