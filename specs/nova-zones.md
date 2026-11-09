@@ -3,7 +3,7 @@
 Written on 2026-11-08 on the branch `nova-zones`, started from `main` after `walk-in` (#49) and
 `nova-wings` (#50) were merged. Decisions come from Felix after David's voice memo (the day starts and
 ends at the Dorm, a way to the beach, the Surf Shop and the Beach Cafe stand outside). Felix, on
-2026-11-08: the map keeps its size; the look of the beach, the beach way and the shops matters a lot
+2026-11-08: the look of the beach, the beach way and the shops matters a lot
 and gets a lot of detail; the Dorm gets a real function, not only a facade. The open points are in
 "Decide".
 
@@ -23,7 +23,7 @@ the beach way to the sea.
 | **Beach** | a deeper strip of sand (from y 20, the old promenade and Event Square paving are gone) with ripples, footprints, a few loungers, dunes, a volleyball court, a lifeguard tower, a shoreline with foam, the sea | changed a lot |
 | **Plaza and courtyard** | the ground in front of the Nova, kept | no |
 
-The map keeps its size, except for the beach, which grew by two tiles to the south (see the end of this spec): the spawn and the rest of the walkable area do not change. The shops are places to see and walk to; their rules are in `shop-unlock` and `shop-process`,
+The map grew to the south for the beach (see the end of this spec): the spawn and the walkable area north of y 25.7 do not change. The shops are places to see and walk to; their rules are in `shop-unlock` and `shop-process`,
 using them by walking is `shop-walk`. No desk is added in the shops; the three desks stay in the Nova.
 
 ### The Dorm and its function
@@ -129,8 +129,7 @@ grass), things that light up in the evening. Final polish of the whole game is `
 1. **Where the Dorm goes.** Recommendation: east of the Hub (x about 35 to 40.4, y about 8.4 to 13.4),
    entrance on the south side: next to the Nova, away from the beach way, on ground that is empty.
    The alternative is the west, behind the Learning Center, which is fenced off.
-2. **The map keeps its size.** Decided by Felix on 2026-11-08. `ZONES["campus"]` does not change, so
-   the saved positions, the spawn and every test of the walkable area keep holding.
+2. **The map grows to the south, nothing else moves.** Felix first decided on 2026-11-08 that the map keeps its size; after seeing the first build he asked for a bigger beach, so `ZONES["campus"]` is now 48 tiles high and walkable to y 34.7. The spawn and the old walkable area do not move, so the saved positions, the spawn and every test of the walkable area still hold.
 3. **The Dorm is a walkable room, with a bed that opens a panel.** Recommendation: yes (Felix wants the
    Dorm to have a function). The panel only shows server data and calls what the Open button already
    calls, so no new rule, endpoint or test of the economy is touched. If the team prefers the Dorm to
@@ -141,7 +140,7 @@ grass), things that light up in the evening. Final polish of the whole game is `
    existing test changes (`test_a_new_run_starts_at_the_spawn` and the saved-position tests use it).
 6. **Tests: no change in `tests/`.** Built that way: the Dorm is kept apart from `NOVA`, `INTERIORS` and
    `LOCATIONS` (all three are pinned by the tests of `walk-in` and `nova-wings`), and the browser joins
-   them. All 401 existing tests (and their Node scripts, run in the browser: 486, 711 and 75 checks) pass
+   them. All existing tests (and their Node scripts, run in the browser: 486, 711 and 75 checks) pass
    unchanged. The new checks are in `tests/test_nova_zones.py`.
 7. **Size of this spec.** The drawing is large (beach, way, two shops, Dorm inside and outside). If
    it grows too big for one PR, the cut is: PR 1 the beach, the way and the two shops; PR 2 the Dorm
