@@ -194,7 +194,7 @@ request.
 
 As in `walk-in` and `nova-wings` (roadmap 3a and 3b): the zone id stays on the whitelist (`campus`),
 and `POST /api/player` still checks that the position is finite and inside the bounds of the zone,
-which must still hold the Dorm; the bounds do not change here. No zone change is added (one
+which must still hold the Dorm; the bounds grew to the south (maxY 34.7, for the beach) and the check reads them from `ZONES`, so it follows. No zone change is added (one
 continuous map). No rule depends on the position the browser sends: the Dorm panel's button sends the
 same request as the Open button, and the server decides as before (a request on a finished or
 already opened day is refused and changes nothing). The new data is fixed on the server and only read
