@@ -578,10 +578,14 @@ def editor_set_state(state, patch):
         for sid, entry in patch["shops"].items():
             _check_shop(sid)
             new["shops"][sid] = _check_shop_entry(sid, entry)
+            if sid == FIRST_SHOP and not new["shops"][sid]["unlocked"]:
+                raise RejectedAction(f"{SHOPS[sid]['name']} is open from the start and stays open.")
     if "player" in patch:
         new["player"] = _check_player(patch["player"])
     # the storeroom limit is per shop: check it for the stock as a whole
-    for sid in SHOPS:
+    touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
+               if pid in shop_product_ids(sid)}
+    for sid in touched:
         if sum(new["stock"][p] for p in shop_product_ids(sid)) > SHOPS[sid]["storage"]:
             raise RejectedAction(f"The {SHOPS[sid]['name']} storeroom holds at most "
                                  f"{SHOPS[sid]['storage']} units.")

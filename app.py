@@ -276,7 +276,11 @@ def local_request():
     # a proxy in front would make every client look local: refuse when one has been involved
     if request.headers.get("X-Forwarded-For") or request.headers.get("Forwarded"):
         return False
-    return request.remote_addr in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+    if request.remote_addr not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+        return False
+    # DNS rebinding: a web page can point its own name at 127.0.0.1, so the Host must be local too
+    host = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
+    return host in ("127.0.0.1", "localhost", "[::1]")
 
 
 def demo_switch_on():

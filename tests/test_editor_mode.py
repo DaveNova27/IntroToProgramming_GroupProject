@@ -225,7 +225,7 @@ BAD_PATCHES = [
                         "staff_places": 0, "extra": 1}}},
     {"shops": {"cafe": {"unlocked": 1, "level": 1, "products": ["coffee"],
                         "staff_places": 0}}},
-    {"shops": []}, {"shops": {"cafe": 3}},
+    {"shops": []}, {"shops": {"cafe": 3}}, {"shops": {"cafe": {"level": 0}}},
     {"player": {"zone": "mars", "x": 1, "y": 1}}, {"player": {"zone": "x"}},
     {"player": {"zone": START_ZONE, "x": float("nan"), "y": 1}},
     {"player": {"zone": START_ZONE, "x": 10**9, "y": 1}},
@@ -295,3 +295,13 @@ def test_no_answer_contains_the_seed(api):
         body = answer.get_json()
         assert "seed" not in body.get("state", body)
         assert "987654321" not in answer.get_data(as_text=True)
+
+
+def test_refused_with_a_foreign_host_header(api):
+    before = saved(api)
+    for host in ("evil.example", "evil.example:8000", "127.0.0.1.evil.example"):
+        assert post(api, "/api/editor/cash", {"mode": "set", "cents": 5},
+                    headers={"Host": host}).status_code == 400
+    assert saved(api) == before
+    assert post(api, "/api/editor/cash", {"mode": "set", "cents": 5},
+                headers={"Host": "127.0.0.1:8000"}).status_code == 200
