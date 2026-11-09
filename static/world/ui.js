@@ -126,7 +126,7 @@ function renderHud() {
   const gain = $("#stat-gain");
   gain.textContent = fmtSigned(state.overall_gain);
   gain.className = state.overall_gain > 0 ? "up" : state.overall_gain < 0 ? "down" : "";
-  $("#hud-stock").innerHTML = `<h3>Stock</h3>${state.products.map((p) => `
+  $("#hud-stock").innerHTML = `${state.products.map((p) => `
     <div class="stock-row" style="--accent:${COLOR[p.id]}">
       <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
       <span class="nm">${esc(p.name)}<small>sells up to ${p.demand} a day</small></span>
@@ -907,12 +907,36 @@ export function inputBlocked() {
   return !$("#overlay").hidden || $("#new-run-dialog").open;
 }
 
+// The stock card can be folded away. The toggle sits outside #hud-stock, which is redrawn on
+// every update, so the choice survives a redraw. Remembered per browser (the storage may be
+// blocked: then the card simply starts open).
+const STOCK_FOLDED_KEY = "ct-stock-folded";
+
+function setStockFolded(folded) {
+  $("#hud-stock-card").classList.toggle("collapsed", folded);
+  const toggle = $("#stock-toggle");
+  toggle.setAttribute("aria-expanded", String(!folded));
+  toggle.title = folded ? "Show the stock" : "Hide the stock";
+}
+
+function wireStockToggle() {
+  let folded = false;
+  try { folded = localStorage.getItem(STOCK_FOLDED_KEY) === "1"; } catch { /* blocked: stay open */ }
+  setStockFolded(folded);
+  $("#stock-toggle").addEventListener("click", () => {
+    folded = !$("#hud-stock-card").classList.contains("collapsed");
+    setStockFolded(folded);
+    try { localStorage.setItem(STOCK_FOLDED_KEY, folded ? "1" : "0"); } catch { /* not remembered */ }
+  });
+}
+
 export function initUi(firstState, actions) {
   state = firstState;
   placePlayer = actions.placePlayer;
   wirePanel();
   wireEditor();
   wireOverlay();
+  wireStockToggle();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));

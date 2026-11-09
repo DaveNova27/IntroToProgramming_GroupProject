@@ -40,7 +40,12 @@
       <span data-place="nova">NOVA</span>
     </div>
 
-    <section id="hud-stock" class="hud-stock" aria-label="Stock per product"></section>
+    <section id="hud-stock-card" class="hud-stock" aria-label="Stock per product">
+      <button id="stock-toggle" class="stock-toggle" type="button" aria-expanded="true" aria-controls="hud-stock" title="Hide the stock">
+        <span class="stock-title">Stock</span><span class="chev" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="hud-stock"></div>
+    </section>
 
     <button id="interaction-hint" class="interaction-hint" type="button" hidden>
       <span class="keycap" aria-hidden="true">E</span>

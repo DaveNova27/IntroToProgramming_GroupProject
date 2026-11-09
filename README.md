@@ -66,6 +66,7 @@ animate that answer.
 | `first-feature.md` | – (initial commit) | Buy, set prices, trade one day, restart safely |
 | `full-run.md` | `full-run` | Days 2–5, final result, run history, new run with confirmation. Written without the BRD at hand: check IDs and wording against it. |
 | `stock-overview.md` | `stock-overview` | Units, value at cost, sells today / left after today per product |
+| `collapsible-stock-panel.md` | `collapsible-stock-panel` | The stock card on the campus page can be folded away, remembered per browser |
 | `campus-map.md` | `campus-map` | 3D campus map with truck, queues, ticker (replaced by `world-core`) |
 | `view-switch.md` | `view-switch` | Live window on the dashboard, map as main view, dashboard as side panel |
 | `nova-campus.md` | `nova-campus` | Scene styled after Nova SBE Carcavelos (beach, tunnel, fort, pines) |
