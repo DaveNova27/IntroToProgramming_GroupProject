@@ -83,6 +83,11 @@ def test_a_crafted_skip_without_an_open_day_is_refused_and_changes_nothing(run_o
     assert db.load(run_on_disk) == before
 
 
+def test_the_evening_hint_offers_go_home_and_skip_the_walk():
+    page = (WORLD_JS.parent / "map.html").read_text()
+    assert 'id="btn-go-home"' in page and 'id="btn-skip-walk"' in page
+
+
 def test_the_browser_draws_the_cycle_without_randomness_or_server_calls_from_the_figures():
     for name in ("main.js", "ui.js", "player.js", "people.js"):
         assert "Math.random" not in (WORLD_JS / name).read_text(), name

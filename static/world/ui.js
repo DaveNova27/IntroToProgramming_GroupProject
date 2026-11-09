@@ -19,6 +19,7 @@ let armedFire = null; // the employee whose Dismiss was clicked once (the panel 
 let orderProduct = "coffee";
 let placePlayer = () => {};
 let goHome = () => false;
+let jumpHome = () => false;
 let wakeAt = () => {};
 // The day cycle (spec day-cycle): after a day closed it is evening until the player has slept.
 // Kept only here, in the browser: it decides no rule, and after a reload it is simply morning.
@@ -123,6 +124,23 @@ function walkHome() {
   if (!evening || scene.sleeping) return;
   closePanel();
   if (!goHome()) toast("No way home from here. Walk to the Dorm yourself.", "error");
+}
+
+// Skip the walk: black for a moment, then the player lies in the bed (the report opens there).
+async function skipWalk() {
+  if (!evening || scene.sleeping || fading) return;
+  closePanel();
+  fading = true;
+  renderEvening();
+  $("#night-fade").classList.add("on");
+  try {
+    await pause(450);
+    if (!jumpHome()) toast("The Dorm could not be found. Walk there yourself.", "error");
+  } finally {
+    fading = false;
+    $("#night-fade").classList.remove("on");
+    renderEvening();
+  }
 }
 
 function renderEvening() {
@@ -994,6 +1012,7 @@ export function initUi(firstState, actions) {
   state = firstState;
   placePlayer = actions.placePlayer;
   goHome = actions.goHome;
+  jumpHome = actions.jumpHome;
   wakeAt = actions.wakeAt;
   wirePanel();
   wireEditor();
@@ -1008,6 +1027,7 @@ export function initUi(firstState, actions) {
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));
   $("#btn-new-run").addEventListener("click", askNewRun);
   $("#btn-go-home").addEventListener("click", walkHome);
+  $("#btn-skip-walk").addEventListener("click", skipWalk);
   window.addEventListener("message", (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
     const msg = e.data || {};

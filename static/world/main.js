@@ -116,6 +116,17 @@ function goHome() {
   return false;
 }
 
+// "Skip the walk" (spec day-cycle): straight to the bed without walking there. Only the shown position
+// changes; it is saved like any other stop. Gives false when the Dorm data is missing.
+function jumpHome() {
+  const wake = world.dorm?.wake;
+  if (!wake || !world.locations.bed) return false;
+  keys.clear();
+  wakeAt(wake);
+  use("bed");
+  return true;
+}
+
 // after sleeping: standing beside the bed, facing the room, and the spot saved like any other stop
 function wakeAt({ zone, x, y }) {
   scene.zoneId = zone;
@@ -318,7 +329,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer, goHome, wakeAt });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }

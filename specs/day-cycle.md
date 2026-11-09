@@ -20,7 +20,9 @@ one ended. After this spec:
    or it was ended from the dashboard), the summary does **not** pop up on the map. It
    gets dark (as today) and a hint in the display says "Day N is over. Time to go home."
    with a button **"Go home"**; the Open button of the toolbar says "Go home" too. The
-   player may also walk there alone.
+   player may also walk there alone, or press **"Skip the walk"** (added by Christopher on
+   2026-11-09): the screen goes black for a moment and the player lies in the bed at once,
+   for a player far away from the Dorm.
 4. **Go home.** The button makes the player walk to the bed by itself: the same way
    finding as click-to-move (`findPath` in `paths.js`), through the Dorm's entrance, at
    walking speed. Any move key or click on the map stops the walk and gives the control
@@ -53,6 +55,8 @@ report, so the whole game still works without walking.
     and the button "Sleep".
 - `shiftTick()` and `shiftAction()` no longer call `showDaySummary()` directly. They set
   "evening" and show the hint with the button "Go home".
+- `main.js`: "Skip the walk" puts the player at `DORM["wake"]` (saved with `POST /api/player`)
+  and uses the bed, behind a short black fade.
 - `main.js`: "Go home" starts an automatic walk to the bed's use point with `findPath`,
   as a click on the map does. A move key or a click stops it. Arriving opens the bed.
 - `people.js` / `player.js`: a pose "lie" for the person figure (lying on the bed,
@@ -107,7 +111,8 @@ other people in the Dorm, the demo scenarios.
 2. A day that closes on the map does not open the summary; the hint with "Go home" is
    shown instead. "Go home" walks the player to the bed from any walkable spot of the
    campus (shops, beach, inside the Nova); a move key stops it. At the bed the player
-   lies down and the summary and the evening report are shown; "Sleep" fades to the
+   lies down and the summary and the evening report are shown ("Skip the walk" gets there
+   at once, from anywhere); "Sleep" fades to the
    morning and puts the player standing beside the bed.
 3. "Open day" and "End the day" at the bed send only the requests that exist today; a
    crafted request is refused by the server as before and changes nothing.
