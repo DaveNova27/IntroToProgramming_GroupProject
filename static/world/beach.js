@@ -70,18 +70,45 @@ function oval(p, rx, ry, fill, alpha = 1) {
 }
 
 // a soft pool of warm light on the ground (only while it is getting dark)
+// Lights are queued while the scene is drawn and painted at the end, over the evening shade, so
+// that the shade darkens the world but not the lamps (see drawNightGrade and drawNightLights).
+const lightQueue = [];
 function glow(x, y, z, radius, amount) {
   if (amount < 0.03) return;
-  const p = isoPoint(x, y, z);
+  lightQueue.push({ p: isoPoint(x, y, z), radius, amount });
+}
+
+// the evening shade: a blue-violet multiply over everything, stronger as the light falls
+export function drawNightGrade(w, h) {
+  const shade = night() * 0.62;
+  if (shade < 0.02) return;
   ctx.save();
-  const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
-  g.addColorStop(0, `rgba(255,214,130,${0.5 * amount})`);
-  g.addColorStop(1, "rgba(255,214,130,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(p.x, p.y, radius, radius * 0.5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = mixColor("#ffffff", "#5b6a98", shade);
+  ctx.fillRect(0, 0, w, h);
   ctx.restore();
+}
+
+// the queued lights, added on top of the shade; call inside the same camera transform as the scene
+export function drawNightLights() {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const { p, radius, amount } of lightQueue) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.scale(1, 0.55); // a pool of light on the ground is an ellipse in this view
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+    g.addColorStop(0, `rgba(255,190,100,${0.5 * amount})`);
+    g.addColorStop(0.55, `rgba(255,180,90,${0.2 * amount})`);
+    g.addColorStop(1, "rgba(255,180,90,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  lightQueue.length = 0;
 }
 
 // a quad flat on the ground

@@ -1,6 +1,6 @@
 // Draws one frame: sky, ground, then everything else sorted from back to front.
 
-import { beachActors, drawBeachGround } from "./beach.js";
+import { beachActors, drawBeachGround, drawNightGrade, drawNightLights } from "./beach.js";
 import { campusActors, drawCampusGroundPlan, drawTerrain } from "./campus.js";
 import {
   drawAmbientLighting,
@@ -54,4 +54,11 @@ export function drawWorld(t) {
   ctx.restore();
 
   drawAmbientLighting(light, w, h);
+  drawNightGrade(w, h);
+  // the lights go on top of the shade, in the same camera as the scene
+  ctx.save();
+  ctx.translate(w / 2 - center.x * camera.zoom, h / 2 - center.y * camera.zoom);
+  ctx.scale(camera.zoom, camera.zoom);
+  drawNightLights();
+  ctx.restore();
 }
