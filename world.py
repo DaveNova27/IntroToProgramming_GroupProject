@@ -269,6 +269,21 @@ INTERIORS = {
 }
 
 
+# ---- where the employees stand (staff) -----------------------------------------------------
+# Only for drawing: the figures of a shop's employees. A working refiller walks between the
+# storeroom spot (at the shelves) and the counter spot, a working seller stands at the seller
+# spot, everybody else waits at a break spot. No rule reads any of these points.
+WORK_SPOTS = {
+    "cafe": {
+        "wing": "nova",
+        "storeroom": {"x": 18.4, "y": 2.52},
+        "counter": {"x": 15.7, "y": 2.52},
+        "seller": {"x": 13.2, "y": 2.52},
+        "break": [{"x": 18.5, "y": 4.4}, {"x": 17.5, "y": 4.7}],
+    },
+}
+
+
 # ---- the beach way, the outdoor shops and the Dorm (spec nova-zones) ------------------
 # Fixed data, the same on every start. The browser draws it and only walks round it.
 
@@ -564,6 +579,7 @@ def world_view():
         "spaces": SPACES,
         "nova": NOVA,
         "interiors": INTERIORS,
+        "work_spots": WORK_SPOTS,
         "dorm": DORM,
         "outdoorShops": SHOPS_OUTDOOR,
         "beachWay": BEACH_WAY,

@@ -2,7 +2,7 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
-import { DAY_END, MORNING, reducedMotion, scene } from "./scene.js";
+import { DAY_END, MORNING, reducedMotion, scene, server } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
 
@@ -14,6 +14,7 @@ let animating = false;
 let dayRunning = null;
 let fast = false;
 let panelMode = null;
+let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
 let placePlayer = () => {};
 
@@ -146,6 +147,10 @@ function renderToolbar() {
 }
 
 function renderAll() {
+  server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
+  server.shift = state.shift;
+  const open = state.shops.find((sh) => sh.id === state.shift?.shop);
+  server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
   renderToolbar();
   if (panelMode) renderPanel();
@@ -236,6 +241,7 @@ function renderPanel() {
             <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
               ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
               storeroom ${s.storage}, counter ${s.counter}</p>
+            ${staffBlock(s)}
             ${s.offers.map((o) => `
               <div class="shop-offer">
                 <span class="nm">${esc(o.name)}</span>
@@ -408,6 +414,39 @@ function wireEditor() {
   });
 }
 
+// ---- employees in the shop window ----------------------------------------------------
+// Only shows what the server sent (state.staff) and forwards the clicks. Names come from the
+// server's fixed list and go through esc().
+
+function staffBlock(shop) {
+  const staff = state.staff;
+  const places = staff.places.filter((p) => p.shop === shop.id);
+  if (!places.length) return "";
+  const rows = places.map((p) => {
+    const e = staff.employees.find((x) => x.id === p.employee);
+    if (e) {
+      return `<div class="shop-offer staff-row">
+        <span class="nm">${esc(e.name)} · ${esc(e.job_name)} · level ${e.level}
+          <small>${e.working ? `wage ${fmt(e.wage)} a day` : "stopped working: no money for the wage"}</small></span>
+        ${e.upgrade_price === null ? `<span class="owned">Top level</span>`
+          : `<button class="btn" type="button" data-staff-upgrade="${e.id}"
+              ${e.upgrade_price > state.cash ? "disabled" : ""}>Level up ${fmt(e.upgrade_price)}</button>`}
+        <button class="btn ghost" type="button" data-staff-fire="${e.id}">${armedFire === e.id ? "Sure? Click again" : "Dismiss"}</button>
+      </div>`;
+    }
+    if (!p.bought) {
+      return `<div class="shop-offer staff-row"><span class="nm">${esc(p.job_name)}
+        <small>buy "Employee place ${p.place}" below: it hires them</small></span></div>`;
+    }
+    return `<div class="shop-offer staff-row"><span class="nm">${esc(p.job_name)}
+      <small>place ${p.place} is free</small></span>
+      <button class="btn" type="button" data-hire-shop="${esc(p.shop)}" data-hire-place="${p.place}"
+        ${staff.hire_price > state.cash ? "disabled" : ""}>Hire ${fmt(staff.hire_price)}</button></div>`;
+  });
+  const free = places.some((p) => p.bought && p.employee === null);
+  return `<h4 class="staff-title">Employees</h4>${free ? `<p class="note">A free place is one you dismissed someone from. Hire a new employee for it (${fmt(staff.hire_price)}): they refill and sell on their own while the day runs.</p>` : ""}${rows.join("")}`;
+}
+
 // ---- a day played live in the Cafe ---------------------------------------------------
 // The server holds the counter, the queue and the clock. This only shows them and sends
 // each refill, sale and tick. Where the figure stands plays no part.
@@ -563,6 +602,24 @@ function wirePanel() {
         shop: upgradeBtn.dataset.upgradeShop,
         item: upgradeBtn.dataset.upgradeItem,
       });
+    }
+    const hireBtn = e.target.closest("[data-hire-shop]");
+    if (hireBtn) {
+      return shopAction("/api/staff/hire", {
+        shop: hireBtn.dataset.hireShop, place: Number(hireBtn.dataset.hirePlace),
+      });
+    }
+    const levelBtn = e.target.closest("[data-staff-upgrade]");
+    if (levelBtn) return shopAction("/api/staff/upgrade", { employee_id: Number(levelBtn.dataset.staffUpgrade) });
+    const fireBtn = e.target.closest("[data-staff-fire]");
+    if (fireBtn) {
+      const id = Number(fireBtn.dataset.staffFire);
+      if (armedFire !== id) { // the level is lost, so ask once
+        armedFire = id;
+        return renderPanel();
+      }
+      armedFire = null;
+      return shopAction("/api/staff/fire", { employee_id: id });
     }
     const startBtn = e.target.closest("[data-shift-start]");
     if (startBtn) return shiftAction("/api/shift/start", { shop: startBtn.dataset.shiftStart });
@@ -741,6 +798,8 @@ function showDaySummary(result) {
     <p class="eyebrow">Day ${result.day} closed</p>
     <p class="big ${gp > 0 ? "up" : gp < 0 ? "down" : ""}">${fmtSigned(gp)}</p>
     <p class="note">gross profit · cost of goods sold ${fmt(result.cogs)} · cash now ${fmt(result.cash_after)}</p>
+    ${result.wages || result.wages_unpaid?.length ? `<p class="note">wages paid ${fmt(result.wages)} · result after wages ${fmtSigned(result.net)}${
+      result.wages_unpaid.length ? ` · ${result.wages_unpaid.length} employee(s) stopped working: no money for the wage` : ""}</p>` : ""}
     <table>
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>

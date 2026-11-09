@@ -60,7 +60,7 @@ Fields and buttons per function, answers shown as a toast. All text through `tex
 
 ## Out of scope
 
-Employees and popularity (not on `main` yet; a follow-up that only needs two more patch keys),
+Setting employees directly and popularity (popularity is not on `main`; employees are, but the patch only drops those whose place a shop level no longer has),
 events, scenarios and explanation texts (`demo-scenarios`), a way to set a state while a day is open,
 any change to `tests/`.
 

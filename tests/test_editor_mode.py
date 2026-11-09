@@ -305,3 +305,15 @@ def test_refused_with_a_foreign_host_header(api):
     assert saved(api) == before
     assert post(api, "/api/editor/cash", {"mode": "set", "cents": 5},
                 headers={"Host": "127.0.0.1:8000"}).status_code == 200
+
+
+def test_lowering_a_shop_dismisses_the_employees_without_a_place():
+    state = logic.editor_set_state(logic.new_state(), {"shops": {"cafe": {"level": 3}}, "cash": 90_000})
+    state = logic.editor_set_state(state, {"shops": {"cafe": {"level": 5}}})
+    state = logic.hire(state, "cafe", 1)
+    state = logic.hire(state, "cafe", 2)
+    assert len(state["employees"]) == 2
+    state = logic.editor_set_state(state, {"shops": {"cafe": {"level": 4}}})
+    assert [e["place"] for e in state["employees"]] == [1]
+    state = logic.editor_set_state(state, {"shops": {"cafe": {"level": 2}}})
+    assert state["employees"] == []
