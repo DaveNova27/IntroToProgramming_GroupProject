@@ -12,6 +12,9 @@ export const WALK_SPEED = 3.5; // tiles per second
 export const DAY_START = 450;
 export const DAY_END = 1170;
 export const MORNING = 540;
+// The night before the morning (spec day-cycle): after sleeping the light starts dark at 05:00 and the
+// sun rises until DAY_START. Only the light; no rule reads it.
+export const DAWN = 300;
 
 export const canvas = document.querySelector("#world");
 export const ctx = canvas.getContext("2d");

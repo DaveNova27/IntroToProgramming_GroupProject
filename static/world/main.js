@@ -32,6 +32,7 @@ let stuckFor = 0; // seconds without getting closer to the target
 let lastTime = 0;
 let wasWalking = false;
 let savedSpot = "";
+let saving = Promise.resolve(); // one save after the other, so the last spot is the one that stays
 
 // ---- position on the server ---------------------------------------------------------
 
@@ -39,12 +40,16 @@ function savePlayer() {
   const { x, y } = scene.player;
   const spot = `${scene.zoneId}:${x.toFixed(2)}:${y.toFixed(2)}`;
   if (spot === savedSpot) return;
-  fetch("/api/player", {
-    method: "POST",
-    keepalive: true,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zone: scene.zoneId, x, y }),
-  })
+  const body = JSON.stringify({ zone: scene.zoneId, x, y });
+  // Saves go out in order: a walk stopped by "Skip the walk" saves its spot, then the Dorm's spot,
+  // and an older answer can never overwrite the newer position on the server.
+  saving = saving
+    .then(() => fetch("/api/player", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body,
+    }))
     .then((res) => {
       if (res.ok) savedSpot = spot;
     })

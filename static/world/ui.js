@@ -3,7 +3,7 @@
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
 import { inReach } from "./locations.js";
-import { DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
+import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
 
@@ -25,8 +25,6 @@ let wakeAt = () => {};
 // Kept only here, in the browser: it decides no rule, and after a reload it is simply morning.
 let evening = false;
 let fading = false;
-let dawn = false; // while the sun rises after sleeping the clock runs back, the display counts 05:00 to 09:00
-const DAWN_SHOWN = 300; // 05:00, the time shown when the night ends
 
 // What happened plays one after another, wherever the action came from.
 let chain = Promise.resolve();
@@ -115,8 +113,7 @@ function dayEnded() {
 // the Dorm. Standing at the bed already (End the day), the player goes straight to bed.
 function startEvening() {
   dayEnded();
-  evening = true;
-  closePanel();
+  evening = true; // an open panel stays open (a typed order is not lost); the hint shows beside it
   renderAll();
   const bed = world.locations?.bed;
   if (bed && inReach(bed)) goToBed();
@@ -167,7 +164,7 @@ function goToBed() {
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
 
 // Sleep: the screen goes black, then the dark night with the player asleep, then the sun rises
-// (the light runs back from dusk to the morning), and the player stands up beside the bed.
+// (the clock runs from DAWN, 05:00, to the morning), and the player stands up beside the bed.
 async function sleep() {
   hideOverlay();
   evening = false;
@@ -176,8 +173,7 @@ async function sleep() {
   try {
     await pause(800);
     clockRun++; // stops a clock still running to the evening
-    scene.clock = DAY_END; // the dark night
-    dawn = true;
+    scene.clock = DAWN; // the dark night before the morning
     renderAll();
     const fade = $("#night-fade");
     fade.classList.add("night"); // from black to a deep night, the player asleep (Zzz)
@@ -185,12 +181,11 @@ async function sleep() {
     await pause(1900);
     fade.classList.add("sunrise"); // the dark lifts as slowly as the sun rises
     fade.classList.remove("night");
-    await runClock(DAY_END, MORNING, 3600); // the sunrise
+    await runClock(DAWN, MORNING, 3600); // the sunrise
     scene.sleeping = false;
     const wake = world.dorm?.wake;
     if (wake) wakeAt(wake);
   } finally {
-    dawn = false;
     clockRun++;
     scene.clock = MORNING;
     scene.sleeping = false;
@@ -205,19 +200,13 @@ async function sleep() {
 // The morning card: the day, the forecast with the tips, the stock and what to do. Everything in
 // it comes from the server's state; the card decides nothing.
 function showMorning() {
-  const o = state.outlook;
-  const forecast = o ? `
-    <p class="forecast"><span class="icon" aria-hidden="true">${weatherIconMarkup(o.id, 22)}</span>
-      <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C <small>(forecast)</small></p>
-    <ul class="tips">${o.tips.map((t) => `
-      <li><b>${esc(t.name)}:</b> ${esc(TIP_TEXT[t.advice]?.(t.percent) ?? "")}</li>`).join("")}</ul>` : "";
   const stock = state.products.map((p) => `${EMOJI[p.id] ?? ""} ${esc(p.name)} ${esc(p.stock)}`).join(" · ");
   const crews = state.staff?.employees?.length ?? 0;
   showOverlay(`
     <p class="eyebrow">Good morning · Day ${esc(state.day)} of ${esc(state.last_day)}</p>
     <p class="big">☀ ${esc(state.day)}</p>
     <p class="note">Cash ${fmt(state.cash)} · in stock: ${stock}</p>
-    <div class="evening-report">${forecast}</div>
+    ${eveningReport()}
     <ol class="todo">
       <li>Buy stock with the forecast in mind (<b>Stock</b>).</li>
       <li>Check your prices (<b>Prices</b>).</li>
@@ -227,9 +216,7 @@ function showMorning() {
 }
 
 export function updateClock() {
-  const minutes = Math.floor(dawn
-    ? DAWN_SHOWN + ((DAY_END - scene.clock) / (DAY_END - MORNING)) * (MORNING - DAWN_SHOWN)
-    : scene.clock);
+  const minutes = Math.floor(scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   const el = $("#stat-time");
   if (el.textContent !== text) el.textContent = text;
@@ -990,7 +977,7 @@ function showDaySummary(result) {
 }
 
 // The forecast for the next day and one tip per open shop (outlook). Shown in the day
-// summary; the tips and the forecast come from the server.
+// summary and on the morning card; the tips and the forecast come from the server.
 function eveningReport() {
   const o = state.outlook;
   if (!o || state.finished) return "";

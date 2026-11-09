@@ -32,9 +32,10 @@ one ended. After this spec:
    person figure) and the panel shows the day summary and the evening report of
    `outlook` (the same overlay as today). Its button is "Sleep".
 6. **Sleep.** The screen goes black, then shows the dark night with the player asleep (a "z z
-   z" rises from the pillow, the lamp in the room is off). Then the sun rises: the light runs
-   from dusk back to the morning while the display counts 05:00 to 09:00, and the extra dark
-   lifts with it. The player stands up beside the bed: step 1 of the next day.
+   z" rises from the pillow, the lamp in the room is off). Then the sun rises: the clock runs
+   from 05:00 (`DAWN` in `scene.js`) to 09:00 through a dawn added before the morning in
+   `lightingProfile` (`environment.js`: night, an orange sunrise at 06:30, then the morning),
+   and the extra dark lifts with it. The player stands up beside the bed: step 1 of the next day.
 7. **Good morning.** A card shows the day, the cash, the stock, the forecast with its tips
    (`outlook`) and three things to do: buy stock, check prices, open the day and start the
    shift. "Let's go" closes it. Not after the last day (the final result comes instead).
@@ -80,6 +81,9 @@ report, so the whole game still works without walking.
   to the final result instead (`showFinal()`, as today).
 - A day ended through the dashboard sync (`syncFromDashboard` in `ui.js`) also puts the
   campus into "evening". `views.js` is not changed.
+- `main.js`: the position is saved one request after the other, so a walk stopped by "Skip
+  the walk" can never overwrite the Dorm spot saved after it.
+- A day that ends while a panel is open leaves the panel open (a typed order is not lost).
 - `locations.js`, `main.js`: no use ring around the bed and no "Go to bed" hint while the
   player lies in it.
 - Texts through `textContent` or `esc()`.
