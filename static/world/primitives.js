@@ -264,20 +264,6 @@ export function drawFacadeBandX(x, y, h, zBottom, zTop, color = "#1f4652", mulli
   }
 }
 
-export function drawTimberScreen(x, y, w, zBottom, zTop, count = 8) {
-  ctx.strokeStyle = "#ad8152";
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i <= count; i++) {
-    const px = x + (w * i) / count,
-      a = isoPoint(px, y, zBottom),
-      b = isoPoint(px, y, zTop);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-}
-
 export function drawBlock(x, y, w, h, z, top, right, left) {
   const a = isoPoint(x, y, z),
     b = isoPoint(x + w, y, z),

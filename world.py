@@ -284,7 +284,7 @@ SHOPS_OUTDOOR = [
 ]
 
 # things on the sand and in the water: positions only, the same on every start.
-# The paving ends at y 24.5; the dune ridge and the sand start at y 25, the sea at y 33.
+# The paving ends at y 24.5; the dune ridge and the sand start at y 25, the sea at y 35.
 BEACH = {
     "sandFrom": 25.0,
     "seaFrom": 35.0,
@@ -292,7 +292,7 @@ BEACH = {
         {"x": 4.4, "y": 32.2, "color": "#ff7458"}, {"x": 6.2, "y": 32.2, "color": "#64cbc8"},
         {"x": 32.8, "y": 32.4, "color": "#f5c95e"}, {"x": 34.4, "y": 32.4, "color": "#bce65f"},
     ],
-    # the dune ridge between the promenade and the sand: three mounds that block, grass in a line
+    # the dune ridge between the promenade and the sand: two mounds that block, grass in a line
     "dunes": [{"x": 3.0, "y": 24.9, "r": 0.7}, {"x": 35.5, "y": 25.0, "r": 0.7}],
     # the low wall between promenade and dunes; it is open at the steps (the gaps between segments)
     "kerb": {"y": 24.25, "h": 0.35, "segments": [[1.0, 5.2], [8.4, 12.2], [16.6, 26.4], [30.2, 37.0], [39.6, 41.4]]},
@@ -444,7 +444,7 @@ def _campus_colliders():
 def _zone_colliders():
     """The beach way, the outdoor shops, the beach and the Dorm (spec nova-zones)."""
     solid = []
-    # the arch at the start of the beach way, four lamps along it, two benches at the sand end
+    # the arch at the start of the beach way, five lamps along it, two benches at the sand end
     solid.append(_circle("way-arch-west", 12.75, 17.5, 0.15, "Arch post", "prop"))
     solid.append(_circle("way-arch-east", 16.05, 17.5, 0.15, "Arch post", "prop"))
     for i, y in enumerate((19.4, 22.4, 25.4, 28.4, 31.4)):

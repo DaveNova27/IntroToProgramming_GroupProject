@@ -334,15 +334,23 @@ function drawDeck(x, y, w, h, base) {
   for (let j = 0; j < rows; j++) flat(x, y + j * 0.36, w, 0.33, j % 2 ? base : light(base, 0.1), 5.4, "rgba(70,45,22,.3)");
 }
 
+// where the Dorm stands, read from its data so that the drawing follows the walls and the door
+function dormSpot() {
+  const part = world.dorm.parts[0];
+  const door = world.dorm.entrances[0];
+  return { part, door, front: part.y + part.h, east: part.x + part.w };
+}
+
 function drawDormGround() {
+  const { part, door, front } = dormSpot();
   // the way from the door: a pale stone threshold with a step, a welcome mat, and flagstones to the plaza
-  drawBlock(36.8, 12.6, 2.4, 1.5, 3.5, "#ece6d6", "#bdb59f", "#d4ccb8");
-  drawBlock(37.1, 12.6, 1.8, 1.2, 5.5, "#f3eee0", "#c6bfa9", "#ddd6c2");
-  flat(37.25, 12.75, 1.5, 0.4, "#3b5d65", 6.0);
-  for (let i = 0; i < 5; i++) flat(37.2 + (i % 2) * 0.4, 14.3 + i * 0.55, 1.3, 0.4, "#e7e2d6", 4.8, "rgba(70,70,60,.25)");
+  drawBlock(door.x - 0.2, front, door.width + 0.4, 1.5, 3.5, "#ece6d6", "#bdb59f", "#d4ccb8");
+  drawBlock(door.x + 0.1, front, door.width - 0.2, 1.2, 5.5, "#f3eee0", "#c6bfa9", "#ddd6c2");
+  flat(door.x + 0.25, front + 0.15, door.width - 0.5, 0.4, "#3b5d65", 6.0);
+  for (let i = 0; i < 5; i++) flat(door.x + 0.2 + (i % 2) * 0.4, front + 1.7 + i * 0.55, 1.3, 0.4, "#e7e2d6", 4.8, "rgba(70,70,60,.25)");
   // a strip of grass and flowers between the Dorm and the Hub
-  drawGroundSlab(33.6, 7.8, 1.3, 5.9, "#83a774", 3.4);
-  for (let i = 0; i < 7; i++) dot(isoPoint(34.0 + (i % 2) * 0.6, 8.4 + i * 0.75, 5), 1.5, [SUN, CORAL, "#ffffff"][i % 3]);
+  drawGroundSlab(part.x - 1.4, part.y + 0.2, 1.3, 5.9, "#83a774", 3.4);
+  for (let i = 0; i < 7; i++) dot(isoPoint(part.x - 1.0 + (i % 2) * 0.6, part.y + 0.8 + i * 0.75, 5), 1.5, [SUN, CORAL, "#ffffff"][i % 3]);
 }
 
 export function drawBeachGround(t) {
@@ -1230,7 +1238,8 @@ function drawGull(g, t) {
 // ---- the Dorm's front -----------------------------------------------------------------------------
 
 function drawMailbox() {
-  const p = isoPoint(35.2, 12.85, 5);
+  const { part, front } = dormSpot();
+  const p = isoPoint(part.x + 0.2, front + 0.25, 5);
   line(p, { x: p.x, y: p.y - 15 }, "#31545b", 2);
   roundedRectAt({ x: p.x, y: p.y - 19 }, 9, 7, "#ff7458");
   ctx.fillStyle = "#ffffff";
@@ -1636,7 +1645,9 @@ function drawLog(pit, [dx, dy, w, h]) {
 }
 
 // tufts of grass that have found a crack in the paving, a few steps from the sand
+let grassTufts = null; // fixed places, worked out once
 function promenadeGrass() {
+  if (grassTufts) return grassTufts;
   const out = [];
   for (let i = 0; i < 26; i++) {
     const x = 2 + ((i * 7.3) % 39);
@@ -1645,6 +1656,7 @@ function promenadeGrass() {
     if (x > 18 && x < 23 && y > 21.7) continue;
     out.push({ x, y, index: i + 40 });
   }
+  grassTufts = out;
   return out;
 }
 
@@ -1652,9 +1664,11 @@ function promenadeGrass() {
 
 // window boxes with flowers under the Dorm's windows, a white canopy over its door, a balcony on the east side
 function drawDormFront(t, amount) {
-  const y = 12.6 + 0.02;
+  const { part, door, front, east } = dormSpot();
+  const y = front + 0.02;
+  const doorEnd = door.x + door.width;
   // flower boxes
-  for (const [x0, x1] of [[35.3, 36.8], [39.2, 40.2]]) {
+  for (const [x0, x1] of [[part.x + 0.3, door.x - 0.2], [doorEnd + 0.2, east - 0.3]]) {
     drawBlock(x0, y - 0.02, x1 - x0, 0.22, 33, "#f7f7f4", "#c9cdd0", "#e4e5e2");
     for (let x = x0 + 0.12; x < x1; x += 0.2) {
       const p = isoPoint(x, y + 0.1, 33);
@@ -1664,32 +1678,35 @@ function drawDormFront(t, amount) {
     }
   }
   // the canopy over the door, a thin white slab on two slim columns, like the Nova's
-  drawRaisedSlab(36.7, 12.5, 2.6, 1.3, 50, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
-  drawFacadeBandY(36.7, 13.8 + 0.012, 2.6, 46, 47.5, "#bce65f", 1);
-  for (const x of [36.85, 39.15]) {
-    drawBlock(x - 0.07, 13.63, 0.14, 0.14, 46, "#ffffff", "#c9cdd0", "#e4e5e2");
+  drawRaisedSlab(door.x - 0.3, front - 0.1, door.width + 0.6, 1.3, 50, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
+  drawFacadeBandY(door.x - 0.3, front + 1.2 + 0.012, door.width + 0.6, 46, 47.5, "#bce65f", 1);
+  for (const x of [door.x - 0.15, doorEnd + 0.15]) {
+    drawBlock(x - 0.07, front + 1.03, 0.14, 0.14, 46, "#ffffff", "#c9cdd0", "#e4e5e2");
   }
   // a house number and a lantern by the door
-  const sign = isoPoint(37.2, 12.68, 40);
+  const sign = isoPoint(door.x + 0.2, front + 0.08, 40);
   roundedRectAt({ x: sign.x, y: sign.y }, 16, 9, "#31545b");
   ctx.fillStyle = "#f4efe6";
   ctx.font = "800 6px Menlo, Consolas, monospace";
   ctx.textAlign = "center";
   ctx.fillText("№ 7", sign.x, sign.y + 2.2);
-  const lamp = isoPoint(38.7, 12.7, 38);
+  const lamp = isoPoint(doorEnd - 0.3, front + 0.1, 38);
   dot(lamp, 3, amount > 0.1 ? "#ffe9a8" : "#eee2b8");
-  if (amount > 0.05) glow(38.7, 13.0, 36, 90, amount);
+  if (amount > 0.05) glow(doorEnd - 0.3, front + 0.4, 36, 90, amount);
 }
 
 // the balcony on the Dorm's east wall: a white ledge, a glass rail, pots
 function drawDormBalcony(t) {
-  const x = 40.5;
-  drawRaisedSlab(x, 8.5, 0.7, 3.2, 33, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
+  const { part, east: x } = dormSpot();
+  const y0 = part.y + 0.9;
+  const y1 = y0 + 3.2;
+  drawRaisedSlab(x, y0, 0.7, 3.2, 33, 4, "#f7f7f4", "#c9cdd0", "#e4e5e2");
   const rail = 33 + 14;
-  drawFacadeBandX(x + 0.7 + 0.01, 8.5, 3.2, 33, rail, "rgba(160,205,225,.34)", 6); // a glass balustrade
-  line(isoPoint(x + 0.7, 8.5, rail), isoPoint(x + 0.7, 11.7, rail), "#ffffff", 2);
-  line(isoPoint(x + 0.7, 11.7, rail), isoPoint(x, 11.7, rail), "#ffffff", 2);
-  for (const [y, color] of [[8.9, CORAL], [9.9, SUN], [11.2, "#ffffff"]]) {
+  drawFacadeBandX(x + 0.7 + 0.01, y0, 3.2, 33, rail, "rgba(160,205,225,.34)", 6); // a glass balustrade
+  line(isoPoint(x + 0.7, y0, rail), isoPoint(x + 0.7, y1, rail), "#ffffff", 2);
+  line(isoPoint(x + 0.7, y1, rail), isoPoint(x, y1, rail), "#ffffff", 2);
+  for (const [dy, color] of [[0.4, CORAL], [1.4, SUN], [2.7, "#ffffff"]]) {
+    const y = y0 + dy;
     const p = isoPoint(x + 0.45, y, 36);
     ctx.fillStyle = "#c8795a";
     ctx.fillRect(p.x - 3, p.y - 5, 6, 5);
@@ -1910,13 +1927,15 @@ export function beachActors(t) {
   world.beach.fireside.forEach((p, i) => add(p[0] + p[1] + 0.35, () => drawFireSitter(p, i, t)));
   world.beach.players.forEach((pl, i) => add(pl.x + pl.y, () => drawVolleyPlayer(pl, i, t)));
   add(world.beach.volleyball.x1 + world.beach.volleyball.y + 3.2, () => drawVolleyBall(t));
-  add(dogAt(t).x + dogAt(t).y, () => drawDog(t));
+  const dog = dogAt(t);
+  add(dog.x + dog.y, () => drawDog(t));
   world.beach.surfers.forEach((sf, i) => add(sf.x0 + sf.y + 12, () => drawSurfer(sf, i, t)));
   world.beach.paddlers.forEach((pd, i) => add(pd.x + pd.y, () => drawPaddler(pd, i, t)));
   add(1, () => drawTidePools(t));
   add(world.beach.lighthouse.x + world.beach.lighthouse.y, () => drawLighthouse(world.beach.lighthouse, t, amount));
-  add(35.0 + 12.6 + 0.9, () => drawDormFront(t, amount));
-  add(40.5 + 8.5 + 3.3, () => drawDormBalcony(t));
+  const dorm = dormSpot();
+  add(dorm.part.x + dorm.front + 0.9, () => drawDormFront(t, amount));
+  add(dorm.east + dorm.part.y + 0.9 + 3.3, () => drawDormBalcony(t));
   add(10.5, drawDeliveryLorry);
   add(1.75 + 10.9, () => drawLorryCrew(t));
   add(41.35 + 4.5 + 0.2, () => drawHedge(4.5, 12.0));
@@ -1942,8 +1961,9 @@ export function beachActors(t) {
   world.beach.boats.forEach((b, i) => add(b.x + b.y, () => drawBoat(b, t, i)));
   world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t)));
 
-  add(39.3 + 13.1 + 0.5, () => drawCampusBench(39.3, 13.1, 0));
-  add(35.2 + 12.85 + 0.3, drawMailbox);
+  const bench = solid.find((c) => c.id === "dorm-bench");
+  add(bench.x + bench.y + 0.5, () => drawCampusBench(bench.x, bench.y, 0));
+  add(dorm.part.x + 0.2 + dorm.front + 0.25 + 0.3, drawMailbox);
   return actors;
 }
 

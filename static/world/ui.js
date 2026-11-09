@@ -123,7 +123,7 @@ function renderToolbar() {
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
     : state.finished ? "Run complete"
-    : state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`;
+    : dayButtonLabel();
   $("#btn-fast").hidden = !animating;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
@@ -155,10 +155,13 @@ function closePanel() {
 
 // The Dorm (spec nova-zones): what the server already knows about the day, as text, and one button
 // that does what the Open button does. No rule here: the server decides, as before.
+// what the Open button says: skip while a shift is on, otherwise open the day
+const dayButtonLabel = () => (state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`);
+
 function renderDormPanel(body) {
   $("#panel-title").textContent = "Your room";
   const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C` : "—";
-  const label = state.finished ? "The run is complete" : state.shift ? `Skip day ${state.day}` : `Open day ${state.day}`;
+  const label = state.finished ? "The run is complete" : dayButtonLabel();
   body.innerHTML = `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
     <dl class="dorm-facts">

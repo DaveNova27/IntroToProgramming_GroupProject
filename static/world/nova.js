@@ -130,25 +130,27 @@ function drawNovaPortal() {
   const width = entrance.width + 1.8;
   drawBlock(left, 9.2, width, 1.45, 3.5, "#ece6d6", "#bdb59f", "#d4ccb8");
   drawBlock(left + 0.35, 9.2, width - 0.7, 1.05, 5.5, "#f3eee0", "#c6bfa9", "#ddd6c2");
-  for (const [d, a] of [[1.45, 0.35], [1.05, 0.5]]) {
-    ctx.strokeStyle = "rgba(120,110,90,.35)";
+  const step = (inset, depth, z, alpha) => {
+    const p = isoPoint(left + inset, 9.2 + depth, z);
+    const q = isoPoint(left + width - inset, 9.2 + depth, z);
+    ctx.strokeStyle = `rgba(120,110,90,${alpha})`;
     ctx.lineWidth = 1;
-    const p = isoPoint(left + (d === 1.45 ? 0 : 0.35), 9.2 + d, d === 1.45 ? 3.5 : 5.5);
-    const q = isoPoint(left + width - (d === 1.45 ? 0 : 0.35), 9.2 + d, d === 1.45 ? 3.5 : 5.5);
-    ctx.globalAlpha = a + 0.4;
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
     ctx.lineTo(q.x, q.y);
     ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
+  };
+  step(0, 1.45, 3.5, 0.75);
+  step(0.35, 1.05, 5.5, 0.9);
 }
 
 function drawNovaSign() {
   const roof = roofOf("nova");
   if (roof < 0.02) return;
-  const from = COLUMNS[2] + 0.3;
-  const to = COLUMNS[3] - 0.3;
+  const entrance = world.nova.entrances.find((e) => e.id === "main");
+  if (!entrance) return;
+  const from = entrance.x - 0.5;
+  const to = entrance.x + entrance.width + 0.5;
   const y = CANOPY_Y + CANOPY_DEPTH - 0.2;
   ctx.save();
   ctx.globalAlpha = roof;
