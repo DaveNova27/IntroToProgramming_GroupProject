@@ -59,7 +59,7 @@ def test_requests_wait_for_each_other_and_ticks_do_not_pile_up(tmp_path):
 def test_outdated_texts_are_gone():
     ui = (STATIC / "world" / "ui.js").read_text()
     dashboard = (STATIC / "app.js").read_text()
-    assert "does not change" not in ui  # "the weather does not change the number of customers yet"
+    assert "number of customers yet" not in ui  # "the weather does not change the number of customers yet"
     assert "above twice the reference" not in dashboard
 
 

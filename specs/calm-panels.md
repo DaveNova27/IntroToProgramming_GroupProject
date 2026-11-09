@@ -16,9 +16,12 @@ runs. Before, the server's tick (once a second) redrew the open panel every time
 After this spec:
 
 1. `setPanelHtml` (`static/world/ui.js`) redraws a panel only when its content changed. When it did,
-   typed values and the focused field (with its cursor) are kept.
+   typed values (only what the player typed or stepped, never what a save set) and the focused field
+   or button are kept; a typed price asks for its live preview again.
 2. `static/world/serial.js` runs the shift requests one after the other: a click waits for the
-   request before it instead of being dropped; the tick is skipped while the last tick still waits.
+   request before it instead of being dropped (for example a click during a tick); the same click
+   again while it still waits counts as one, so a double click on Sell sells once; the tick is
+   skipped while the last tick still waits.
 3. The two texts are fixed (the first removed, the second says "too high for any customer").
 
 ## Out of scope

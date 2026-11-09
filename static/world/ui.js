@@ -330,25 +330,42 @@ function fieldKey(el) {
   return `${form ? form.id || form.dataset.priceForm || form.dataset.editor || "form" : ""}:${el.name}`;
 }
 
+// A field counts as typed when the player changed it (the "input" event, or a step or chip on it),
+// not when the program set it: a saved price is the server's, not a typed one.
+const markTyped = (el) => { el.dataset.typed = "1"; };
+
+// a button has no name: it is found again by its first data- attribute (data-sell="coffee")
+function buttonSelector(el) {
+  const attr = [...el.attributes].find((a) => a.name.startsWith("data-") && a.name !== "data-typed");
+  return attr ? `[${attr.name}="${CSS.escape(attr.value)}"]` : null;
+}
+
 function setPanelHtml(body, html) {
   if (html === panelHtml) return;
   panelHtml = html;
   const typed = new Map();
   for (const el of body.querySelectorAll("input[name], select[name]")) {
-    if (el.value !== el.defaultValue) typed.set(fieldKey(el), el.value);
+    if (el.dataset.typed) typed.set(fieldKey(el), el.value);
   }
-  const active = body.contains(document.activeElement) && document.activeElement.name
-    ? { key: fieldKey(document.activeElement), start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd }
+  const focus = document.activeElement;
+  const active = body.contains(focus)
+    ? (focus.name ? { key: fieldKey(focus), start: focus.selectionStart, end: focus.selectionEnd } : { selector: buttonSelector(focus) })
     : null;
   body.innerHTML = html;
   for (const el of body.querySelectorAll("input[name], select[name]")) {
     const key = fieldKey(el);
-    if (typed.has(key)) el.value = typed.get(key);
-    if (active && key === active.key) {
+    if (typed.has(key)) {
+      el.value = typed.get(key);
+      markTyped(el);
+      // the redraw dropped the live preview: ask for it again
+      if (el.name === "price") el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (active?.key === key) {
       el.focus();
       try { el.setSelectionRange(active.start, active.end); } catch { /* a field without a cursor */ }
     }
   }
+  if (active?.selector) body.querySelector(active.selector)?.focus();
 }
 
 function renderPanel() {
@@ -706,11 +723,12 @@ function shiftTick() {
       tellDashboard({ type: "action", after: data.state });
       startEvening();
     }
-  });
+  }).catch((err) => console.error(err));
 }
 
 function shiftAction(path, body) {
-  return requests.run(async () => {
+  // a click waits for the request before it; the same click again while it still waits is one click
+  return requests.once(`${path}:${JSON.stringify(body)}`, async () => {
     const data = await send(path, body);
     if (!data) return;
     state = data.state;
@@ -723,7 +741,7 @@ function shiftAction(path, body) {
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
     if (path.endsWith("/skip")) startEvening();
-  });
+  }).catch((err) => console.error(err));
 }
 
 function updateOrderTotal() {
@@ -791,7 +809,7 @@ function wirePanel() {
       const typed = $("#order-form")?.quantity.value;
       orderProduct = pickBtn.dataset.pick;
       renderPanel();
-      if (typed) $("#order-form").quantity.value = typed;
+      if (typed) { $("#order-form").quantity.value = typed; markTyped($("#order-form").quantity); }
       return updateOrderTotal();
     }
     const input = $("#order-form")?.quantity;
@@ -800,13 +818,16 @@ function wirePanel() {
     if (input && step) {
       const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
       input.value = Math.max(1, current + Number(step.dataset.step));
+      markTyped(input);
       updateOrderTotal();
     } else if (input && set) {
       input.value = set.dataset.set;
+      markTyped(input);
       updateOrderTotal();
     }
   });
   panel.addEventListener("input", (e) => {
+    markTyped(e.target);
     if (e.target.name === "quantity") return updateOrderTotal();
     const form = e.target.closest("[data-price-form]");
     if (!form) return;
@@ -886,6 +907,7 @@ async function savePrice(form) {
   form.querySelector("[data-error]").textContent = "";
   const p = product(pid);
   form.price.value = (p.price / 100).toFixed(2);
+  delete form.price.dataset.typed; // the saved price is the server's, not a typed one
   form.querySelector("[data-demand]").innerHTML = customersText(p.customers);
   const why = form.querySelector(".why-body");
   if (why && p.breakdown) why.innerHTML = breakdownHtml(p.breakdown, state.segments);
