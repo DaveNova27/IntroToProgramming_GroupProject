@@ -98,7 +98,7 @@ The tag `v1.0` is the dashboard-only version before the map.
 The first specs above are the solo-project history, the rest is the group project.
 The plan, with what is built and what is open, is in
 [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v4, state of 2026-11-09).
-Still open: `balance-pass`, `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
+Still open: `balance-pass`, `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
 `events-and-disruptions`, `weather-visuals`, `outfits`, `guests`,
 `demo-scenarios` and `final-polish`; proposed: `warehouse`. The audit (`docs/audit-report.md`) lists
 findings, measurements and feature ideas. The map is the 2.5D
