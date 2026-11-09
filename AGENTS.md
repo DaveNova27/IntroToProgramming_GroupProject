@@ -38,6 +38,24 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 ## How to report
 - Paste the final test output and list every file you changed.
 
+## Model and effort
+Usage limits are shared and limited, so the user should pick the model and the effort on purpose.
+- At the start of a task, and again whenever the work changes phase (explore, write the spec,
+  build, review), tell the user in one sentence which model and effort you recommend and why.
+  Skip it for a one-line question or a trivial edit.
+- If you can switch yourself (the session tools `set_session_model` and `set_session_effort`,
+  load them with ToolSearch if they are only listed as deferred), say what you change first.
+  If you cannot, say what the user should set in the app and wait until it is done.
+- Recommendation:
+  - Explore, read, compare, write a spec, plan: a strong model, medium effort.
+  - Build across many files, or anything that has to be checked in the browser: the strongest
+    model available (Opus 5.5 or better), high effort.
+  - Review of a PR (`/code-review`): high effort, ideally a different or stronger model than
+    the one that built it.
+  - Small fixes, texts, commit messages, README: Sonnet 5.5, low or medium effort.
+  - `xhigh` and `max` only after two failed attempts at the same problem, and say why first.
+- These are recommendations. The user decides.
+
 ## Group workflow
 
 This is now the Nova SBE group project (2477-2627_S1, 3-4 members). Everyone must
