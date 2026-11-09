@@ -455,6 +455,7 @@ def editor_action(rule):
             new_state, message = rule(state)
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
+        logic.award_badges(new_state)  # e.g. cash set to 1,000 euro gives "Wealthy" at once
         db.save_new_run(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 

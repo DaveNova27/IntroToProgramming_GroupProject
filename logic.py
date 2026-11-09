@@ -1472,66 +1472,59 @@ def _stormy(state, result):
     return weather == "storm"
 
 
-# Each badge: id, name, icon, the condition for the screen, when it is checked, and its check.
+# Each badge: id, name, icon, medal (bronze for the start, silver for the middle, gold for the
+# late game; the profit streaks climb with their length), the condition for the screen, when it
+# is checked, and its check.
 # "now" badges depend on the state only: they are checked after every accepted action, so a
 # first sale is awarded at the sale. "day" badges need a booked day: they are checked when a day
 # closes (the result is then the last entry of the history and is passed as the second argument).
 BADGES = (
-    ("first-sale", "First sale", "☕", "Sell something.", "now",
+    ("first-sale", "First sale", "☕", "bronze", "Sell something.", "now",
      lambda s, r: _sold_so_far(s) > 0),
-    ("own-shift", "Behind the counter", "🧑‍🍳", "Play a shift yourself.", "now",
+    ("own-shift", "Behind the counter", "🧑‍🍳", "bronze", "Play a shift yourself.", "now",
      lambda s, r: _played_so_far(s)),
-    ("first-hire", "The boss", "👤", "Hire your first employee.", "now",
+    ("first-hire", "The boss", "👤", "bronze", "Hire your first employee.", "now",
      lambda s, r: len(s["employees"]) >= 1),
-    ("good-day", "Good day", "💰", f"Make {fmt(GOOD_DAY_NET)} profit in one day.", "day",
+    ("good-day", "Good day", "💰", "bronze", f"Make {fmt(GOOD_DAY_NET)} profit in one day.", "day",
      lambda s, r: day_net(r) >= GOOD_DAY_NET),
-    ("no-one-left", "Nobody leaves empty-handed", "😊",
+    ("no-one-left", "Nobody leaves empty-handed", "😊", "silver",
      "Sell something on a day no customer leaves without buying.", "day",
      lambda s, r: day_sold(r) > 0 and day_lost(r) == 0),
-    ("expansion", "Expansion", "🏪", "Unlock a second shop.", "now",
+    ("expansion", "Expansion", "🏪", "silver", "Unlock a second shop.", "now",
      lambda s, r: sum(shop["unlocked"] for shop in s["shops"].values()) >= 2),
-    ("doubled", "Doubled", "📈", f"Have {fmt(DOUBLED_CASH)} in cash.", "now",
+    ("doubled", "Doubled", "📈", "silver", f"Have {fmt(DOUBLED_CASH)} in cash.", "now",
      lambda s, r: s["cash"] >= DOUBLED_CASH),
-    ("team", "A whole team", "👥", f"Have {TEAM_SIZE} employees at once.", "now",
+    ("team", "A whole team", "👥", "silver", f"Have {TEAM_SIZE} employees at once.", "now",
      lambda s, r: len(s["employees"]) >= TEAM_SIZE),
-    ("upgrade", "Upgrade", "🔧", "Buy an upgrade in a shop's window.", "now",
+    ("upgrade", "Upgrade", "🔧", "silver", "Buy an upgrade in a shop's window.", "now",
      lambda s, r: any(shop["level"] > 1 for shop in s["shops"].values())),
-    ("pro", "Pro", "⭐", f"Train an employee to level {EMPLOYEE_MAX_LEVEL}.", "now",
+    ("pro", "Pro", "⭐", "silver", f"Train an employee to level {EMPLOYEE_MAX_LEVEL}.", "now",
      lambda s, r: any(e["level"] >= EMPLOYEE_MAX_LEVEL for e in s["employees"])),
-    ("streak-3", "On track", "🔥", f"Make a profit {SHORT_STREAK} days in a row.", "day",
+    ("streak-3", "On track", "🔥", "bronze", f"Make a profit {SHORT_STREAK} days in a row.", "day",
      lambda s, r: _streak(s, SHORT_STREAK, lambda d: day_net(d) > 0)),
-    ("streak-7", "On a roll", "🔥", f"Make a profit {LONG_STREAK} days in a row.", "day",
+    ("streak-7", "On a roll", "🔥", "silver", f"Make a profit {LONG_STREAK} days in a row.", "day",
      lambda s, r: _streak(s, LONG_STREAK, lambda d: day_net(d) > 0)),
-    ("hard-worker", "Hard worker", "💪", f"Play the shift yourself {WORK_STREAK} days in a row.", "day",
+    ("hard-worker", "Hard worker", "💪", "silver", f"Play the shift yourself {WORK_STREAK} days in a row.", "day",
      lambda s, r: _streak(s, WORK_STREAK, lambda d: d.get("played", False))),
-    ("streak-14", "Unstoppable", "🔥", f"Make a profit {LONGEST_STREAK} days in a row.", "day",
+    ("streak-14", "Unstoppable", "🔥", "gold", f"Make a profit {LONGEST_STREAK} days in a row.", "day",
      lambda s, r: _streak(s, LONGEST_STREAK, lambda d: day_net(d) > 0)),
-    ("empire", "Empire", "🌍", "Unlock every shop.", "now",
+    ("empire", "Empire", "🌍", "gold", "Unlock every shop.", "now",
      lambda s, r: all(shop["unlocked"] for shop in s["shops"].values())),
-    ("big-team", "Big team", "🏢", f"Have {BIG_TEAM_SIZE} employees at once.", "now",
+    ("big-team", "Big team", "🏢", "gold", f"Have {BIG_TEAM_SIZE} employees at once.", "now",
      lambda s, r: len(s["employees"]) >= BIG_TEAM_SIZE),
-    ("record-day", "Record day", "🚀", f"Make {fmt(RECORD_DAY_NET)} profit in one day.", "day",
+    ("record-day", "Record day", "🚀", "gold", f"Make {fmt(RECORD_DAY_NET)} profit in one day.", "day",
      lambda s, r: day_net(r) >= RECORD_DAY_NET),
-    ("storm-proof", "Storm-proof", "⛈️", "Make a profit on a stormy day.", "day",
+    ("storm-proof", "Storm-proof", "⛈️", "gold", "Make a profit on a stormy day.", "day",
      lambda s, r: day_net(r) > 0 and _stormy(s, r)),
-    ("wealthy", "Wealthy", "💎", f"Have {fmt(WEALTHY_CASH)} in cash.", "now",
+    ("wealthy", "Wealthy", "💎", "gold", f"Have {fmt(WEALTHY_CASH)} in cash.", "now",
      lambda s, r: s["cash"] >= WEALTHY_CASH),
-    ("season-winner", "Season winner", "👑",
+    ("season-winner", "Season winner", "👑", "gold",
      f"End day {LAST_DAY} with at least {fmt(WINNER_CASH)} in cash.", "day",
      lambda s, r: r["day"] >= LAST_DAY and s["cash"] >= WINNER_CASH),
 )
 BADGE_IDS = tuple(b[0] for b in BADGES)
-# The medal of each badge: bronze for the start, silver for the middle, gold for the late game;
-# the profit streaks climb with their length.
 BADGE_TIERS = ("bronze", "silver", "gold")
-BADGE_TIER = {
-    "first-sale": "bronze", "own-shift": "bronze", "first-hire": "bronze", "good-day": "bronze",
-    "no-one-left": "silver", "expansion": "silver", "doubled": "silver", "team": "silver",
-    "upgrade": "silver", "pro": "silver",
-    "streak-3": "bronze", "streak-7": "silver", "hard-worker": "silver", "streak-14": "gold",
-    "empire": "gold", "big-team": "gold", "record-day": "gold", "storm-proof": "gold",
-    "wealthy": "gold", "season-winner": "gold",
-}
+BADGE_TIER = {b[0]: b[3] for b in BADGES}  # the medal of each badge, by id
 
 
 def award_badges(new, result=None):
@@ -1548,7 +1541,7 @@ def award_badges(new, result=None):
     given = []
     if day > LAST_DAY:  # the season is over: nothing more to earn
         return given
-    for badge_id, _name, _icon, _text, when, check in BADGES:
+    for badge_id, _name, _icon, _tier, _text, when, check in BADGES:
         if badge_id in earned or (when == "day" and result is None):
             continue
         if check(new, result):
@@ -1562,9 +1555,9 @@ def award_badges(new, result=None):
 def badges_view(state):
     """Every badge in BADGES order for the screen: day is None while not earned."""
     days = {b["id"]: b["day"] for b in state.get("badges", [])}
-    return [{"id": badge_id, "name": name, "icon": icon, "text": text,
-             "tier": BADGE_TIER[badge_id], "day": days.get(badge_id)}
-            for badge_id, name, icon, text, _when, _check in BADGES]
+    return [{"id": badge_id, "name": name, "icon": icon, "text": text, "tier": tier,
+             "day": days.get(badge_id)}
+            for badge_id, name, icon, tier, text, _when, _check in BADGES]
 
 
 def _check_badges(value, day):

@@ -616,7 +616,7 @@ function renderBadges() {
   const earned = badges.filter((b) => b.day !== null).length;
   $("#badges-sub").textContent = `${earned} / ${badges.length} earned`;
   $("#badge-grid").innerHTML = badges.map((b) => `
-    <li class="badge ${b.day !== null ? "earned" : "locked"}">
+    <li class="badge-item ${b.day !== null ? "earned" : "locked"}">
       ${medalHtml(b)}
       <span class="badge-text"><b>${esc(b.name)}</b>
         <small>${b.day !== null ? `Earned on day ${esc(b.day)}` : esc(b.text)}</small></span>

@@ -319,6 +319,13 @@ def test_a_hire_and_an_unlock_give_their_badge_at_once(api):
     assert badge_days(api)["expansion"] == 1
 
 
+def test_the_editor_gives_state_badges_at_once(api, monkeypatch):
+    monkeypatch.setenv("CT_EDITOR", "1")
+    body = {"mode": "set", "cents": logic.WEALTHY_CASH}
+    assert api.post("/api/editor/cash", json=body).status_code == 200
+    assert badge_days(api) == {"doubled": 1, "wealthy": 1}
+
+
 def test_day_badges_wait_for_the_end_of_the_day():
     state = fresh()
     state["cash"] = logic.WEALTHY_CASH

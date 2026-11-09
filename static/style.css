@@ -627,7 +627,7 @@ body.map-main { overflow: hidden; }
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 10px;
 }
-.badge {
+.badge-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -636,12 +636,12 @@ body.map-main { overflow: hidden; }
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
-.badge .medal { --size: 40px; }
+.badge-item .medal { --size: 40px; }
 .badge-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .badge-text small { color: var(--muted); font-size: 12px; }
-.badge.earned { background: var(--surface); border-color: var(--good); }
-.badge.earned .badge-text small { color: var(--good-text); }
-.badge.locked .badge-text b { color: var(--ink-2); }
+.badge-item.earned { background: var(--surface); border-color: var(--good); }
+.badge-item.earned .badge-text small { color: var(--good-text); }
+.badge-item.locked .badge-text b { color: var(--ink-2); }
 .note.new-badge { font-weight: 600; color: var(--good-text); }
 .final-banner .final-badges { flex-basis: 100%; }
 

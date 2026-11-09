@@ -278,6 +278,7 @@ function renderAll() {
   syncShiftTimer();
   followDay();
   noticeBadges();
+  placeBadge();
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -1055,6 +1056,7 @@ let seenBadges = null; // the ids earned when the state was last looked at
 const badgeQueue = [];
 let badgeTimer = null;
 let badgeShowing = false;
+let badgeOnScreen = null; // the id of the badge whose card is shown now
 
 const earnedBadges = () => (state.badges || []).filter((b) => b.day !== null);
 
@@ -1065,8 +1067,10 @@ function noticeBadges() {
     for (const b of earned) if (!seenBadges.has(b.id) && !badgeQueue.includes(b.id)) badgeQueue.push(b.id);
   }
   seenBadges = ids;
-  // a badge that is gone again (a new run, an earlier day set in the editor) is not shown
+  // a badge that is gone again (a new run, an earlier day set in the editor) is not shown,
+  // and its card goes at once if it is on screen
   for (let i = badgeQueue.length - 1; i >= 0; i--) if (!ids.has(badgeQueue[i])) badgeQueue.splice(i, 1);
+  if (badgeOnScreen && !ids.has(badgeOnScreen)) endBadges();
   // in the small preview on the dashboard the badge waits until the campus is shown again
   if (!scene.preview && !badgeShowing && badgeQueue.length) showNextBadge();
 }
@@ -1107,8 +1111,8 @@ function showNextBadge() {
   badgeQueue.shift();
   if (!badge) return badgeQueue.length ? showNextBadge() : endBadges();
   badgeShowing = true;
+  badgeOnScreen = badge.id;
   const area = $("#badge-pop");
-  area.style.top = `${badgeTop()}px`;
   area.innerHTML = `
     <div class="badge-toast">
       <div class="badge-toast-medal">${medalHtml(badge)}${sparksHtml()}</div>
@@ -1122,7 +1126,7 @@ function showNextBadge() {
       <span class="timer" style="--show:${BADGE_SHOW_MS}ms" aria-hidden="true"></span>
     </div>`;
   area.hidden = false;
-  makeRoomForBadge(area);
+  placeBadge();
   clearTimeout(badgeTimer);
   badgeTimer = setTimeout(leaveBadge, BADGE_SHOW_MS);
 }
@@ -1131,6 +1135,17 @@ function showNextBadge() {
 // into the space right of it, or below it where that space is too narrow (phones), so the two
 // never overlap. Only positions are set here (badges.css), nothing else.
 const TOAST_ROOM = 240; // px a toast needs beside the card
+
+// Where the card stands and where the toasts go. Run again whenever what is above it may have
+// changed size: every redraw (the stock card gains rows), a fold of the stock card, a resize.
+function placeBadge() {
+  if (!badgeShowing) return;
+  const area = $("#badge-pop");
+  const top = `${badgeTop()}px`;
+  if (area.style.top !== top) area.style.top = top;
+  makeRoomForBadge(area);
+}
+
 function makeRoomForBadge(area) {
   const box = area.getBoundingClientRect();
   const body = document.body;
@@ -1143,9 +1158,10 @@ function makeRoomForBadge(area) {
 
 // The card slides out; the next badge follows, or the corner is empty again.
 function leaveBadge() {
-  clearTimeout(badgeTimer);
   const card = $("#badge-pop .badge-toast");
-  if (!card || card.classList.contains("leaving")) return;
+  if (card?.classList.contains("leaving")) return; // already on its way out: keep its timer
+  clearTimeout(badgeTimer);
+  if (!card) return endBadges();
   card.classList.add("leaving");
   badgeTimer = setTimeout(() => {
     if (badgeQueue.length && !scene.preview) showNextBadge();
@@ -1156,6 +1172,7 @@ function leaveBadge() {
 function endBadges() {
   clearTimeout(badgeTimer);
   badgeShowing = false;
+  badgeOnScreen = null;
   document.body.classList.remove("badge-beside", "badge-below");
   const area = $("#badge-pop");
   area.hidden = true;
@@ -1166,6 +1183,7 @@ function wireBadgePop() {
   $("#badge-pop").addEventListener("click", (e) => {
     if (e.target.closest(".close")) leaveBadge();
   });
+  window.addEventListener("resize", placeBadge);
 }
 
 function askNewRun() {
@@ -1244,6 +1262,7 @@ function wireStockToggle() {
     folded = !$("#hud-stock-card").classList.contains("collapsed");
     setStockFolded(folded);
     try { localStorage.setItem(STOCK_FOLDED_KEY, folded ? "1" : "0"); } catch { /* not remembered */ }
+    placeBadge(); // the badge card stands below the stock card
   });
 }
 

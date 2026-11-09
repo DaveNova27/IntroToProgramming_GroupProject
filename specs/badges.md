@@ -68,8 +68,9 @@ Given at once (after the action): `first-sale`, `own-shift` (when the shift star
 
 ### Rules in `logic.py`
 
-- `BADGES`: the table above as data, in this order: `id`, `name`, `icon`, `text` (the
-  condition in one short sentence for the screen), `when` (`"now"` or `"day"`) and the check;
+- `BADGES`: the table above as data, in this order: `id`, `name`, `icon`, `tier` (the medal:
+  `"bronze"`, `"silver"` or `"gold"`), `text` (the condition in one short sentence for the
+  screen), `when` (`"now"` or `"day"`) and the check;
   the thresholds as constants
   (`GOOD_DAY_NET = 5_000`, `RECORD_DAY_NET = 15_000`, `DOUBLED_CASH = 20_000`,
   `WEALTHY_CASH = 100_000`, `WINNER_CASH = 200_000`, `TEAM_SIZE = 3`, `BIG_TEAM_SIZE = 6`,
@@ -77,8 +78,9 @@ Given at once (after the action): `first-sale`, `own-shift` (when the shift star
 - The state gets `badges`: a list of `{"id", "day"}` in the order they were earned. A new
   run starts with `[]`.
 - `award_badges(new, result=None)`: without a result it checks the `"now"` badges and stamps
-  them with the open day; `app.apply` calls it after every accepted game action (not after a
-  refused one, and not in the editor's own actions). With a result it is called at the end of
+  them with the open day; `app.apply` and `app.editor_action` call it after every accepted
+  action (never after a refused one), so a state set in the editor or the demo mode gives its
+  badges at once. With a result it is called at the end of
   `_close_shift` and `trade_day`, after the day's result is in `history` and before `day`
   moves on, and checks all badges. It then adds `"badges"` to the day's result: every badge
   earned on that day, also those given during it, so the evening report lists them all.
@@ -107,7 +109,7 @@ Given at once (after the action): `first-sale`, `own-shift` (when the shift star
   for all badges in `BADGES` order; `day` is `null` while not earned.
 - No new endpoint. Nothing in a request can add a badge.
 - Every badge is a **medal**: a bronze, silver or gold coin on a ribbon with the badge's icon
-  inside (`BADGE_TIER` in `logic.py`, sent as `tier`; the look in `static/badges.css`, the
+  inside (the `tier` in `BADGES`, sent as `tier`; the look in `static/badges.css`, the
   markup `medalHtml` in `static/common.js`). Bronze for the start, silver for the middle,
   gold for the late game; the profit streaks climb with their length. A badge not earned
   yet is a grey medal.
@@ -162,8 +164,9 @@ changing any existing game rule or number.
 
 ## Done when
 
-1. Every badge is earned exactly on the day its condition is first true at the end of a
-   day, and never twice (a test per badge, with a state set up for it).
+1. Every badge is earned the moment its condition is first true: a "now" badge after the
+   accepted action that makes it true, a "day" badge when the day closes; never twice (a test
+   per badge, with a state set up for it).
 2. Streaks: a day without profit (or without a played shift for `hard-worker`) starts the
    count again.
 3. `empire` follows the number of shops in `SHOPS`.
