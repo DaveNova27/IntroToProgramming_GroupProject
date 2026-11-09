@@ -22,6 +22,10 @@ export const camera = { x: 21, y: 18, zoom: 1 };
 // filled once from GET /api/world (see world.py)
 export const world = {};
 
+// The staff and the shift as the server last sent them. ui.js sets it, rooms.js only reads it
+// to draw the employees: what a figure does comes from here, never from a rule in the browser.
+export const server = { staff: null, shift: null, storeroom: 0 }; // storeroom: units of the shift shop's products
+
 export const scene = {
   time: 0, // milliseconds, from requestAnimationFrame
   clock: MORNING,
