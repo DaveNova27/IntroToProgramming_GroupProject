@@ -49,7 +49,7 @@ If the wage cannot be paid the employee does not leave: they just **stop working
  "working": true}
 ```
 
-`id` is a whole number, taken as the highest used id + 1 (no randomness, no clock). `name`
+`id` is a whole number from a counter in the state (`employee_seq`, saved in `db.py`), so an id is never used twice, not even after someone was dismissed: a stale request for an old id cannot hit a newer employee (no randomness, no clock). `name`
 comes from a fixed list in the data, by `(id - 1) % len(list)`, so it is the same for the same
 state. One employee per place. `working` is `false` while the wage could not be paid (see
 "Close of the day"). An old save loads with `employees = []`.
@@ -89,8 +89,9 @@ state. One employee per place. `working` is `false` while the wage could not be 
    employees refill too; if it has no working seller, they sell too. They do the covered job
    at the speed of their own level. So a single employee runs the counter alone; with
    two employees each keeps his own job.
-   - *Refiller*: moves up to its units-per-tick from the storeroom to the counter, product
-     with the fewest units on the counter first (ties in `CATALOGUE` order), stopping at
+   - *Refiller*: moves up to its units-per-tick from the storeroom to the counter, only products
+     somebody wants at the shift's prices (planned customers > 0), the one with the fewest units
+     on the counter first (ties in `CATALOGUE` order), stopping at
      the storeroom stock and at the counter space. It calls the same checks as `refill`.
    - *Seller*: only on ticks where `tick % N == 0` (N from its level). Sells one unit to the
      first waiting customer whose product is on the counter, through the rules of `sell`.
