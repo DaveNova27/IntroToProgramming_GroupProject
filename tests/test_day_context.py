@@ -121,13 +121,14 @@ def test_the_endpoint_works_with_the_switch_on_this_computer_and_refuses_bad_ids
     monkeypatch.setenv("CAMPUS_TYCOON_DEMO", "1")
     client = app.app.test_client()
     ok = client.post("/api/day-override", json={"weather": "storm"})
-    assert ok.status_code == 200 and ok.get_json()["state"]["weather"]["id"] == "storm"
+    # the real weather is not sent before the day is open: the fixed one shows in the outlook
+    assert ok.status_code == 200 and ok.get_json()["state"]["outlook"]["id"] == "storm"
     saved = db.load(run_on_disk)
     for bad in ({"weather": "fog"}, {"weather": 3}, {"weather": ["sun"]}):
         assert client.post("/api/day-override", json=bad).status_code == 400
         assert db.load(run_on_disk) == saved
-    assert client.post("/api/day-override", json={"weather": None}).get_json()["state"]["weather"]["id"] \
-        == logic.make_day_context(SEED, 1)["weather"]
+    assert client.post("/api/day-override", json={"weather": None}).get_json()["state"]["outlook"]["id"] \
+        == logic.make_outlook(SEED, 1)["weather"]
 
 
 # ---- Check 5: the seed never leaves the server -----------------------------
@@ -148,7 +149,8 @@ def test_the_seed_is_in_no_answer(run_on_disk, monkeypatch):
         text = response.get_data(as_text=True)
         assert str(SEED) not in text and '"seed"' not in text
     state = client.get("/api/state").get_json()
-    assert set(state["weather"]) == {"id", "name", "temperature", "demand_percent"}
+    # the day after /api/open is not open yet: no real weather, only the outlook
+    assert state["weather"] is None
 
 
 # ---- Check 6: saving -------------------------------------------------------

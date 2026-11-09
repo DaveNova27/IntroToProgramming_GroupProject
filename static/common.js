@@ -54,12 +54,49 @@ const WEATHER_ICON = {
 // icon names come from the fixed list above, the text is set with textContent.
 // Nothing is rebuilt while the weather is unchanged; no weather (run over) clears the chip.
 function showWeather(el, weather) {
-  const key = weather ? `${weather.id}:${weather.temperature}` : "";
+  if (!weather) return drawWeatherChip(el, null);
+  drawWeatherChip(el, weather.id, ` ${weather.temperature} °C`, weather.name,
+    `${weather.name}, ${weather.temperature} °C`);
+}
+
+// Tomorrow's forecast (outlook): the same picture with the forecast's temperature range.
+// prefix: a word shown before the picture where no label says "tomorrow" already.
+function showOutlook(el, outlook, prefix = "") {
+  if (!outlook) return drawWeatherChip(el, null);
+  const range = `${outlook.temp_low}–${outlook.temp_high} °C`;
+  drawWeatherChip(el, outlook.id, ` ${range}`, `Forecast for day ${outlook.day}: ${outlook.name}`,
+    `Forecast for day ${outlook.day}: ${outlook.name}, ${range}`, prefix);
+}
+
+// The weather picture as markup, for places built with a template (the evening report).
+// Only ids from the fixed list above give a picture.
+function WEATHER_ICON_SVG(id) {
+  const inner = Object.hasOwn(WEATHER_ICON, id) ? WEATHER_ICON[id] : "";
+  return `<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:middle">${inner}</svg>`;
+}
+
+// The real weather of a day is shown once the day is opened (state.shift is set); before
+// that the forecast stands in its place. The server sends both; this only picks what to show.
+function dayIsOpen(state) {
+  return Boolean(state.shift) && !state.finished;
+}
+
+// What the evening report says per shop. The advice itself comes from the server.
+const TIP_TEXT = {
+  more: (p) => `more customers expected (${p} %), stock up.`,
+  less: (p) => `fewer customers expected (${p} %), buy less.`,
+  normal: (p) => `about the usual customers (${p} %).`,
+};
+
+function drawWeatherChip(el, id, text, title, label, prefix = "") {
+  const key = id ? `${prefix}:${id}:${text}:${title}` : "";
   if (el.dataset.weather === key) return;
   el.dataset.weather = key;
-  if (!weather) {
+  if (!id) {
     el.replaceChildren();
     el.removeAttribute("title");
+    el.removeAttribute("aria-label");
+    el.removeAttribute("role");
     return;
   }
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -68,11 +105,11 @@ function showWeather(el, weather) {
   svg.setAttribute("height", "20");
   svg.setAttribute("aria-hidden", "true");
   svg.style.verticalAlign = "middle";
-  svg.innerHTML = WEATHER_ICON[weather.id] ?? "";
-  const text = document.createElement("span");
-  text.textContent = ` ${weather.temperature} °C`;
-  el.replaceChildren(svg, text);
-  el.title = weather.name;
+  svg.innerHTML = WEATHER_ICON[id] ?? "";
+  const span = document.createElement("span");
+  span.textContent = text;
+  el.replaceChildren(...(prefix ? [document.createTextNode(`${prefix} `)] : []), svg, span);
+  el.title = title;
   el.setAttribute("role", "img");
-  el.setAttribute("aria-label", `${weather.name}, ${weather.temperature} °C`);
+  el.setAttribute("aria-label", label);
 }

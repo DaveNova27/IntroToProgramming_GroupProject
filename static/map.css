@@ -296,6 +296,10 @@ p { margin: 0; }
 .card-pop thead th { color: var(--ink-soft); font-size: 11px; border-bottom: 1px solid var(--line); }
 .card-pop tbody td { border-bottom: 1px solid var(--line); }
 .card-pop tfoot td { font-weight: 800; }
+.card-pop .evening-report { margin: 4px 0 12px; padding: 12px; border-radius: 5px; background: rgba(0, 0, 0, 0.04); }
+.card-pop .evening-report .forecast { margin: 4px 0 6px; font-size: 15px; }
+.card-pop .evening-report .tips { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.card-pop .evening-report .note { margin-top: 6px; color: var(--ink-soft); font-size: 12px; }
 .card-pop .actions { display: flex; gap: 8px; margin-top: 10px; }
 .card-pop .actions .btn { flex: 1; }
 
@@ -316,6 +320,8 @@ p { margin: 0; }
 }
 @media (max-width: 760px) {
   .stat-time { display: none; }
+  /* a phone has no room for the forecast next to today's weather (outlook) */
+  .stat-outlook { display: none; }
   .topbar { gap: 8px; padding: 6px 10px; }
   .outline-button { padding: 6px 7px; font-size: 11px; }
   .brand-mark { width: 28px; height: 28px; font-size: 12px; }

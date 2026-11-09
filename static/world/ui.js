@@ -113,7 +113,14 @@ export function updateClock() {
 function renderHud() {
   scene.day = Math.min(state.day, state.last_day);
   $("#stat-day").textContent = state.finished ? "Done" : `${state.day} / ${state.last_day}`;
-  showWeather($("#stat-weather"), state.weather);
+  // before the day is opened only the forecast is shown; once open, the real weather and
+  // the forecast for tomorrow (none once the last day is open)
+  const open = dayIsOpen(state);
+  $("#stat-weather-label").textContent = open || state.finished ? "WEATHER" : "FORECAST";
+  if (open) showWeather($("#stat-weather"), state.weather);
+  else showOutlook($("#stat-weather"), state.outlook);
+  showOutlook($("#stat-outlook"), open ? state.outlook : null);
+  $("#stat-outlook").closest(".stat").hidden = !(open && state.outlook);
   $("#stat-cash").textContent = fmt(state.cash);
   $("#stat-stock").textContent = fmt(state.stock_value);
   const gain = $("#stat-gain");
@@ -183,7 +190,10 @@ const dayButtonLabel = () => (state.shift ? `Skip day ${state.day}` : `Open day 
 
 function renderDormPanel(body) {
   $("#panel-title").textContent = "Your room";
-  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C` : "—";
+  // the real weather once the day is open, before that only the forecast
+  const o = state.outlook;
+  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C`
+    : o ? `Forecast: ${esc(o.name)}, ${esc(o.temp_low)}–${esc(o.temp_high)} °C` : "—";
   const label = state.finished ? "The run is complete" : dayButtonLabel();
   body.innerHTML = `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
@@ -804,10 +814,32 @@ function showDaySummary(result) {
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
-    </table>
+    </table>${eveningReport()}
     <div class="actions">
       <button class="btn" type="button" data-next>${state.finished ? "See the final result" : `Start day ${state.day}`}</button>
     </div>`);
+}
+
+// The forecast for the next day and one tip per open shop (outlook). Shown in the day
+// summary; the tips and the forecast come from the server.
+function eveningReport() {
+  const o = state.outlook;
+  if (!o || state.finished) return "";
+  const tips = o.tips.map((t) => `
+    <li><b>${esc(t.name)}:</b> ${esc(TIP_TEXT[t.advice]?.(t.percent) ?? "")}</li>`).join("");
+  // with a fixed weather (demo override) the server sends miss_percent 0: no warning then
+  const miss = o.miss_percent > 0
+    ? `<p class="note">Forecasts are wrong about ${esc(o.miss_percent)} % of the time.</p>` : "";
+  // remove this line once pricing (#38) applies the weather to the customers
+  const notYet = `<p class="note">The tips follow the weather table. The weather changes
+    the number of customers once the new price logic (#38) is in.</p>`;
+  return `
+    <div class="evening-report">
+      <p class="eyebrow">Forecast for day ${esc(o.day)}</p>
+      <p class="forecast"><span class="icon" aria-hidden="true">${WEATHER_ICON_SVG(o.id)}</span>
+        <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C</p>
+      <ul class="tips">${tips}</ul>${miss}${notYet}
+    </div>`;
 }
 
 function showFinal() {

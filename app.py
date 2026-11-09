@@ -122,9 +122,10 @@ def staff_view(state):
 
 
 def weather_view(state):
-    """Today's weather for the screen (none once the season is over).
+    """Today's real weather for the screen: only once the day is open (before that the
+    outlook is all the player gets) and none once the season is over.
     The seed itself never leaves the server."""
-    if logic.is_finished(state):
+    if logic.is_finished(state) or state.get("shift") is None:
         return None
     context = logic.day_context(state)
     return {
@@ -132,6 +133,26 @@ def weather_view(state):
         "name": logic.WEATHER[context["weather"]]["name"],
         "temperature": context["temperature"],
         "demand_percent": context["demand_percent"],
+    }
+
+
+def outlook_view(state):
+    """The forecast for the screen: today before the day is opened, tomorrow while it is
+    open (none when there is no such day), with a tip per open shop.
+    Only what the forecast shows: never whether it is right."""
+    forecast = logic.outlook(state)
+    if forecast is None:
+        return None
+    low, high = forecast["temp_range"]
+    return {
+        "day": forecast["day"],
+        "id": forecast["weather"],
+        "name": logic.WEATHER[forecast["weather"]]["name"],
+        "temp_low": low,
+        "temp_high": high,
+        "miss_percent": forecast["miss_percent"],
+        "tips": [dict(tip, name=logic.SHOPS[tip["shop"]]["name"])
+                 for tip in logic.outlook_tips(state, forecast)],
     }
 
 
@@ -175,6 +196,7 @@ def view(state):
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
         "weather": weather_view(state),
+        "outlook": outlook_view(state),
         "editor": editor_on,
         "editor_info": editor_info() if editor_on else None,
         "shift": shift_view(state),
