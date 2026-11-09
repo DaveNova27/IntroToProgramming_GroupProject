@@ -86,6 +86,20 @@ function runClock(from, to, ms) {
   });
 }
 
+// While a day runs the clock follows the server's ticks (display only, no rule reads it).
+// A big gap, e.g. after loading the page in the middle of a day, is closed at once.
+function followDay() {
+  const sh = state.shift;
+  if (!sh || animating) return;
+  const target = MORNING + (DAY_END - MORNING) * Math.min(sh.tick / sh.day_ticks, 1);
+  runClock(scene.clock, target, Math.abs(target - scene.clock) > 60 ? 0 : 1000);
+}
+
+// The day closed on the server: the clock goes on to the evening, not with a jump.
+function dayEnded() {
+  runClock(scene.clock, DAY_END, 900);
+}
+
 export function updateClock() {
   const minutes = Math.floor(scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -134,6 +148,7 @@ function renderAll() {
   renderToolbar();
   if (panelMode) renderPanel();
   syncShiftTimer();
+  followDay();
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -342,6 +357,7 @@ async function shiftTick() {
     state = data.state;
     renderAll();
     if (state.day !== before) {
+      dayEnded();
       tellDashboard({ type: "action", after: data.state });
       showDaySummary(state.history[state.history.length - 1]);
     }
@@ -365,7 +381,10 @@ async function shiftAction(path, body) {
     }
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
-    if (path.endsWith("/skip")) showDaySummary(state.history[state.history.length - 1]);
+    if (path.endsWith("/skip")) {
+      dayEnded();
+      showDaySummary(state.history[state.history.length - 1]);
+    }
   } finally {
     shiftBusy = false;
   }
