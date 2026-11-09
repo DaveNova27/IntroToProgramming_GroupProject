@@ -80,10 +80,12 @@ export const personStyles = [
   },
 ];
 
+// Which side of a figure shows (spec map-view: the camera looks from the south). Facing north (y < 0)
+// shows the back, south the front, east or west (also on a diagonal) the profile.
 export function characterView(facing = { x: 0, y: 1 }) {
-  const sx = (facing.x || 0) - (facing.y || 0),
-    sy = ((facing.x || 0) + (facing.y || 0)) * 0.55,
-    side = Math.abs(sx) > 0.48;
+  const sx = facing.x || 0,
+    sy = facing.y || 0,
+    side = Math.abs(sx) > 0.6;
   return { side, back: !side && sy < -0.08, flip: sx < 0 ? -1 : 1 };
 }
 

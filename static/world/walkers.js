@@ -5,7 +5,7 @@
 import { findPath } from "./paths.js";
 import { drawPersonFigure } from "./people.js";
 import { nearestFreePoint } from "./physics.js";
-import { PLAYER_RADIUS, reducedMotion, world } from "./scene.js";
+import { PLAYER_RADIUS, depthOf, reducedMotion, world } from "./scene.js";
 
 const COUNT = 14;
 const SPEED = 1.45; // tiles per second
@@ -83,7 +83,7 @@ export function updateWalkers(dt) {
 
 export function walkerActors(t) {
   return walkers.map((walker) => ({
-    depth: walker.x + walker.y,
+    depth: depthOf(walker.x, walker.y),
     draw: () =>
       drawPersonFigure(walker.x, walker.y, t, walker.index + 1, {
         color: SHIRTS[walker.index % SHIRTS.length],
