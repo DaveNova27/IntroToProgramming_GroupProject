@@ -101,7 +101,7 @@ def test_bad_cash_is_refused_and_changes_nothing(api, mode, cents):
 def test_fix_and_clear_the_weather(api):
     assert post(api, "/api/editor/weather", {"weather": "storm"}).status_code == 200
     assert saved(api)["day_override"] == {"weather": "storm"}
-    assert api.get("/api/state").get_json()["weather"]["id"] == "storm"
+    assert api.get("/api/state").get_json()["outlook"]["id"] == "storm"
     assert post(api, "/api/editor/weather", {"weather": None}).status_code == 200
     assert saved(api)["day_override"] is None
 

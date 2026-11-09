@@ -190,7 +190,10 @@ const dayButtonLabel = () => (state.shift ? `Skip day ${state.day}` : `Open day 
 
 function renderDormPanel(body) {
   $("#panel-title").textContent = "Your room";
-  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C` : "—";
+  // the real weather once the day is open, before that only the forecast
+  const o = state.outlook;
+  const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C`
+    : o ? `Forecast: ${esc(o.name)}, ${esc(o.temp_low)}–${esc(o.temp_high)} °C` : "—";
   const label = state.finished ? "The run is complete" : dayButtonLabel();
   body.innerHTML = `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>

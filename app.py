@@ -122,9 +122,10 @@ def staff_view(state):
 
 
 def weather_view(state):
-    """Today's weather for the screen (none once the season is over).
+    """Today's real weather for the screen: only once the day is open (before that the
+    outlook is all the player gets) and none once the season is over.
     The seed itself never leaves the server."""
-    if logic.is_finished(state):
+    if logic.is_finished(state) or state.get("shift") is None:
         return None
     context = logic.day_context(state)
     return {

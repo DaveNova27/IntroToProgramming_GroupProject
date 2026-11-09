@@ -79,14 +79,19 @@ mind and takes a risk doing so.
    (#38); until then the tips follow the weather table and show what the player should
    expect once #38 applies it. How price and weather work together is decided in #38.
 
-## Note for David
-
-Hiding the real weather before "Open day" is done in the display only. The server still
-sends today's real `weather` in every answer, because `tests/test_day_context.py` expects
-it on a day that is not opened (lines 124, 129-130 and 151), and `tests/` may not be
-edited. A player who opens the browser's developer tools can read the real weather before
-opening the day. To close that, `weather` would have to be `null` until the day is opened,
-which needs those two tests changed with your agreement.
+8. **Real weather in the answers.** `weather` in `/api/state` is `null` until the day is
+   open (and when the run is over), so the real weather cannot be read from the browser
+   before "Open day". Confirmed by David in review of PR #45. Tests changed, because they
+   expected `weather` on a day that is not open:
+   - `tests/test_day_context.py::test_the_endpoint_works_with_the_switch_on_this_computer_and_refuses_bad_ids`:
+     the fixed weather is read from `outlook["id"]` (not `weather["id"]`); after clearing the
+     override, `outlook["id"]` is compared with `logic.make_outlook(SEED, 1)["weather"]`.
+   - `tests/test_day_context.py::test_the_seed_is_in_no_answer`: after `/api/open` the day is
+     not open, so it expects `state["weather"] is None` instead of its four keys.
+   - `tests/test_editor_mode.py::test_fix_and_clear_the_weather`: reads the fixed weather
+     from `outlook["id"]`.
+   No check weakened, skipped or deleted. New check: `tests/test_outlook_hidden_weather.py`
+   (`weather` is `None` before opening, the real weather after `/api/day/open`).
 
 ## Out of scope
 
