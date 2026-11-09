@@ -825,8 +825,8 @@ def _new_shift(state, shop, start, day_end):
     }
 
 
-def refill(state, product, quantity):
-    """Carry units from the storeroom to the counter. The counter space is limited."""
+def _check_refill(state, product, quantity):
+    """All the checks of a refill, or a refusal. Changes nothing."""
     shift = _check_open_shift(state)
     _check_shift_product(state, shift, product)
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
@@ -838,14 +838,24 @@ def refill(state, product, quantity):
     space = SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values())
     if quantity > space:
         raise RejectedAction(f"The counter has room for only {space} more units.")
+
+
+def _carry(state, product, quantity):
+    """Move units from the storeroom to the counter in this very state (already checked)."""
+    state["stock"][product] -= quantity
+    state["shift"]["counter"][product] += quantity
+
+
+def refill(state, product, quantity):
+    """Carry units from the storeroom to the counter. The counter space is limited."""
+    _check_refill(state, product, quantity)
     new = copy.deepcopy(state)
-    new["stock"][product] -= quantity
-    new["shift"]["counter"][product] += quantity
+    _carry(new, product, quantity)
     return new
 
 
-def sell(state, product):
-    """Sell one unit from the counter to the first customer waiting for it."""
+def _check_sale(state, product):
+    """All the checks of a sale. Returns the index of the customer who is served."""
     shift = _check_open_shift(state)
     _check_shift_product(state, shift, product)
     name = CATALOGUE[product]["name"]
@@ -855,14 +865,23 @@ def sell(state, product):
     for i, customer in enumerate(shift["queue"]):
         if (customer["product"] == product
                 and customer["arrives"] <= tick < customer["patience_until"]):
-            break
-    else:
-        raise RejectedAction(f"Nobody is waiting for {name}.")
+            return i
+    raise RejectedAction(f"Nobody is waiting for {name}.")
+
+
+def _serve(state, i, product):
+    """Sell one unit to customer i of the queue in this very state (already checked)."""
+    state["shift"]["queue"].pop(i)
+    state["shift"]["counter"][product] -= 1
+    state["shift"]["sold"][product] += 1
+    state["cash"] += state["prices"][product]
+
+
+def sell(state, product):
+    """Sell one unit from the counter to the first customer waiting for it."""
+    i = _check_sale(state, product)
     new = copy.deepcopy(state)
-    new["shift"]["queue"].pop(i)
-    new["shift"]["counter"][product] -= 1
-    new["shift"]["sold"][product] += 1
-    new["cash"] += new["prices"][product]
+    _serve(new, i, product)
     return new
 
 
@@ -874,7 +893,7 @@ def tick(state):
     _check_open_shift(state)
     new = copy.deepcopy(state)
     new["shift"]["tick"] += 1
-    new = _employees_work(new)  # same rules as the player's refill and sell
+    _employees_work(new)  # same rules as the player's refill and sell
     shift = new["shift"]
     _expire_customers(shift)
     _tick_staffed_shops(new)
@@ -903,9 +922,9 @@ def _tick_staffed_shops(new):
     for shop in sorted(shift.get("extra", {})):
         sub = shift["extra"][shop]
         sub["tick"] = shift["tick"]
-        view = _employees_work({**new, "shift": sub})
-        new["stock"], new["cash"] = view["stock"], view["cash"]
-        sub = shift["extra"][shop] = view["shift"]
+        view = {**new, "shift": sub}  # shares stock and the crew's shift with `new`
+        _employees_work(view)
+        new.update({key: value for key, value in view.items() if key != "shift"})  # cash etc.
         _expire_customers(sub)
         if _shift_running(sub) and sub["tick"] >= sub["shift_end"]:
             _end_shift(new, sub)
@@ -914,13 +933,14 @@ def _tick_staffed_shops(new):
 def _employees_work(state):
     """Every working employee of the running shift's shop acts once, in a fixed order:
     refilling first, then selling, each by id. No randomness. An action that is not
-    possible (nothing to carry, nobody waiting) is simply skipped.
+    possible (nothing to carry, nobody waiting) is simply skipped. Works on this very state
+    (the caller owns the copy) with the same checks as the player's refill and sell.
 
     If the shop has nobody for one of the two jobs, the employees it has do that job too,
     at the speed of their own level, so a single employee runs the counter alone."""
     shift = state["shift"]
     if not _shift_running(shift):
-        return state
+        return
     team = sorted((e for e in state["employees"] if e["shop"] == shift["shop"] and e["working"]),
                   key=lambda e: e["id"])
     refillers = [e for e in team if e["job"] == "refiller"] or team
@@ -929,25 +949,26 @@ def _employees_work(state):
     for employee in refillers:
         for _ in range(JOBS["refiller"]["per_tick"][employee["level"] - 1]):
             # only products somebody wants at today's price (planned customers), with stock
-            wanted = [pid for pid in state["shift"]["counter"]
-                      if state["stock"][pid] > 0 and state["shift"]["planned"].get(pid, 0) > 0]
+            wanted = [pid for pid in shift["counter"]
+                      if state["stock"][pid] > 0 and shift["planned"].get(pid, 0) > 0]
             if not wanted:
                 break
-            wanted.sort(key=lambda pid: (state["shift"]["counter"][pid], order[pid]))
+            wanted.sort(key=lambda pid: (shift["counter"][pid], order[pid]))
             try:
-                state = refill(state, wanted[0], 1)
+                _check_refill(state, wanted[0], 1)
             except RejectedAction:  # the counter is full
                 break
+            _carry(state, wanted[0], 1)
     for employee in sellers:
-        if state["shift"]["tick"] % JOBS["seller"]["every"][employee["level"] - 1] != 0:
+        if shift["tick"] % JOBS["seller"]["every"][employee["level"] - 1] != 0:
             continue
-        shift = state["shift"]
-        for customer in shift["queue"]:
-            if (shift["counter"].get(customer["product"], 0) > 0
-                    and customer["arrives"] <= shift["tick"] < customer["patience_until"]):
-                state = sell(state, customer["product"])
-                break
-    return state
+        for customer in shift["queue"]:  # the first customer who can be served now
+            try:
+                i = _check_sale(state, customer["product"])
+            except RejectedAction:  # nothing of it on the counter, or he is not here yet
+                continue
+            _serve(state, i, customer["product"])
+            break
 
 
 def _end_shift(new, shift=None):
@@ -1040,8 +1061,7 @@ def _close_shift(new):
         "lost": lost,
         "cash_after": new["cash"],
     }
-    if shift.get("extra"):
-        result["shops"] = sorted(ran)  # only when more than one shop ran
+    result["shops"] = sorted(ran)  # always: the shops that ran (shop is only the player's)
     new["history"].append(result)
     new["day"] += 1
     new["shift"] = None

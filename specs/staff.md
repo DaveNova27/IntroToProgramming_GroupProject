@@ -201,3 +201,22 @@ by David (owner of the spec) in the session on 2026-11-09:
   the Beach Cafe (and every shop) has staff work now. Nothing is weakened, skipped or deleted.
 
 New checks are in `tests/test_staff_all_shops.py`.
+
+## Decide: test change for the review leftovers
+
+Confirmed by David (owner of the spec) in the session on 2026-11-09, for the leftovers of the
+reviews of PR #54 and #57:
+
+- `test_the_id_counter_and_a_bad_level_in_a_save` in `tests/test_staff.py` expected that a saved
+  employee with a level above the maximum is skipped (and so lost on the next save). Now such
+  a level is kept at `EMPLOYEE_MAX_LEVEL` and the employee stays. The place check stays: a
+  place that does not exist is still skipped. Reason: a lowered maximum must not delete paid
+  people. Nothing is weakened, skipped or deleted.
+- `test_a_single_shop_day_has_no_extra_keys` in `tests/test_staff_all_shops.py` (this branch's own
+  new file) is now `test_a_single_shop_day_has_no_extra_key_and_lists_its_shop`.
+
+Other changes of the same work: the employees act on the one copy of a tick (no deep copy per
+carried unit or sale; the player's `refill` and `sell` use the same checks); `wages_today` counts
+only the shops that run a shift on an open day; the day result always has `shops` (the shops
+that ran, `[]` if nobody worked) and `shop` stays the player's shop. New checks are in
+`tests/test_staff_leftovers.py`.

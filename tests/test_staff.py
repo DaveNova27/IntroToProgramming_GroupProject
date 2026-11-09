@@ -544,7 +544,8 @@ def test_the_id_counter_and_a_bad_level_in_a_save(tmp_path):
     import sqlite3
     with sqlite3.connect(path) as conn:  # a hand-edited save with a level that does not exist
         conn.execute("UPDATE employees SET level = 4 WHERE id = 1")
-    assert db.load(path)["employees"] == []  # skipped, nothing crashes
+    loaded = db.load(path)["employees"]  # changed (owner confirmed): a level that does not exist
+    assert [e["level"] for e in loaded] == [logic.EMPLOYEE_MAX_LEVEL]  # is kept at the maximum
     with sqlite3.connect(path) as conn:
         conn.execute("UPDATE employees SET level = 1 WHERE id = 1")
         conn.execute("UPDATE employees SET place = 9 WHERE id = 1")

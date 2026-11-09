@@ -117,11 +117,12 @@ def load(path=DEFAULT_PATH):
         "shift": json.loads(shift[0]) if shift else None,
         "employee_seq": json.loads(meta.get("employee_seq", "0")),
         "employees": [
-            {"id": i, "name": n, "shop": s, "place": p, "job": j, "level": lv,
+            {"id": i, "name": n, "shop": s, "place": p, "job": j,
+             "level": min(lv, logic.EMPLOYEE_MAX_LEVEL),  # a lowered maximum keeps the person
              "working": bool(w)}
             for i, n, s, p, j, lv, w in employee_rows
             if s in logic.SHOPS and j in logic.JOBS  # a save with a removed shop or job
-            and 1 <= lv <= logic.EMPLOYEE_MAX_LEVEL and 1 <= p <= len(logic.SHOPS[s]["jobs"])
+            and 1 <= p <= len(logic.SHOPS[s]["jobs"])
         ],  # a save from before staff has no rows: no employees
         "history": [json.loads(r) for (r,) in history],
         "player": _player(player),
