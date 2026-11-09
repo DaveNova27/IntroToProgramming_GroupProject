@@ -3,6 +3,7 @@
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
 import { inReach } from "./locations.js";
+import { createSerial } from "./serial.js";
 import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
@@ -284,6 +285,7 @@ function renderAll() {
 function openPanel(mode) {
   if (animating || (state.finished && mode !== "editor")) return;
   panelMode = mode;
+  panelHtml = "";
   editorKey = "";
   $("#panel").hidden = false;
   tellDashboard({ type: "panel-open" }); // both use the right side of the screen
@@ -309,14 +311,44 @@ function renderDormPanel(body) {
   const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C`
     : o ? `Forecast: ${esc(o.name)}, ${esc(o.temp_low)}–${esc(o.temp_high)} °C` : "—";
   const label = state.finished ? "The run is complete" : state.shift ? "End the day" : dayButtonLabel();
-  body.innerHTML = `
+  setPanelHtml(body, `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
     <dl class="dorm-facts">
       <div><dt>Day</dt><dd>${state.finished ? "Done" : `${esc(state.day)} / ${esc(state.last_day)}`}</dd></div>
       <div><dt>Cash</dt><dd>${fmt(state.cash)}</dd></div>
       <div><dt>Weather</dt><dd>${weather}</dd></div>
     </dl>
-    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`;
+    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`);
+}
+
+// A panel is redrawn only when its content changed (it is asked again every second while a day
+// runs). When it did change, what the player typed and the focus stay (spec calm-panels).
+let panelHtml = "";
+
+function fieldKey(el) {
+  const form = el.closest("form, [data-price-form]");
+  return `${form ? form.id || form.dataset.priceForm || form.dataset.editor || "form" : ""}:${el.name}`;
+}
+
+function setPanelHtml(body, html) {
+  if (html === panelHtml) return;
+  panelHtml = html;
+  const typed = new Map();
+  for (const el of body.querySelectorAll("input[name], select[name]")) {
+    if (el.value !== el.defaultValue) typed.set(fieldKey(el), el.value);
+  }
+  const active = body.contains(document.activeElement) && document.activeElement.name
+    ? { key: fieldKey(document.activeElement), start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd }
+    : null;
+  body.innerHTML = html;
+  for (const el of body.querySelectorAll("input[name], select[name]")) {
+    const key = fieldKey(el);
+    if (typed.has(key)) el.value = typed.get(key);
+    if (active && key === active.key) {
+      el.focus();
+      try { el.setSelectionRange(active.start, active.end); } catch { /* a field without a cursor */ }
+    }
+  }
 }
 
 function renderPanel() {
@@ -325,7 +357,7 @@ function renderPanel() {
     $("#panel-title").textContent = "Order stock";
     const p = product(orderProduct);
     const max = Math.floor(state.cash / p.cost);
-    body.innerHTML = `
+    setPanelHtml(body, `
       <div class="pick" role="group" aria-label="Product">
         ${state.products.map((x) => `
           <button type="button" data-pick="${esc(x.id)}" aria-pressed="${x.id === orderProduct}" style="--accent:${COLOR[x.id]}">
@@ -348,14 +380,14 @@ function renderPanel() {
         <div class="total" id="order-total"></div>
         <p class="error" id="order-error"></p>
         <button class="btn wide" type="submit">Order</button>
-      </form>`;
+      </form>`);
     updateOrderTotal();
   } else if (panelMode === "editor") {
     $("#panel-title").textContent = "Editor";
     renderEditorPanel(body);
   } else if (panelMode === "shops") {
     $("#panel-title").textContent = "Shops";
-    body.innerHTML = `
+    setPanelHtml(body, `
       <p class="note">Unlock shops and buy upgrades with cash. Every purchase raises the shop's level by 1.</p>
       <p class="error" id="shops-error"></p>
       ${state.shops.map((s) => `
@@ -380,14 +412,14 @@ function renderPanel() {
               <button class="btn" type="button" data-unlock="${esc(s.id)}"
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
             </div>`}
-        </section>`).join("")}`;
+        </section>`).join("")}`);
   } else if (panelMode === "dorm") {
     renderDormPanel(body);
   } else if (panelMode === "shift") {
     renderShiftPanel(body);
   } else if (panelMode === "prices") {
     $("#panel-title").textContent = "Prices";
-    body.innerHTML = `
+    setPanelHtml(body, `
       <p class="note">Students and visitors react to the price in different ways, and today's weather moves them. Open "Why this number?" to see how a price becomes customers.</p>
       ${state.products.map((p) => `
         <form class="price-row" data-price-form="${esc(p.id)}">
@@ -402,7 +434,7 @@ function renderPanel() {
             <div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>
           </details>` : ""}
           <p class="error" data-error></p>
-        </form>`).join("")}`;
+        </form>`).join("")}`);
   }
 }
 
@@ -585,7 +617,7 @@ function staffBlock(shop) {
 
 let shiftHtml = "";
 let shiftTimer = null;
-let shiftBusy = false;
+const requests = createSerial(); // refill, sell and tick go one after the other
 
 function renderShiftPanel(body) {
   $("#panel-title").textContent = "Shift";
@@ -660,10 +692,11 @@ function syncShiftTimer() {
   }
 }
 
-async function shiftTick() {
-  if (shiftBusy || !state.shift) return;
-  shiftBusy = true;
-  try {
+// the tick is skipped while the last one still waits; a click waits for the request before it
+function shiftTick() {
+  if (!state.shift) return;
+  return requests.once("tick", async () => {
+    if (!state.shift) return;
     const data = await send("/api/shift/tick", {});
     if (!data) return;
     const before = state.day;
@@ -673,15 +706,11 @@ async function shiftTick() {
       tellDashboard({ type: "action", after: data.state });
       startEvening();
     }
-  } finally {
-    shiftBusy = false;
-  }
+  });
 }
 
-async function shiftAction(path, body) {
-  if (shiftBusy) return;
-  shiftBusy = true;
-  try {
+function shiftAction(path, body) {
+  return requests.run(async () => {
     const data = await send(path, body);
     if (!data) return;
     state = data.state;
@@ -694,9 +723,7 @@ async function shiftAction(path, body) {
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
     if (path.endsWith("/skip")) startEvening();
-  } finally {
-    shiftBusy = false;
-  }
+  });
 }
 
 function updateOrderTotal() {
@@ -1000,15 +1027,12 @@ function eveningReport() {
   // with a fixed weather (demo override) the server sends miss_percent 0: no warning then
   const miss = o.miss_percent > 0
     ? `<p class="note">Forecasts are wrong about ${esc(o.miss_percent)} % of the time.</p>` : "";
-  // remove this line once pricing (#38) applies the weather to the customers
-  const notYet = `<p class="note">The tips follow the weather table. The weather does not change
-    the number of customers yet.</p>`;
   return `
     <div class="evening-report">
       <p class="eyebrow">Forecast for day ${esc(o.day)}</p>
       <p class="forecast"><span class="icon" aria-hidden="true">${weatherIconMarkup(o.id, 22)}</span>
         <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C</p>
-      <ul class="tips">${tips}</ul>${miss}${notYet}
+      <ul class="tips">${tips}</ul>${miss}
     </div>`;
 }
 

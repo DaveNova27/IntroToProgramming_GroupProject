@@ -391,7 +391,7 @@ function renderOpenPanel() {
       <div class="total"><dt>Gross profit</dt><dd>${fmt(f.gross_profit)}</dd></div>
       <div><dt>Cash after the day</dt><dd>${fmt(f.cash_after)}</dd></div>
     </dl>
-    ${sold === 0 ? '<p class="notice"><span aria-hidden="true">⚠</span><span>Nothing will sell: your shelves are empty or every price is above twice the reference.</span></p>' : ""}
+    ${sold === 0 ? '<p class="notice"><span aria-hidden="true">⚠</span><span>Nothing will sell: your shelves are empty or every price is too high for any customer.</span></p>' : ""}
     <p class="notice"><span aria-hidden="true">ℹ</span><span>Without staff nothing sells by itself. Open day ${state.day} on the campus and serve the customers yourself.</span></p>`;
 }
 
