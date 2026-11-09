@@ -39,11 +39,7 @@ function tellDashboard(message) {
 
 const product = (pid) => state.products.find((p) => p.id === pid);
 
-function previewDemand(cents, ref) {
-  if (cents <= ref) return state.demand_levels.at_or_below_ref;
-  if (cents <= 2 * ref) return state.demand_levels.up_to_double_ref;
-  return 0;
-}
+const openWhy = new Set(); // products whose "why" lines are open, kept over re-renders
 
 async function send(path, body) {
   try {
@@ -240,10 +236,10 @@ function renderHud() {
   const gain = $("#stat-gain");
   gain.textContent = fmtSigned(state.overall_gain);
   gain.className = state.overall_gain > 0 ? "up" : state.overall_gain < 0 ? "down" : "";
-  $("#hud-stock").innerHTML = `<h3>Stock</h3>${state.products.map((p) => `
+  $("#hud-stock").innerHTML = `${state.products.map((p) => `
     <div class="stock-row" style="--accent:${COLOR[p.id]}">
       <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
-      <span class="nm">${esc(p.name)}<small>sells up to ${p.demand} a day</small></span>
+      <span class="nm">${esc(p.name)}<small>${p.breakdown ? customersText(p.customers) : "trading is closed"}</small></span>
       <span class="units">${p.stock}</span>
     </div>`).join("")}`;
 }
@@ -392,7 +388,7 @@ function renderPanel() {
   } else if (panelMode === "prices") {
     $("#panel-title").textContent = "Prices";
     body.innerHTML = `
-      <p class="note">Customers buy ${state.demand_levels.at_or_below_ref} a day at or below the reference price, ${state.demand_levels.up_to_double_ref} up to twice it, none above.</p>
+      <p class="note">Students and visitors react to the price in different ways, and today's weather moves them. Open "Why this number?" to see how a price becomes customers.</p>
       ${state.products.map((p) => `
         <form class="price-row" data-price-form="${esc(p.id)}">
           <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
@@ -400,7 +396,11 @@ function renderPanel() {
           <label class="euro"><span>€</span><input name="price" inputmode="decimal" autocomplete="off"
             value="${(p.price / 100).toFixed(2)}" aria-label="${esc(p.name)} price in euro"></label>
           <button class="btn" type="submit">Save</button>
-          <span class="demand" data-demand>Sells up to <b>${p.demand}</b> a day</span>
+          <span class="demand" data-demand>${p.breakdown ? customersText(p.customers) : "Trading is closed"}</span>
+          ${p.breakdown ? `<details class="why" data-why="${esc(p.id)}" ${openWhy.has(p.id) ? "open" : ""}>
+            <summary>Why this number?</summary>
+            <div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>
+          </details>` : ""}
           <p class="error" data-error></p>
         </form>`).join("")}`;
   }
@@ -784,13 +784,24 @@ function wirePanel() {
     const form = e.target.closest("[data-price-form]");
     if (!form) return;
     const p = product(form.dataset.priceForm);
-    const value = Number(e.target.value.trim().replace(",", "."));
-    if (!Number.isFinite(value) || value <= 0) return;
-    const cents = Math.round(value * 100);
-    form.querySelector("[data-demand]").innerHTML = cents === p.price
-      ? `Sells up to <b>${p.demand}</b> a day`
-      : `Sells up to <b>${previewDemand(cents, p.ref_price)}</b> a day · not saved yet`;
+    const text = e.target.value.trim().replace(",", ".");
+    const value = Number(text);
+    if (text === "" || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
+    const unsaved = Math.round(value * 100) !== p.price;
+    schedulePricePreview(form, p.id, text, (b) => {
+      form.querySelector("[data-demand]").innerHTML =
+        `${customersText(b.customers)}${unsaved ? " · not saved yet" : ""}`;
+      const body = form.querySelector(".why-body");
+      if (body) body.innerHTML = breakdownHtml(b, state.segments);
+    });
   });
+  // remember which "why" lines are open (the toggle event does not bubble, so capture it)
+  panel.addEventListener("toggle", (e) => {
+    const why = e.target.closest?.(".why");
+    if (!why) return;
+    if (why.open) openWhy.add(why.dataset.why);
+    else openWhy.delete(why.dataset.why);
+  }, true);
   panel.addEventListener("submit", (e) => {
     e.preventDefault();
     if (e.target.id === "order-form") return order(orderProduct, e.target.quantity.value);
@@ -836,6 +847,7 @@ async function shopAction(path, body) {
 
 async function savePrice(form) {
   const pid = form.dataset.priceForm;
+  cancelPricePreview(form); // a preview still waiting must not overwrite the saved state
   const data = await send("/api/price", { product: pid, price: form.price.value });
   if (!data) return;
   state = data.state;
@@ -847,7 +859,9 @@ async function savePrice(form) {
   form.querySelector("[data-error]").textContent = "";
   const p = product(pid);
   form.price.value = (p.price / 100).toFixed(2);
-  form.querySelector("[data-demand]").innerHTML = `Sells up to <b>${p.demand}</b> a day`;
+  form.querySelector("[data-demand]").innerHTML = customersText(p.customers);
+  const why = form.querySelector(".why-body");
+  if (why && p.breakdown) why.innerHTML = breakdownHtml(p.breakdown, state.segments);
   tellDashboard({ type: "action", after: data.state });
   toast(data.message);
 }
@@ -1066,6 +1080,29 @@ export function inputBlocked() {
   return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || scene.sleeping || fading;
 }
 
+// The stock card can be folded away. The toggle sits outside #hud-stock, which is redrawn on
+// every update, so the choice survives a redraw. Remembered per browser (the storage may be
+// blocked: then the card simply starts open).
+const STOCK_FOLDED_KEY = "ct-stock-folded";
+
+function setStockFolded(folded) {
+  $("#hud-stock-card").classList.toggle("collapsed", folded);
+  const toggle = $("#stock-toggle");
+  toggle.setAttribute("aria-expanded", String(!folded));
+  toggle.title = folded ? "Show the stock" : "Hide the stock";
+}
+
+function wireStockToggle() {
+  let folded = false;
+  try { folded = localStorage.getItem(STOCK_FOLDED_KEY) === "1"; } catch { /* blocked: stay open */ }
+  setStockFolded(folded);
+  $("#stock-toggle").addEventListener("click", () => {
+    folded = !$("#hud-stock-card").classList.contains("collapsed");
+    setStockFolded(folded);
+    try { localStorage.setItem(STOCK_FOLDED_KEY, folded ? "1" : "0"); } catch { /* not remembered */ }
+  });
+}
+
 export function initUi(firstState, actions) {
   state = firstState;
   placePlayer = actions.placePlayer;
@@ -1075,6 +1112,7 @@ export function initUi(firstState, actions) {
   wirePanel();
   wireEditor();
   wireOverlay();
+  wireStockToggle();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));

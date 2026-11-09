@@ -277,39 +277,30 @@ button, input { font: inherit; color: inherit; }
 .field-error { margin-top: 6px; font-size: 12.5px; color: var(--critical-text); min-height: 0; }
 .field-error:empty { display: none; }
 
-/* demand meter: price position against the three demand zones */
-.meter { margin-top: 12px; }
-.meter-track { position: relative; display: flex; gap: 2px; height: 26px; }
-.zone {
-  display: grid;
-  place-items: center;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink-2);
-  background: var(--surface-2);
-}
-.zone:first-child { border-radius: 6px 0 0 6px; }
-.zone:last-child { border-radius: 0 6px 6px 0; }
-.zone.z10 { flex: 2; }
-.zone.z5 { flex: 2; }
-.zone.z0 { flex: 1; }
-.zone.active.z10 { background: color-mix(in srgb, var(--good) 22%, var(--surface)); color: var(--ink); }
-.zone.active.z5 { background: color-mix(in srgb, var(--warning) 30%, var(--surface)); color: var(--ink); }
-.zone.active.z0 { background: color-mix(in srgb, var(--critical) 22%, var(--surface)); color: var(--ink); }
-.meter-marker {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 3px;
-  margin-left: -1.5px;
-  border-radius: 2px;
-  background: var(--ink);
-  box-shadow: 0 0 0 2px var(--surface);
-  transition: left 0.2s ease;
-}
-.meter-scale { position: relative; height: 16px; margin-top: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.meter-scale span { position: absolute; transform: translateX(-50%); }
-.meter-scale span:first-child { transform: none; }
+/* price curve: customers at each price on a normal day, with the price as a marker */
+.curve { margin-top: 12px; }
+.curve-svg { display: block; width: 100%; height: 56px; overflow: visible; }
+.curve-area { fill: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.curve-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.curve-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.curve-marker { stroke: var(--ink); stroke-width: 3; }
+.curve-scale { position: relative; height: 16px; margin-top: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.curve-scale span { position: absolute; transform: translateX(-50%); }
+.curve-scale span:first-child { transform: none; }
+.curve-caption { margin-top: 2px; font-size: 11px; color: var(--muted); }
+
+/* the "why" lines: how a price became a number of customers */
+.why { margin-top: 10px; font-size: 13px; }
+.why summary { cursor: pointer; color: var(--ink-2); font-weight: 600; }
+.why-lines { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.why-lines li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.why-lines li > span { flex: 1 1 auto; color: var(--ink-2); }
+.why-lines li > b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.why-lines li > small { flex-basis: 100%; color: var(--muted); font-size: 11.5px; }
+.why-lines .total { padding-top: 4px; border-top: 1px solid var(--line, var(--surface-2)); }
+.why-lines .total > span { color: var(--ink); font-weight: 600; }
+.why-lines .aside { display: block; color: var(--muted); font-size: 12px; }
+.why-lines .aside b { color: var(--ink); }
 .unsaved { color: var(--ink); font-weight: 600; }
 .unsaved::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--warning); vertical-align: 1px; }
 

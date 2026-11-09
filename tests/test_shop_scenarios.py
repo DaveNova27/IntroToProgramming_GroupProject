@@ -65,25 +65,36 @@ def play_day(state, shop):
     return state, result
 
 
+# Customers per product at the reference price (specs/pricing.md, Decide 4). The Cafe and
+# Merchandise are at 100 % in a storm, so on a storm day they keep the old 10 (group A). The
+# surf shop and the beach cafe are not: they play the first day of this seed, a hot day, and
+# their number is the shop's own (group B).
+CUSTOMERS = {"cafe": 10, "merchandise": 10, "surf_shop": 14, "beach_cafe": 19}
+
+
+def the_days_weather(state, shop):
+    return logic.set_day_override(state, "storm") if shop in ("cafe", "merchandise") else state
+
+
 @pytest.mark.parametrize("shop", list(logic.SHOPS))
 def test_every_shop_sells_every_product_in_a_full_day(shop):
-    state = rich()
+    state = the_days_weather(rich(), shop)
     for pid in logic.shop_product_ids(shop):
         state["stock"][pid] = 30
     state, result = play_day(state, shop)
     assert [line["product"] for line in result["lines"]] == logic.shop_product_ids(shop)
-    assert all(line["sold"] == line["demand"] == 10 for line in result["lines"])
+    assert all(line["sold"] == line["demand"] == CUSTOMERS[shop] for line in result["lines"])
     assert result["lost"] == 0 and result["shop"] == shop and state["day"] == 2
 
 
 @pytest.mark.parametrize("shop", list(logic.SHOPS))
 def test_a_day_without_stock_loses_every_customer(shop):
-    state, result = play_day(rich(), shop)
+    state, result = play_day(the_days_weather(rich(), shop), shop)
     assert result["revenue"] == 0
-    assert result["lost"] == sum(line["demand"] for line in result["lines"]) == 30
+    assert result["lost"] == sum(line["demand"] for line in result["lines"]) == 3 * CUSTOMERS[shop]
 
 
-@pytest.mark.parametrize("factor, customers", [(1.0, 10), (1.5, 5), (3.0, 0)])
+@pytest.mark.parametrize("factor, customers", [(1.0, 19), (1.5, 10), (3.0, 0)])
 def test_the_price_decides_how_many_customers_come(factor, customers):
     state = rich()
     for pid in logic.CATALOGUE:

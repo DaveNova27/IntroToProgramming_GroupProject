@@ -170,20 +170,33 @@ def editor_info(state):
     }
 
 
-def view(state):
-    """Everything the dashboard shows, calculated by the rules, never by the browser."""
-    finished = logic.is_finished(state)
-    editor_on = has_request_context() and editor_switch_on()
-    owned = logic.owned_products(state)
-    products = [{
+def product_view(state, pid, finished):
+    item = logic.CATALOGUE[pid]
+    # why the product has the customers it has today (None once the season is over)
+    breakdown = None if finished else logic.customer_breakdown(state, pid)
+    return {
         "id": pid,
         "name": item["name"],
         "cost": item["cost"],
         "ref_price": item["ref_price"],
         "price": state["prices"][pid],
         "stock": state["stock"][pid],
-        "demand": logic.demand(state["prices"][pid], item["ref_price"]),
-    } for pid, item in logic.CATALOGUE.items() if pid in owned]
+        "shop": logic.shop_of_product(pid),
+        "customers": 0 if finished else breakdown["customers"],
+        "breakdown": breakdown,
+    }
+
+
+# Each shop's curve on a neutral day, for drawing the meter. Constant, so worked out once.
+PRICE_CURVES = {sid: logic.shop_price_curve(sid) for sid in logic.SHOPS}
+
+
+def view(state):
+    """Everything the dashboard shows, calculated by the rules, never by the browser."""
+    finished = logic.is_finished(state)
+    editor_on = has_request_context() and editor_switch_on()
+    owned = logic.owned_products(state)
+    products = [product_view(state, pid, finished) for pid in logic.CATALOGUE if pid in owned]
     return {
         "day": state["day"],
         "last_day": logic.LAST_DAY,
@@ -208,10 +221,9 @@ def view(state):
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
         "player": state["player"],
-        "demand_levels": {
-            "at_or_below_ref": logic.DEMAND_AT_OR_BELOW_REF,
-            "up_to_double_ref": logic.DEMAND_UP_TO_DOUBLE_REF,
-        },
+        "base_customers": logic.BASE_CUSTOMERS,
+        "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
+        "price_curves": PRICE_CURVES,
     }
 
 
@@ -307,6 +319,19 @@ def set_price():
         return new_state, f"{name} now sells for {logic.fmt(price)}."
 
     return apply(action)
+
+
+@app.post("/api/price_preview")
+def price_preview():
+    """What a price would bring today. Read-only: nothing is saved."""
+    body = json_body()
+    with _lock:
+        state = load_run()
+        try:
+            price = logic.euros_to_cents(body.get("price", ""))
+            return jsonify({"preview": logic.price_preview(state, body.get("product"), price)})
+        except logic.RejectedAction as reason:
+            return jsonify({"error": str(reason)}), 400
 
 
 @app.post("/api/shop/unlock")

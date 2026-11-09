@@ -130,7 +130,7 @@ function renderStockOverview() {
   const overview = state.stock_overview;
   $("#stock-sub").textContent = `${overview.units} unit${overview.units === 1 ? "" : "s"} available · ${fmt(overview.value)} at cost`;
   // one scale for all products so the bars compare; at least one day of full demand
-  const scale = Math.max(state.demand_levels.at_or_below_ref, ...overview.lines.map((l) => l.units));
+  const scale = Math.max(state.base_customers, ...overview.lines.map((l) => l.units));
   $("#stock-overview").innerHTML = overview.lines.map((line) => {
     const p = state.products.find((x) => x.id === line.product);
     const caption = line.units === 0
@@ -157,22 +157,13 @@ function renderStockOverview() {
 
 // ---- product cards ---------------------------------------------------------
 
-// Where a price sits on the demand meter: the scale runs from €0 to 2.5x the
-// reference price, so the zone edges (1x and 2x) sit at 40% and 80%.
-function meterPosition(price, ref) {
-  return Math.max(0, Math.min(price / (2.5 * ref), 1)) * 100;
-}
-function zoneFor(price, ref) {
-  if (price <= ref) return "z10";
-  if (price <= 2 * ref) return "z5";
-  return "z0";
-}
+// Where a price sits on the curve: the curve runs from 0 to 250 % of the reference price.
+const pricePercentOf = (price, ref) => (price / ref) * 100;
+const openWhy = new Set(); // products whose "why" lines are open, kept over re-renders
 
 function productCard(p) {
-  const levels = state.demand_levels;
   const maxAffordable = Math.floor(state.cash / p.cost);
   const off = state.finished ? "disabled" : "";
-  const zone = zoneFor(p.price, p.ref_price);
   return `
   <article class="card product" style="--accent: ${ACCENT[p.id]}" data-product="${p.id}">
     <div class="product-head">
@@ -185,7 +176,7 @@ function productCard(p) {
     </div>
 
     <div>
-      <div class="block-label"><span>Selling price</span><span class="demand-text">sells up to ${p.demand}/day</span></div>
+      <div class="block-label"><span>Selling price</span><span class="demand-text">${p.breakdown ? customersText(p.customers) : "trading is closed"}</span></div>
       <form class="field-row" data-form="price">
         <label class="input-wrap">
           <span class="prefix">€</span>
@@ -194,19 +185,19 @@ function productCard(p) {
         </label>
         <button class="btn secondary" type="submit" ${off}>Save</button>
       </form>
-      <div class="meter" aria-hidden="true">
-        <div class="meter-track">
-          <div class="zone z10 ${zone === "z10" ? "active" : ""}">${levels.at_or_below_ref}/day</div>
-          <div class="zone z5 ${zone === "z5" ? "active" : ""}">${levels.up_to_double_ref}/day</div>
-          <div class="zone z0 ${zone === "z0" ? "active" : ""}">0</div>
-          <span class="meter-marker" style="left:${meterPosition(p.price, p.ref_price)}%"></span>
-        </div>
-        <div class="meter-scale">
+      <div class="curve">
+        ${curveSvg(state.price_curves[p.shop], pricePercentOf(p.price, p.ref_price))}
+        <div class="curve-scale" aria-hidden="true">
           <span style="left:0">€0</span>
           <span style="left:40%">${fmt(p.ref_price)}</span>
           <span style="left:80%">${fmt(2 * p.ref_price)}</span>
         </div>
+        <p class="curve-caption">Customers at each price on a normal day</p>
       </div>
+      ${p.breakdown ? `<details class="why" data-why="${p.id}" ${openWhy.has(p.id) ? "open" : ""}>
+        <summary>Why this number?</summary>
+        <div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>
+      </details>` : ""}
       <p class="field-error" data-error="price"></p>
     </div>
 
@@ -248,22 +239,23 @@ function updateBuyTotal(card) {
   out.innerHTML = `Total <strong>${fmt(total)}</strong>${tooMuch ? " · more than your cash" : ""}`;
 }
 
-// Live preview while typing a price; the saved value only changes on "Save".
+// Live preview while typing a price; the saved value only changes on "Save". The marker moves
+// at once; the customers and the "why" lines come from the server (a short pause after typing).
 function previewPrice(card) {
   const p = state.products.find((x) => x.id === card.dataset.product);
   const text = card.querySelector('[name="price"]').value.trim().replace(",", ".");
   const value = Number(text);
-  if (text === "" || !Number.isFinite(value) || value <= 0) return;
+  if (text === "" || !Number.isFinite(value) || value <= 0) return cancelPricePreview(card);
   const cents = Math.round(value * 100);
-  const zone = zoneFor(cents, p.ref_price);
-  card.querySelector(".meter-marker").style.left = `${meterPosition(cents, p.ref_price)}%`;
-  card.querySelectorAll(".zone").forEach((z) => z.classList.toggle("active", z.classList.contains(zone)));
-  const units = { z10: state.demand_levels.at_or_below_ref, z5: state.demand_levels.up_to_double_ref, z0: 0 }[zone];
-  const label = card.querySelector(".demand-text");
+  setCurveMarker(card, pricePercentOf(cents, p.ref_price));
+  if (state.finished) return;
   const unsaved = cents !== p.price;
-  label.innerHTML = unsaved
-    ? `<span class="unsaved">unsaved</span> · ${units}/day`
-    : `sells up to ${units}/day`;
+  schedulePricePreview(card, p.id, text, (b) => {
+    card.querySelector(".demand-text").innerHTML =
+      `${unsaved ? '<span class="unsaved">unsaved</span> · ' : ""}${customersText(b.customers)}`;
+    const body = card.querySelector(".why-body");
+    if (body) body.innerHTML = breakdownHtml(b, state.segments);
+  });
 }
 
 // Typed values per product: the quantity always, the price only if it was
@@ -299,6 +291,14 @@ function renderProducts(kept = {}) {
 // one set of listeners for all cards (cards are re-rendered after each action)
 function wireProducts() {
   const grid = $("#product-grid");
+
+  // remember which "why" lines are open (the toggle event does not bubble, so capture it)
+  grid.addEventListener("toggle", (e) => {
+    const why = e.target.closest?.(".why");
+    if (!why) return;
+    if (why.open) openWhy.add(why.dataset.why);
+    else openWhy.delete(why.dataset.why);
+  }, true);
 
   grid.addEventListener("input", (e) => {
     const card = e.target.closest(".product");
