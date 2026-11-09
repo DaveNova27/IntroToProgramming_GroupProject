@@ -68,11 +68,21 @@ function showOutlook(el, outlook, prefix = "") {
     `Forecast for day ${outlook.day}: ${outlook.name}, ${range}`, prefix);
 }
 
-// The weather picture as markup, for places built with a template (the evening report).
-// Only ids from the fixed list above give a picture.
-function WEATHER_ICON_SVG(id) {
-  const inner = Object.hasOwn(WEATHER_ICON, id) ? WEATHER_ICON[id] : "";
-  return `<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:middle">${inner}</svg>`;
+// The weather picture as an SVG element; only ids from the fixed list above give a picture.
+function weatherIconEl(id, size) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", size);
+  svg.setAttribute("height", size);
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.verticalAlign = "middle";
+  svg.innerHTML = Object.hasOwn(WEATHER_ICON, id) ? WEATHER_ICON[id] : "";
+  return svg;
+}
+
+// The same picture as markup, for places built with a template (the evening report).
+function weatherIconMarkup(id, size) {
+  return weatherIconEl(id, size).outerHTML;
 }
 
 // The real weather of a day is shown once the day is opened (state.shift is set); before
@@ -89,23 +99,20 @@ const TIP_TEXT = {
 };
 
 function drawWeatherChip(el, id, text, title, label, prefix = "") {
-  const key = id ? `${prefix}:${id}:${text}:${title}` : "";
+  const key = id ? `${prefix}:${id}:${text}:${title}:${label}` : "";
   if (el.dataset.weather === key) return;
   el.dataset.weather = key;
+  // the label the page gave the chip stays the name of an empty chip
+  el.dataset.baseLabel ??= el.getAttribute("aria-label") ?? "";
   if (!id) {
     el.replaceChildren();
     el.removeAttribute("title");
-    el.removeAttribute("aria-label");
     el.removeAttribute("role");
+    if (el.dataset.baseLabel) el.setAttribute("aria-label", el.dataset.baseLabel);
+    else el.removeAttribute("aria-label");
     return;
   }
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "20");
-  svg.setAttribute("height", "20");
-  svg.setAttribute("aria-hidden", "true");
-  svg.style.verticalAlign = "middle";
-  svg.innerHTML = WEATHER_ICON[id] ?? "";
+  const svg = weatherIconEl(id, 20);
   const span = document.createElement("span");
   span.textContent = text;
   el.replaceChildren(...(prefix ? [document.createTextNode(`${prefix} `)] : []), svg, span);
