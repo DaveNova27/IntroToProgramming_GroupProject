@@ -39,20 +39,23 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - Paste the final test output and list every file you changed.
 
 ## Model and effort
-Usage limits are shared and limited, so the user should pick the model and the effort on purpose.
-- At the start of a task, and again whenever the work changes phase (explore, write the spec,
-  build, review), tell the user in one sentence which model and effort you recommend and why.
-  Skip it for a one-line question or a trivial edit.
+Usage limits are limited, so the user should pick the model and the effort on purpose. The
+tiers below are named by strength, not by version, so they stay valid when the models change.
+- Give the hint only when a task touches more than one file, or when the work changes phase
+  (explore, write the spec, build, review). One sentence: which tier and effort you recommend
+  and why. No hint for a question or a one-file edit.
 - If you can switch yourself (the session tools `set_session_model` and `set_session_effort`,
   load them with ToolSearch if they are only listed as deferred), say what you change first.
-  If you cannot, say what the user should set in the app and wait until it is done.
+  If you cannot, say what the user should set in the app, then carry on with the current
+  setting and say which one it is. You cannot see the setting: ask the user to confirm before
+  anything that depends on it, such as the build of a big change.
 - Recommendation:
   - Explore, read, compare, write a spec, plan: a strong model, medium effort.
   - Build across many files, or anything that has to be checked in the browser: the strongest
-    model available (Opus 5.5 or better), high effort.
-  - Review of a PR (`/code-review`): high effort, ideally a different or stronger model than
-    the one that built it.
-  - Small fixes, texts, commit messages, README: Sonnet 5.5, low or medium effort.
+    model available, high effort.
+  - Review of a PR (`/code-review`): high effort. If it is easy to do, use a different or
+    stronger model than the one that built it, but do not hold the review back for it.
+  - Small fixes, texts, commit messages, README: a small, fast model, low or medium effort.
   - `xhigh` and `max` only after two failed attempts at the same problem, and say why first.
 - These are recommendations. The user decides.
 
