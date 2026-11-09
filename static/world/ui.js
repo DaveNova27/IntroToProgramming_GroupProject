@@ -14,6 +14,7 @@ let animating = false;
 let dayRunning = null;
 let fast = false;
 let panelMode = null;
+let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
 let placePlayer = () => {};
 
@@ -267,7 +268,7 @@ function staffBlock(shop) {
         ${e.upgrade_price === null ? `<span class="owned">Top level</span>`
           : `<button class="btn" type="button" data-staff-upgrade="${e.id}"
               ${e.upgrade_price > state.cash ? "disabled" : ""}>Level up ${fmt(e.upgrade_price)}</button>`}
-        <button class="btn ghost" type="button" data-staff-fire="${e.id}">Dismiss</button>
+        <button class="btn ghost" type="button" data-staff-fire="${e.id}">${armedFire === e.id ? "Sure? Click again" : "Dismiss"}</button>
       </div>`;
     }
     if (!p.bought) {
@@ -445,12 +446,13 @@ function wirePanel() {
     if (levelBtn) return shopAction("/api/staff/upgrade", { employee_id: Number(levelBtn.dataset.staffUpgrade) });
     const fireBtn = e.target.closest("[data-staff-fire]");
     if (fireBtn) {
-      if (!fireBtn.dataset.armed) { // the level is lost, so ask once
-        fireBtn.dataset.armed = "1";
-        fireBtn.textContent = "Sure? Click again";
-        return;
+      const id = Number(fireBtn.dataset.staffFire);
+      if (armedFire !== id) { // the level is lost, so ask once
+        armedFire = id;
+        return renderPanel();
       }
-      return shopAction("/api/staff/fire", { employee_id: Number(fireBtn.dataset.staffFire) });
+      armedFire = null;
+      return shopAction("/api/staff/fire", { employee_id: id });
     }
     const startBtn = e.target.closest("[data-shift-start]");
     if (startBtn) return shiftAction("/api/shift/start", { shop: startBtn.dataset.shiftStart });

@@ -63,17 +63,19 @@ def test_fire_frees_the_place_without_a_refund_and_the_level_is_lost():
     assert fired["employees"] == [] and fired["cash"] == state["cash"]
     assert fired["shops"]["cafe"]["staff_places"] == 2
     again = logic.hire(fired, "cafe", 1)
-    assert again["employees"][0]["level"] == 1 and again["employees"][0]["id"] == 1
+    assert again["employees"][0]["level"] == 1 and again["employees"][0]["id"] == 2
 
 
-def test_ids_grow_and_names_come_from_the_list():
+def test_ids_are_never_used_twice_and_names_come_from_the_list():
     state = staffed(1, 2)
     assert [e["name"] for e in state["employees"]] == list(logic.EMPLOYEE_NAMES[:2])
     state = logic.fire_employee(state, 2)
-    assert logic.hire(state, "cafe", 2)["employees"][1]["id"] == 2
-    state = logic.hire(state, "cafe", 2)
-    state = logic.fire_employee(state, 1)  # id 2 is the highest left: the next one is 3
-    assert logic.hire(state, "cafe", 1)["employees"][1]["id"] == 3
+    state = logic.hire(state, "cafe", 2)  # the highest id was dismissed: still a new id
+    assert [e["id"] for e in state["employees"]] == [1, 3]
+    stale = logic.fire_employee(state, 3)  # a stale request for the old id 2 hits nobody
+    with pytest.raises(logic.RejectedAction):
+        logic.fire_employee(stale, 2)
+    assert logic.hire(stale, "cafe", 2)["employees"][-1]["id"] == 4
 
 
 BAD_ACTIONS = [
@@ -515,3 +517,33 @@ def test_with_two_employees_each_keeps_his_own_job():
     state = logic.open_day(staffed(1, 2))
     state, _ = logic.tick(state)
     assert state["shift"]["counter"]["coffee"] == 1  # only the refiller carried
+
+
+# --- review fixes -----------------------------------------------------------------------
+
+def test_a_refiller_does_not_carry_a_product_nobody_wants_at_its_price():
+    state = with_places()
+    state["shops"]["cafe"]["products"] = ["coffee", "cake", "bagel"]
+    state["stock"].update(cake=50, bagel=50)
+    state["prices"]["bagel"] = 3 * logic.CATALOGUE["bagel"]["ref_price"]  # demand 0
+    state = logic.open_day(logic.hire(logic.hire(state, "cafe", 1), "cafe", 2))
+    for _ in range(10):
+        state, _ = logic.tick(state)
+    counter = state["shift"]["counter"]
+    assert counter["bagel"] == 0 and counter["coffee"] + counter["cake"] > 0
+    assert state["stock"]["bagel"] == 50
+
+
+def test_the_id_counter_and_a_bad_level_in_a_save(tmp_path):
+    path = tmp_path / "run.db"
+    state = logic.fire_employee(staffed(1, 2), 2)
+    db.save(state, path)
+    assert db.load(path)["employee_seq"] == 2
+    import sqlite3
+    with sqlite3.connect(path) as conn:  # a hand-edited save with a level that does not exist
+        conn.execute("UPDATE employees SET level = 4 WHERE id = 1")
+    assert db.load(path)["employees"] == []  # skipped, nothing crashes
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE employees SET level = 1 WHERE id = 1")
+        conn.execute("UPDATE employees SET place = 9 WHERE id = 1")
+    assert db.load(path)["employees"] == []

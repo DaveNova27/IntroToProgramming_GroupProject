@@ -149,6 +149,7 @@ def new_state(seed=DEFAULT_SEED):
         "shops": {sid: new_shop(sid) for sid in SHOPS},
         "shift": None,
         "employees": [],
+        "employee_seq": 0,  # the last employee id given out: ids are never used twice
         "history": [],
         "player": world.start_player(),
     }
@@ -364,7 +365,8 @@ def buy_upgrade(state, shop, item):
 
 def _add_employee(new, shop, place):
     """Put a new level 1 employee on a place. The job comes from the shop's data."""
-    employee_id = max((e["id"] for e in new["employees"]), default=0) + 1
+    employee_id = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0)) + 1
+    new["employee_seq"] = employee_id
     new["employees"].append({
         "id": employee_id, "name": EMPLOYEE_NAMES[(employee_id - 1) % len(EMPLOYEE_NAMES)],
         "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
@@ -704,7 +706,9 @@ def _employees_work(state):
     order = {pid: i for i, pid in enumerate(CATALOGUE)}
     for employee in refillers:
         for _ in range(JOBS["refiller"]["per_tick"][employee["level"] - 1]):
-            wanted = [pid for pid in state["shift"]["counter"] if state["stock"][pid] > 0]
+            # only products somebody wants at today's price (planned customers), with stock
+            wanted = [pid for pid in state["shift"]["counter"]
+                      if state["stock"][pid] > 0 and state["shift"]["planned"].get(pid, 0) > 0]
             if not wanted:
                 break
             wanted.sort(key=lambda pid: (state["shift"]["counter"][pid], order[pid]))

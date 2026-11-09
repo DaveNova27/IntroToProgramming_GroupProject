@@ -115,11 +115,13 @@ def load(path=DEFAULT_PATH):
         "prices": prices,
         "shops": _shops(shop_rows, shop_products, [p for p, _, _ in products]),
         "shift": json.loads(shift[0]) if shift else None,
+        "employee_seq": json.loads(meta.get("employee_seq", "0")),
         "employees": [
             {"id": i, "name": n, "shop": s, "place": p, "job": j, "level": lv,
              "working": bool(w)}
             for i, n, s, p, j, lv, w in employee_rows
             if s in logic.SHOPS and j in logic.JOBS  # a save with a removed shop or job
+            and 1 <= lv <= logic.EMPLOYEE_MAX_LEVEL and 1 <= p <= len(logic.SHOPS[s]["jobs"])
         ],  # a save from before staff has no rows: no employees
         "history": [json.loads(r) for (r,) in history],
         "player": _player(player),
@@ -214,6 +216,11 @@ def _write(conn, state):
         for pid in shop["products"]:
             conn.execute(
                 "INSERT INTO shop_products (shop, product) VALUES (?, ?)", (sid, pid))
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('employee_seq', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (json.dumps(state.get("employee_seq", 0)),),
+    )
     for key in ("seed", "day_override"):
         conn.execute(
             "INSERT INTO meta (key, value) VALUES (?, ?) "
