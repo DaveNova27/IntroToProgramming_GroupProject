@@ -826,7 +826,7 @@ def _new_shift(state, shop, start, day_end):
 
 
 def _check_refill(state, product, quantity):
-    """All the checks of a refill. Returns the open shift or raises. Changes nothing."""
+    """All the checks of a refill, or a refusal. Changes nothing."""
     shift = _check_open_shift(state)
     _check_shift_product(state, shift, product)
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
@@ -838,7 +838,6 @@ def _check_refill(state, product, quantity):
     space = SHOPS[shift["shop"]]["counter"] - sum(shift["counter"].values())
     if quantity > space:
         raise RejectedAction(f"The counter has room for only {space} more units.")
-    return shift
 
 
 def _carry(state, product, quantity):
@@ -923,9 +922,9 @@ def _tick_staffed_shops(new):
     for shop in sorted(shift.get("extra", {})):
         sub = shift["extra"][shop]
         sub["tick"] = shift["tick"]
-        view = {**new, "shift": sub}  # shares stock and the crew's shift, cash is copied back
+        view = {**new, "shift": sub}  # shares stock and the crew's shift with `new`
         _employees_work(view)
-        new["cash"] = view["cash"]
+        new.update({key: value for key, value in view.items() if key != "shift"})  # cash etc.
         _expire_customers(sub)
         if _shift_running(sub) and sub["tick"] >= sub["shift_end"]:
             _end_shift(new, sub)
@@ -963,12 +962,13 @@ def _employees_work(state):
     for employee in sellers:
         if shift["tick"] % JOBS["seller"]["every"][employee["level"] - 1] != 0:
             continue
-        for customer in shift["queue"]:
-            pid = customer["product"]
-            if (shift["counter"].get(pid, 0) > 0
-                    and customer["arrives"] <= shift["tick"] < customer["patience_until"]):
-                _serve(state, _check_sale(state, pid), pid)
-                break
+        for customer in shift["queue"]:  # the first customer who can be served now
+            try:
+                i = _check_sale(state, customer["product"])
+            except RejectedAction:  # nothing of it on the counter, or he is not here yet
+                continue
+            _serve(state, i, customer["product"])
+            break
 
 
 def _end_shift(new, shift=None):

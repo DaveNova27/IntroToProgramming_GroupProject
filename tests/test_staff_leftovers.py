@@ -18,12 +18,26 @@ def test_a_tick_does_not_change_the_state_it_was_given():
         state = new
 
 
-def test_employees_still_use_the_rules_of_the_player():
-    # the same day through the player's own refill/sell gives the same checks and numbers
+def test_an_employee_tick_equals_the_players_own_refill_and_sell():
+    state = logic.open_day(staffed(1))  # one refiller: carries 1 per tick (and sells every 4th)
+    by_staff, _ = logic.tick(state)
+    by_hand = copy.deepcopy(state)
+    by_hand["shift"]["tick"] += 1
+    by_hand = logic.refill(by_hand, "coffee", 1)  # the public rule the player uses
+    for key in ("stock", "cash"):
+        assert by_staff[key] == by_hand[key]
+    assert by_staff["shift"]["counter"] == by_hand["shift"]["counter"]
+    # a sale on the seller's tick (every 4th at level 1) equals the player's own sell()
     state = logic.open_day(staffed(1, 2))
-    state, _ = logic.tick(state)
-    assert state["shift"]["counter"]["coffee"] > 0
-    assert sum(state["shift"]["counter"].values()) <= logic.COUNTER_UNITS
+    state["stock"]["coffee"] -= 5
+    state["shift"]["counter"]["coffee"] = 5
+    state["shift"]["tick"] = 3  # the next tick is 4: a seller of level 1 acts
+    by_staff, _ = logic.tick(state)
+    by_hand = copy.deepcopy(state)
+    by_hand["shift"]["tick"] += 1
+    by_hand = logic.sell(by_hand, "coffee")
+    assert by_staff["cash"] == by_hand["cash"] > state["cash"]
+    assert by_staff["shift"]["sold"] == by_hand["shift"]["sold"]
 
 
 def test_the_day_result_always_lists_the_shops_that_ran():
