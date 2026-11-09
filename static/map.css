@@ -146,7 +146,18 @@ p { margin: 0; }
   background: var(--panel);
   box-shadow: 3px 3px rgba(3, 20, 26, 0.2);
 }
-.hud-stock h3 { margin: 0 0 4px; color: var(--on-panel-soft); font: 600 8px var(--mono); letter-spacing: 0.15em; text-transform: uppercase; }
+.stock-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  margin: 0 0 4px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--on-panel-soft); font: 600 8px var(--mono); letter-spacing: 0.15em; text-transform: uppercase;
+}
+.stock-toggle:hover, .stock-toggle:focus-visible { color: var(--on-panel); }
+.stock-toggle .chev { font-size: 10px; transition: transform 0.15s; }
+/* collapsed: only the small title chip stays, the rows are hidden */
+.hud-stock.collapsed { width: auto; padding: 5px 10px; }
+.hud-stock.collapsed .stock-toggle { margin: 0; }
+.hud-stock.collapsed .chev { transform: rotate(-90deg); }
+.hud-stock.collapsed #hud-stock { display: none; }
 .stock-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 6px; padding: 3px 0; }
 .stock-row + .stock-row { border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .stock-row .em { text-align: center; font-size: 15px; }
@@ -340,7 +351,12 @@ p { margin: 0; }
   .brand-mark { width: 28px; height: 28px; font-size: 12px; }
   .zone-banner { top: 66px; left: 10px; transform: none; }
   .hud-stock { top: auto; left: 10px; right: 10px; bottom: 62px; width: auto; display: flex; justify-content: space-around; gap: 8px; padding: 4px 8px; }
-  .hud-stock h3, .stock-row .nm { display: none; }
+  .hud-stock #hud-stock { display: flex; flex: 1; justify-content: space-around; gap: 8px; }
+  .stock-row .nm { display: none; }
+  .stock-toggle { width: auto; margin: 0; }
+  .stock-toggle .stock-title { display: none; }
+  .hud-stock.collapsed { right: auto; }
+  .hud-stock.collapsed .stock-title { display: inline; }
   .stock-row { grid-template-columns: auto auto; }
   .stock-row + .stock-row { border-top: 0; }
   .interaction-hint { bottom: 106px; }
