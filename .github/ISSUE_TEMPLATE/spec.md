@@ -8,7 +8,7 @@ assignees: ""
 
 ## Roadmap entry
 
-Name from `docs/feature-roadmap.md` (section 7), e.g. `day-context`.
+Name from `docs/feature-roadmap.md` (section 3), e.g. `day-context`.
 Track: logic / visuals / end.
 
 ## Depends on
