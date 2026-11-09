@@ -232,14 +232,16 @@ export function drawCafeTerrace() {
   drawSpaceCaption(13.8, 16.25, "Shaded Terrace", "#8b6645");
 }
 
-// The delivery lane runs along the west side of the Mercado, so lorries never cross the plaza:
-// asphalt, a kerb against the building, centre dashes, a pallet or two, a barrier at the south end.
+// The delivery lane runs along the west side of the Mercado and stops where the building stops,
+// so lorries never cross the plaza: asphalt, a kerb against the wall, centre dashes, a barrier at the south end.
 export function drawServiceLane() {
-  drawGroundSlab(-1.4, 8.0, 4.3, 14.6, "#9da39e", 4);
-  drawGroundSlab(2.9, 8.0, 0.25, 14.6, "#c9c9c0", 5);
-  for (let j = 0; j < 13; j++) {
-    const a = isoPoint(0.95, 8.7 + j * 1.05, 6),
-      b = isoPoint(0.95, 9.2 + j * 1.05, 6);
+  const y0 = 8.0, y1 = 13.5;
+  drawGroundSlab(-1.4, y0, 4.3, y1 - y0, "#9da39e", 4);
+  drawGroundSlab(2.9, y0, 0.25, y1 - y0, "#c9c9c0", 5);
+  drawGroundSlab(-1.4, y1 - 0.12, 4.3, 0.12, "#c9c9c0", 5); // a kerb closes the lane at the south end
+  for (let j = 0; j < 5; j++) {
+    const a = isoPoint(0.95, 8.5 + j * 1.0, 6),
+      b = isoPoint(0.95, 8.9 + j * 1.0, 6);
     ctx.strokeStyle = "rgba(245,241,230,.62)";
     ctx.lineWidth = 2.2;
     ctx.beginPath();
@@ -248,8 +250,8 @@ export function drawServiceLane() {
     ctx.stroke();
   }
   // loading bay marks in front of the dock, and pallets with boxes
-  for (const y of [9.4, 13.4]) {
-    const a = isoPoint(1.4, y, 6),
+  for (const y of [9.0, 12.2]) {
+    const a = isoPoint(1.3, y, 6),
       b = isoPoint(2.8, y, 6);
     ctx.strokeStyle = "rgba(245,241,230,.55)";
     ctx.lineWidth = 1.6;
@@ -258,13 +260,14 @@ export function drawServiceLane() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  drawGroundSlab(2.05, 10.1, 0.75, 0.95, "#b98b59", 5);
-  drawGroundSlab(2.1, 10.15, 0.65, 0.85, "#d8c59c", 7);
-  drawGroundSlab(2.05, 11.5, 0.75, 0.95, "#b98b59", 5);
-  drawGroundSlab(2.1, 11.55, 0.65, 0.85, "#c9a878", 8);
-  // the barrier: a post with a red and white arm, lifted
-  const post = isoPoint(2.7, 21.6, 5),
-    top = isoPoint(2.7, 21.6, 30);
+  drawGroundSlab(2.05, 9.5, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 9.55, 0.65, 0.85, "#d8c59c", 7);
+  drawGroundSlab(2.05, 10.9, 0.75, 0.95, "#b98b59", 5);
+  drawGroundSlab(2.1, 10.95, 0.65, 0.85, "#c9a878", 8);
+  // the barrier at the gate: a post at the building's corner with a red and white arm, lifted
+  const bx = 2.7, by = 13.2;
+  const post = isoPoint(bx, by, 5),
+    top = isoPoint(bx, by, 30);
   ctx.strokeStyle = "#31545b";
   ctx.lineWidth = 4;
   ctx.beginPath();
@@ -272,8 +275,8 @@ export function drawServiceLane() {
   ctx.lineTo(top.x, top.y);
   ctx.stroke();
   for (let i = 0; i < 6; i++) {
-    const a = isoPoint(2.7 - i * 0.33, 21.6 + i * 0.0, 30 + i * 9),
-      b = isoPoint(2.7 - (i + 1) * 0.33, 21.6, 30 + (i + 1) * 9);
+    const a = isoPoint(bx - i * 0.33, by, 30 + i * 9),
+      b = isoPoint(bx - (i + 1) * 0.33, by, 30 + (i + 1) * 9);
     ctx.strokeStyle = i % 2 ? "#ffffff" : "#e24d3f";
     ctx.lineWidth = 3.2;
     ctx.beginPath();
@@ -281,7 +284,7 @@ export function drawServiceLane() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  drawSpaceCaption(0.2, 20.3, "Service & deliveries", "#5d6765");
+  drawSpaceCaption(0.0, 13.0, "Service & deliveries", "#5d6765");
 }
 
 export function drawStudentLawn() {

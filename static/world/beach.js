@@ -1725,30 +1725,83 @@ function drawDormBalcony(t) {
   }
 }
 
-// the lorry on the delivery lane: a white box with the Mercado stripe, a teal cab, wheels, an open back
+// the lorry on the delivery lane: a box truck with a ribbed white cargo box and the Mercado stripe,
+// a teal cab with windscreen, grille, headlights and mirror, tandem rear wheels and a bumper.
+// It stands with its nose to the south, the way it leaves the lane.
 function drawDeliveryLorry() {
-  const x = -1.15;
-  drawSoftShadow(-0.4, 12.3, 90, 48, 0.14);
-  drawBlock(x, 10.4, 1.35, 2.6, 46, "#f4f1e8", "#c9c6bd", "#e4e0d4");
-  drawFacadeBandX(x + 1.35 + 0.012, 10.5, 2.4, 10, 22, "#2e8b8f", 1);
-  drawFacadeBandX(x + 1.35 + 0.014, 10.5, 2.4, 24, 27, "#f5c95e", 1);
-  const label = isoPoint(x + 1.37, 11.7, 33);
+  const x0 = -0.9, w = 1.5, east = x0 + w;
+  const glass = "#cfe7e6";
+  drawSoftShadow(-0.1, 10.9, 96, 50, 0.16);
+  // chassis rail and cargo box
+  drawBlock(x0 + 0.05, 8.75, w - 0.1, 4.2, 12, "#2a3438", "#1d2629", "#242e32");
+  drawBlock(x0, 8.7, w, 3.15, 54, "#fbf9f2", "#d6d2c6", "#e8e4d8");
+  drawFacadeBandX(east + 0.01, 8.7, 3.15, 0, 11, "#2a3438", 1);
+  // ribs on the side of the box, a teal stripe, a yellow line and the name
+  for (let y = 9.05; y < 11.8; y += 0.38) line(isoPoint(east + 0.012, y, 14), isoPoint(east + 0.012, y, 53), "rgba(80,76,64,.16)", 1);
+  drawFacadeBandX(east + 0.014, 8.7, 3.15, 15, 25, "#2e8b8f", 1);
+  drawFacadeBandX(east + 0.016, 8.7, 3.15, 26.5, 29, "#f5c95e", 1);
+  line(isoPoint(east + 0.018, 8.7, 52), isoPoint(east + 0.018, 11.85, 52), "#ffffff", 1.4);
+  const label = isoPoint(east + 0.02, 10.25, 41);
   ctx.save();
   ctx.fillStyle = "#31545b";
-  ctx.font = "800 5px Menlo, Consolas, monospace";
+  ctx.font = "800 6px Menlo, Consolas, monospace";
   ctx.textAlign = "center";
   ctx.fillText("MERCADO", label.x, label.y + 2);
   ctx.restore();
-  drawBlock(x, 13.0, 1.35, 1.0, 32, "#2e8b8f", "#1f6568", "#277a7d");
-  drawFacadeBandX(x + 1.35 + 0.012, 13.1, 0.8, 18, 30, "#cfe7e6", 1);
-  drawFacadeBandY(x + 0.1, 14.0 + 0.012, 1.15, 14, 29, "#cfe7e6", 1);
-  for (const y of [10.9, 13.6]) {
-    const w = isoPoint(x + 1.35, y, 8);
-    oval(w, 6, 7, "#22343a");
-    oval({ x: w.x + 0.5, y: w.y }, 3, 4, "#8aa6ad");
+  dot(isoPoint(east + 0.02, 11.3, 41), 3.2, "#f5c95e");
+  dot(isoPoint(east + 0.02, 11.3, 41), 1.5, "#e24d3f");
+  // south face of the box above the cab: roof spoiler edge and a vent
+  drawFacadeBandY(x0 + 0.15, 11.85 + 0.012, 1.2, 44, 51, "#c9c6bd", 1);
+  // cab: roof, windscreen, side window, door
+  drawBlock(x0 + 0.04, 11.85, w - 0.08, 1.1, 36, "#2e8b8f", "#1f6568", "#277a7d");
+  drawBlock(x0 + 0.04, 12.4, w - 0.08, 0.55, 25, "#35a1a5", "#1f6568", "#277a7d");
+  drawFacadeBandY(x0 + 0.14, 12.4 + 0.014, w - 0.28, 26.5, 34.5, glass, 4);
+  drawFacadeBandX(east - 0.04 + 0.014, 11.95, 0.42, 26.5, 34.5, glass, 1);
+  drawFacadeBandX(east - 0.04 + 0.014, 12.45, 0.4, 26.5, 34.5, "#a9cfce", 1);
+  line(isoPoint(east - 0.04 + 0.02, 12.42, 12), isoPoint(east - 0.04 + 0.02, 12.42, 35), "rgba(18,60,63,.7)", 1);
+  dot(isoPoint(east - 0.04 + 0.02, 12.36, 21), 1.1, "#d9ecec");
+  // grille, headlights, bumper, number plate
+  drawFacadeBandY(x0 + 0.34, 12.95 + 0.014, w - 0.68, 12, 22, "#1b2a2e", 5);
+  for (const hx of [x0 + 0.17, east - 0.17]) {
+    const p = isoPoint(hx, 12.97, 19);
+    oval(p, 3.4, 2.6, "#fff3c4");
+    oval(p, 1.6, 1.2, "#ffd877");
   }
-  const lamp = isoPoint(x + 1.35, 14.0, 12);
-  dot(lamp, 2, "#ffe9a8");
+  drawBlock(x0 - 0.02, 12.93, w + 0.04, 0.2, 10, "#aab6b8", "#6f7e80", "#8c9a9c");
+  const plate = isoPoint(x0 + w / 2, 13.14, 6);
+  ctx.fillStyle = "#fbf9f2";
+  ctx.fillRect(plate.x - 4, plate.y - 3, 8, 3.4);
+  // mirror arm and mirror
+  const arm = isoPoint(east - 0.02, 12.05, 31);
+  line(arm, { x: arm.x + 5, y: arm.y - 1 }, "#22343a", 1.4);
+  ctx.fillStyle = "#22343a";
+  ctx.fillRect(arm.x + 4, arm.y - 6, 3, 7);
+  // wheels with arches and hubcaps: tandem at the back, one axle at the front
+  for (const y of [9.35, 10.1, 12.4]) {
+    const wp = isoPoint(east, y, 8);
+    oval({ x: wp.x, y: wp.y - 1 }, 8.2, 8.8, "#151e21");
+    oval(wp, 7, 7.6, "#22343a");
+    oval({ x: wp.x + 0.4, y: wp.y }, 3.8, 4.2, "#9fb3b8");
+    oval({ x: wp.x + 0.4, y: wp.y }, 1.5, 1.7, "#5f7378");
+  }
+  // reversing light on the rear corner and a fuel tank behind the cab
+  dot(isoPoint(east + 0.01, 8.8, 12), 1.5, "#e24d3f");
+  drawBlock(east - 0.02, 11.5, 0.14, 0.34, 9, "#8e9ca0", "#6a787c", "#7d8b8f");
+}
+
+function drawLorryCrew(t) {
+  // a driver's mate with a crate and a trolley stacked with boxes at the dock
+  drawCrateStack(1.35, 9.6, 2);
+  drawPersonFigure(1.75, 10.9, t, 21, { color: "#f5c95e", facing: { x: -1, y: 0 }, pose: "idle" });
+  drawCrateStack(1.2, 11.5, 1);
+}
+
+function drawCrateStack(x, y, count) {
+  for (let i = 0; i < count; i++) {
+    const z = 5 + (i + 1) * 9;
+    drawBlock(x + i * 0.04, y, 0.55, 0.5, z, i % 2 ? "#e2c898" : "#d8b684", "#a9834f", "#c49a63");
+    line(isoPoint(x + i * 0.04 + 0.275, y, z), isoPoint(x + i * 0.04 + 0.275, y + 0.5, z), "rgba(255,255,255,.55)", 1);
+  }
 }
 
 // a thick low hedge along the east edge of the campus, with flowers in it
@@ -1914,7 +1967,8 @@ export function beachActors(t) {
   add(world.beach.lighthouse.x + world.beach.lighthouse.y, () => drawLighthouse(world.beach.lighthouse, t, amount));
   add(35.0 + 12.6 + 0.9, () => drawDormFront(t, amount));
   add(40.5 + 8.5 + 3.3, () => drawDormBalcony(t));
-  add(-1.15 + 10.4 + 3.6, drawDeliveryLorry);
+  add(10.5, drawDeliveryLorry);
+  add(1.75 + 10.9, () => drawLorryCrew(t));
   add(41.35 + 4.5 + 0.2, () => drawHedge(4.5, 12.0));
   add(41.35 + 15.5 + 0.2, () => drawHedge(12.0, 25.0));
   [8.4, 10.3, 12.2].forEach((y, i) => add(42.6 + y + 1.0, () => drawGardenBed(42.6, y, i, t)));

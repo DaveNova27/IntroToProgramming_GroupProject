@@ -59,7 +59,7 @@ PLANTERS = [
 
 # palm trees: x, y, size
 TREES = [
-    [1.8, 10.6, 0.85], [5, 14, 0.8], [25, 12, 0.76], [37, 19, 0.8], [23.4, 21.6, 0.72],
+    [1.9, 14.4, 0.85], [5, 14, 0.8], [25, 12, 0.76], [37, 19, 0.8], [23.4, 21.6, 0.72],
     [40, 21, 0.86],
     # spec nova-zones: a palm each side of the start of the beach way, two near the Dorm
     [10.4, 18.9, 0.9], [18.8, 18.5, 0.84], [34.4, 15.2, 0.8], [40.4, 15.0, 0.88],
@@ -76,7 +76,7 @@ SPACES = {
     "arrival": {"id": "arrival", "name": "Arrival Plaza", "x": 7.4, "y": 15.35},
     "courtyard": {"id": "courtyard", "name": "Academic Courtyard", "x": 20.1, "y": 12.75},
     "terrace": {"id": "terrace", "name": "Cafe Terrace", "x": 17.55, "y": 14.25},
-    "service": {"id": "service", "name": "Service Lane", "x": 1.9, "y": 15.5},
+    "service": {"id": "service", "name": "Service Lane", "x": 1.9, "y": 11.0},
     "beachCafe": {"id": "beachCafe", "name": "Beach Cafe", "x": 28.2, "y": 27.4},
     "surfShop": {"id": "surfShop", "name": "Surf Shop", "x": 8.6, "y": 27.55},
     "beachWay": {"id": "beachWay", "name": "Beach Way", "x": 14.4, "y": 21.0},
