@@ -1,222 +1,254 @@
-# Campus Tycoon: Feature Roadmap (v2)
+# Campus Tycoon: Feature Roadmap (v3)
 
-Status: roadmap v2, agreed by the team on 2026-11-05 where it says "decided". It replaces roadmap v1.
-Part A is the plan. Part B keeps the game design reference of v1 (core loop, weather and event
-factors, demo mode, glossary) that is still valid. Read `AGENTS.md` first for the working rules.
-Rules that stay: `AGENTS.md` and the three roadmap rules (complete settable state,
-overridable day context, no randomness without the seed).
+Status: roadmap v3, state of 2026-11-09 (after PR #59). It replaces v2. What the team decided
+stays marked "decided". Part A is the plan and the current state. Part B keeps the game
+design reference (core loop, weather and event factors, demo mode, glossary). Read
+`AGENTS.md` first for the working rules. The three roadmap rules stay (see B3): complete
+settable state, overridable day context, no randomness without the seed.
 
-# Part A: Plan
+What changed since v2: the whole foundation, the Nova, the four shops, the day played in a
+shop, the weather, the forecast, staff and the editor mode are built and merged. The open
+work is now the price logic, walking through the shift, popularity, events, the looks
+(`shop-art`, `nova-design`, `weather-visuals`), guests, badges, outfits, the demo and the
+polish. New in the notes of 2026-11-09: a day flow with a storage computer and a truck
+(section 4.2, `warehouse` and `day-cycle`).
 
-## 1. Decisions the team gave so far
+# Part A: Plan and state
+
+## 1. Where we are
+
+### The game today
+
+A 30-day season with a final settlement, start with 100 euro. The map is one continuous
+2.5D world (walk with W A S D or by click): the Dorm, the beach way, the beach, and one big
+Nova building with four wings that the player walks into (the roof of a wing fades out).
+Four shops stand at fixed places: Cafe (open from the start, coffee), Beach Cafe, Merchandise
+and Surf Shop, each with three products. A shop is unlocked with money, and more products and
+two employee places are bought in its window; each purchase is one level.
+
+A day runs like this: the player opens the day (a clock of 300 ticks), starts the one shift of
+the day (90 ticks) in the Cafe, carries stock from the storeroom to the counter (20 units),
+and serves a queue of customers. Skipping lets the rest of the day pass without a sale. Whoever
+does not work earns nothing. Employees (refiller, seller; levels 1 to 3; wage per day) work on
+the server in every shop. Before the day opens only a forecast of the weather is shown; the
+real weather appears once the day is open. The evening report shows tomorrow's forecast
+(wrong about 20 % of the time) and a tip per shop. Stock is still bought directly, on the dashboard and in the order panel on the campus page.
+The price logic is still the placeholder of the solo project (10, 5 or 0 customers).
+
+### What is built (merged)
+
+| Spec | PR | What |
+|---|---|---|
+| `longer-run` | #7 | 30-day season |
+| `world-api`, `world-core`, `world-art` | #32, #33, #34 | The 2.5D world (Felix' project) replaces the three.js map: campus as data, walking and camera, figures |
+| `shop-unlock` | #37 | Four shops, unlocking, levels, shops window |
+| `shop-process` | #39 | A day played live in the Cafe: storeroom, counter, queue |
+| `day-context` | #42 | Seed in the state, weather with temperature, override |
+| `shop-skip` | #44 | Open the day, start the shift separately, skip without sales |
+| `outlook` | #45, #59 | Forecast and evening report with tips |
+| `walk-in`, `nova-wings` | #49, #50 | One big Nova building, four wings, roofs that fade |
+| `clock-follows-day` | #52 | The shown time follows the server ticks |
+| `nova-zones` | #53 | The map around the Nova: Dorm, beach way, beach, outdoor shops |
+| `staff` | #54, #57, #58 | Employees: hire, level, dismiss, wages; they work in every shop |
+| `editor-mode` | #56 | Dev tools behind `CT_EDITOR=1` (cash, weather, skip days, state patch, reset) |
+| Rules | #25, #47 | AI review replaces the human review; the owner of a PR confirms test exceptions |
+
+Tests: everything in `tests/` and `checks/` passes in CI (`uv run pytest`).
+
+### What we took from Felix
+
+Done: collision and movement, the Nova room data format, zones and doors, the smooth camera,
+the characters (six-frame walk, poses), and the 2.5D renderer. Credit is in the README.
+Still to port, if needed: store silhouettes (`shop-art`), `environmentalProfile` and
+`drawSkyMotion` (`weather-visuals`), the eight designed spaces (`nova-design`), guest groups
+and destination scoring (`guests`), `createShowcaseRun` (`demo-scenarios`), `scenarioGoals`
+(`badges`). Not taken: 25 district businesses, DJ events, maintenance and cleaning,
+management overlays, guest needs, progression levels, showcase editor.
+
+## 2. Decisions the team gave so far
 
 | Topic | Decision |
 |---|---|
 | Our solo project | Only a starting point. Shops, rules and map are decided fresh by the group. |
-| What we take from Felix | Character control, the people (look and animation), the design, the smooth camera. |
-| Map | Decided: Felix' 2.5D world instead of the three.js map. Changed 2026-11-08 (Felix, after David's memo): one continuous map, no room screens. One big Nova building that the player walks into; the whole roof fades out so the rooms and the weather can be seen. The day starts and ends at the Dorm; the way to the beach leads to the Surf Shop and the Beach Cafe outside. The Nova is stylised after the real campus. |
-| Backend | Rules are rewritten in our own backend (Python + Flask + SQLite). Felix' `core.js` is only a reference. The browser decides no rule. |
-| Season | Decided: 30 days with a final settlement (PR #7 `longer-run`). |
-| Shops | Decided: shops stand at fixed places on the map. A place is unlocked with money. A shop starts with one product. Levelling up a shop makes room for another employee or adds a product. Decided on 2026-11-05: Cafe (coffee, cake, bagel), Surf Shop (surfboard, wetsuit, surf lesson), Merchandise (hoodie, t-shirt, cap), Beach Cafe (beer, coke zero, sandwich). The Cafe is open from the start. Prices and steps are placeholders in `shop-unlock`. |
-| Build mode | Dropped for now: fixed shop places replace it. Issues #29 and #30 are closed. |
-| Work in a shop | Decided: a day is played inside the shop. The player starts alone, carries stock from the storeroom to the counter and sells there. The counter has limited space, so there are two jobs. Two employees can take them over: one refills, one sells. This can differ per shop. |
+| Map | Decided: Felix' 2.5D world. One continuous map, no room screens. One big Nova building that the player walks into, the roof fades out. The day starts and ends at the Dorm; the way to the beach leads to the Surf Shop and the Beach Cafe. Stylised after the real campus. The old three.js map is gone. |
+| Backend | Our own Python + Flask + SQLite. The browser decides no rule. |
+| Season | Decided: 30 days with a final settlement. |
+| Shops | Decided: fixed places, unlocked with money; a shop starts with one product; each purchase in the shop window is one level. Cafe (coffee, cake, bagel), Beach Cafe (beer, coke zero, sandwich), Merchandise (hoodie, t-shirt, cap), Surf Shop (surfboard, wetsuit, surf lesson). The Cafe is open from the start. All prices are placeholders. |
+| Build mode | Dropped: fixed places replace it. |
+| Work in a shop | Decided: a day is played inside the shop: carry stock from the storeroom to the counter and sell. The counter holds 20 units, so there are two jobs; two employees can take them over. |
+| One shift per day | Decided: a shift always lasts the same time, and only the shift earns money. Built (`shop-process`, `shop-skip`). |
+| Day length | Built as placeholders: an opened day is 300 ticks (one tick a second), a shift 90 ticks. |
 | Guests | Own feature, decided later. |
-| Review | An AI reviews every pull request. Merging needs the passing `Tests` check (rule change is PR #25). |
-| Security | Every spec follows the rules in section 3a and the per spec list in 3b. |
-| AI use | Required by the course. Felix' code and art are AI made and may be used. Credit it in the README. |
+| Review | An AI reviews every pull request; merging needs the passing `Tests` check. |
+| Test changes | The owner of a PR may confirm a test change for their own PR, only when the old test names data the spec changes on purpose (see `AGENTS.md`). |
+| Security | Every spec follows section 3a and the per spec list in 3b. |
+| AI use | Required by the course. Felix' code and art are AI made and may be used. Credit is in the README. |
+| Demo mode | Built last, after the game is complete. The team then chooses which features appear. The editor mode is the base. |
 
-## 2. What we reuse from Felix (read as reference, port or vendor)
+## 3. Security
 
-| Part | Felix file | Size | How we use it |
-|---|---|---|---|
-| Collision and movement | `dist/world-physics.js` | 2 KB | Vendor as is (pure functions: `resolveMovement`, `nearestFreePoint`). |
-| Interior data | `dist/interior-layouts.js` | 5 KB | Use as the data format for the Nova rooms (zones, colliders, routes, activity points). |
-| Zones and doors | `ZONES`, `changeZone`, door hotspots in `dist/app.js` | small | Rewrite cleanly as data. Doors switch zone and spawn point. |
-| Camera | `camera` object, smooth follow and zoom in `app.js` | small | Keep the smooth follow. Indoors the whole room fits on screen. |
-| Characters | `drawPersonFigure`, `characterView`, pose functions | medium | Done in `world-art`: six-frame walk, facing from movement, activity poses. Drawn in code; Felix' image files in `dist/assets` are not used by his game either. |
-| Shop data | `STORES`, `STORE_UNLOCKS`, tier-gated products in `core.js` | small | Reference for `shop-unlock`: Felix also opens shops at fixed places with money. Port only what fits our levels. |
-| Weather and calendar data | `districtWeather` (4 states), `CAMPUS_CALENDAR` (7 day types) | tiny | Use as data for `day-context` and `events-and-disruptions`. |
-
-Not taken (too much for us): 25 district businesses, DJ events, maintenance and
-cleaning, management overlays, guest needs, scheduled deliveries, progression
-levels, showcase editor.
-
-Observed when running it (Nov 2026): all 146 Node tests pass, the world loads without
-console errors, walking, build placement (cash 100.00 to 99.00) and interior exit work.
-16 of its 28 test files read source files, so write behaviour tests for everything we port.
-
-The baseline (`longer-run`, `world-api`, `world-core`, `world-art`) already took the world, the
-characters and the camera. Still to come from this table: shop data, weather and calendar data.
-
-## 3. New spec list
-
-Issues: `world-core` #9, `world-art` #26, `world-api` #27, `day-context` #10, `badges` #15, `nova-zones` #28, `nova-design` #11, `shop-unlock` #17, `shop-process` #36, `shop-walk` #40, `shop-art` #18, `outlook` #12, `popularity` #13, `events-and-disruptions` #14, `weather-visuals` #16, `staff` #20, `outfits` #21, `guests` #22, `demo-scenarios` #23, `final-polish` #24. Old #19 `walkways`, #29 `build-rules` and #30 `build-mode-ui` are closed. Season: #2 `longer-run`. New on 2026-11-08, issues still to be opened: `walk-in`, `nova-wings` and `day-cycle`; the text of `nova-zones` (#28) has to be replaced by the new one below.
-
-Every line is one spec, one branch, one issue, one pull request. Track: V = visuals,
-L = logic. Effort: S small, M medium, L large.
-
-### Phase 1: foundation (parallel)
-
-| Spec | Track | Effort | Depends on | What | Out of scope |
-|---|---|---|---|---|---|
-| `world-core` | V | L | none | DONE (baseline). Felix' world layer in `static/world/`: isometric projection, zone switching with doors, smooth camera, WASD and click-to-move, collision, finding a way. His outdoor campus and three rooms. Replaces #9 `split-map`. | Economy, build mode, guests, Nova design |
-| `world-art` | V | M | world-core | DONE (baseline). Felix' character for the player and for the people in the rooms, drawn in code: six-frame walk, facing, poses. Passers-by outdoors as decoration. | Guest behaviour, outfits |
-| `world-api` | L | S | none | DONE (baseline). `world.py`: zone layouts as data (size, colliders, doors, spawn), player position saved in the state, endpoints to read and save it. | Rules for money or building |
-| `day-context` | L | M | none | Issue #10 unchanged: seed in the state, `make_day_context(seed, day)`, weather, demand factor, override. Use Felix' weather and calendar data as the starting table. | Events, forecast, popularity |
-| `badges` | L | S | none | Issue #15 unchanged. Good first task. | Any effect on play |
-
-### Phase 2: the Nova map
-
-| Spec | Track | Effort | Depends on | What | Out of scope |
-|---|---|---|---|---|---|
-| `walk-in` | V and L | L | world-core, world-api, world-art | Added 2026-11-08. One big Nova building on the campus map: the player walks in through an entrance, the whole roof fades out, the rooms show, and sky and weather stay visible. Replaces the three room zones; their three desks move into the Nova (the whole floor inside is open to walk on). Cafe, Merchandise and a Print Corner with three printers as places (no rule). The Nova is stylised after the real campus. Changes seven tests of `world-api` and one number in `test_world_paths` (100 to 60), exception confirmed by David on 2026-11-08 (see its spec). | Dorm, beach way, outdoor shops, day cycle, weather effects, final art |
-| `nova-wings` | V and L | L | walk-in | Added 2026-11-08, DONE (merged in #50 on 2026-11-08). The Nova gets more wings: the Learning Center and the Mercado Supply Hall become wings that can be walked into, a Student Hub is added, all joined by openings. Each wing has its own roof that fades when the player is in it (a wing that hides another one makes it fade too, and a wall in front of a wing sinks with it). Entrances on the south side. Changes four tests of `walk-in` (floor of each wing, all entrances), exception confirmed by David on 2026-11-08 (see its spec). | Dorm, beach way, outdoor shops, day cycle, moving desks, who works where, upper floor, final art |
-| `nova-zones` | V | M | nova-wings | Rewritten 2026-11-08, spec written in `specs/nova-zones.md` (no test change expected). The outdoor map around the Nova: a walkable Dorm (a room with a bed that opens a small panel), the way to the beach, the Surf Shop and the Beach Cafe outside, the beach, all drawn with much detail. The map grows to the south (decided by Felix on 2026-11-08 after seeing the first build): the drawn ground is 48 tiles high and the walkable area reaches y 34.7, so the beach lies behind a paved promenade. The old outdoor buildings are settled by `nova-wings`. | Final art, shop rules, weather |
-| `nova-design` | V | L | nova-zones | Look of the Nova (inside and outside) and the beach: tiles, walls, colours, details. Replaces #11 `campus-look`. | Rules, new mechanics |
-
-### Phase 3: shops
-
-| Spec | Track | Effort | Depends on | What | Out of scope |
-|---|---|---|---|---|---|
-| `shop-unlock` | L | M | none | The list of shops as data (the team's four shops): offer, prices, fixed place, unlock price, levels, storeroom and counter space. Unlocking with money, levels (room for an employee or another product), every shop starts with one product. State gets `shops: {id: {...}}`. Replaces #17 `multi-shop`. The list can be written by the team without code first. | How a day runs in a shop, staff, guests, shop art |
-| `shop-process` | L and V | L | shop-unlock | A day played live in one shop: storeroom to counter, limited counter space, selling at the counter, a simple queue of customers from the existing price demand. One person alone: touches state, API and screen. | Employees, customers with own choices, several shops at once, popularity |
-| `pricing` (#38) | L | M | day-context, shop-process | New price logic instead of the solo project's fixed demand steps: price, weather, events to customers. Replaces only `customers_for` from `shop-process`. Added 2026-11-06. | Shop day, popularity, guests |
-| `shop-walk` (#40) | L and V | L | shop-process, nova-zones, shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step is still a server request; no rule reads the position. Replaces the Play day panel. Added 2026-11-06. | Employees, guests, several shops at once, popularity, new price logic |
-| `shop-art` | V | M | shop-unlock | Look of the shops on the map: locked and open, visible levels. Replaces #18 `shop-buildings`. | Rules |
-
-### Phase 4: depth (parallel, after the shops)
-
-| Spec | Track | Effort | Depends on | Note |
-|---|---|---|---|---|
-| `outlook` (#12) | L | M | day-context | Unchanged. Forecast wrong about 20 % of the time, from the seed. |
-| `popularity` (#13) | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer. Depends on real sales. Felix' `momentum` is the model. |
-| `events-and-disruptions` (#14) | L | M | day-context | Unchanged. Felix' 7 day types as the event table. |
-| `weather-visuals` (#16) | V | M | day-context, world-core | Rewritten for the 2.5D renderer: rain, storm, heat, sky. Builds on `environmentalProfile` and `drawSkyMotion` in `static/world/environment.js`. Drawn over the whole scene, also over the roofless Nova interior (`walk-in`). |
-| `day-cycle` | L and V | M | outlook, nova-zones | Added 2026-11-08. The day starts at the Dorm and ends there: "End the day" at the Dorm opens the day-end screen (the `outlook` evening report), the next day begins at the Dorm. The dashboard button stays a second way. The position decides no rule: the server still takes the end of the day as a plain request. |
-| `staff` (#20) | L | M | shop-process | Employees do the same actions as the player: one refills, one sells. Wage in cents. Jobs and places are data per shop, the level limits the number. |
-| `outfits` (#21) | L | S | shop-unlock | Optional. The look is an option of `drawPersonFigure`. |
-
-### Phase 5 and last
-
-| Spec | Track | Note |
-|---|---|---|
-| `guests` | L and V | Replaces #22 `ai-customers` and #19 `walkways`. Decided later. Felix' guest groups, needs and destination scoring are the reference. Open question: sales per day on the server, or live guests. |
-| `demo-scenarios` (#23) | L | Unchanged, built last. |
-| `final-polish` (#24) | V | Unchanged, last. |
-
-## 3a. Security: rules for every spec
+### 3a. Security: rules for every spec
 
 Add these to every spec's "Done when" and to the AI review. Detailed list per spec in 3b.
 
-1. The server decides every rule. The browser only shows and previews. Money, stock, unlocking, levelling up, hiring: always re-checked on the server.
+1. The server decides every rule. The browser only shows and previews. Money, stock, unlocking, levelling up, hiring, ordering: always re-checked on the server.
 2. Every endpoint takes JSON and validates all fields: type, whole numbers, finite, in range, ids from a fixed list (whitelist). Anything else is a `RejectedAction` and changes nothing.
 3. Money stays integer cents. A rejected action changes no saved data. One lock per change (load, rule, save).
 4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
-5. No secrets in the repo. Pin dependencies. No scripts from a CDN: vendor them into `static/`.
+5. No secrets in the repo. Pin dependencies. Nothing from outside the app: no CDN, no web fonts.
 6. Error answers contain only our own rule messages, never paths or stack traces.
-7. Anything that sets the state directly (demo mode) works only locally or with an explicit config switch. Never on a public deployment.
+7. Anything that sets the state directly (editor mode, demo mode) works only locally with an explicit config switch. Never on a public deployment.
 8. If the app is deployed: HTTPS, a production server, a session per player, rate limit, security headers (CSP, X-Content-Type-Options, X-Frame-Options).
 9. Tests for the security part of each spec: a crafted bad request is refused and the saved state stays identical.
 
-## 3b. Security: what to watch per spec
+Known weak spot (from the README): a played day is paced by the browser, one tick request a
+second counted by the server, so a script can play a day in an instant. Only the player's own
+run is affected. Revisit it before any deployment.
+
+### 3b. Security: what to watch per spec
 
 | Spec | Watch out for |
 |---|---|
-| `world-core` | Vendored Felix code: check for `eval`, `innerHTML` with data, external URLs. The browser keeps no rule and no truth in `localStorage`. Movement and camera are cosmetic only. |
-| `world-art` | Only drawn in code: no external URLs, no user uploads. Passers-by never talk to the server. |
-| `world-api` | Zone id from a whitelist. Check the position on the server (finite, inside the zone bounds). No rule may depend on the position the browser sends. |
-| `day-context` | The seed lives on the server and is never sent to the browser (it would let players predict the weather). The override works only locally or by config switch. |
-| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
-| `nova-wings` | The zone id stays on the whitelist and the position check on the server must hold every wing. No rule reads the position. The new wing data is fixed on the server. Labels through `textContent`. |
-| `nova-zones` | A zone change that affects the state is validated on the server (known door, allowed target). |
-| `nova-design` | Assets only. Names and labels shown through `textContent`. |
-| `shop-unlock` | Server checks cash, shop id and level. A shop that is locked, or a product or staff place not yet reached, cannot be used by a crafted request. Prices come from the server only. Test the locked case. |
-| `shop-process` | Every refill and sale is a request the server checks against storeroom, counter space and queue. No rule depends on the position the browser sends. A crafted request cannot sell more than the counter holds or sell after the day ended. |
-| `shop-art` | Assets only. |
-| `outlook` | The forecast is created on the server. Never expose the seed or the true result of tomorrow. |
+| `shop-unlock`, `shop-process`, `shop-skip` | Built. The server checks cash, shop id and level, storeroom, counter space and queue. Locked shops and a sale after the day ended are refused. Keep the tests for the locked case. |
+| `staff` | Built. Wages in integer cents, cash never negative, hiring limit from the level, ids validated. Employees run on the server. |
+| `editor-mode` | Built. Active only with `CT_EDITOR=1` and only for requests from this computer. One validated state patch. Must stay off on a public deployment. |
+| `pricing` | Prices come from the server. Weather and event factors are integers. A crafted price or demand never changes more than the rule allows. |
+| `shop-walk` | Every refill and sale is a request the server checks. No rule depends on the position the browser sends. |
+| `day-cycle` | The end of the day is a plain request; the position is never trusted. |
+| `warehouse` | Order quantity and total price checked on the server (whole numbers, product id from the list, space in the storage, cash). The delivery time counts server ticks, never the browser clock. Carrying checks the stock that really lies in the storage. A crafted request cannot deliver early or twice. |
+| `shop-art`, `nova-design` | Assets only, drawn in code. Labels through `textContent`. |
 | `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
-| `events-and-disruptions` | Events come from the seed. The browser cannot choose an event, only the demo override can. |
-| `weather-visuals` | The browser only reads today's weather. No `eval`, no external scripts. |
-| `staff` | Wages in integer cents, cash never negative, hiring limit from the shop's level, employee and job ids validated. Employees run on the server, the browser only shows them. |
+| `outlook` | Built. The forecast is made on the server. Known: the API still sends the real weather, only the display hides it. Never expose the seed. |
+| `events-and-disruptions` | Events come from the seed. The browser cannot choose one, only the editor override can. |
+| `weather-visuals` | The browser only reads the weather it may show. No `eval`, no external scripts. |
+| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
-| `guests` | Number of guests is capped (performance, no flooding). Guest data comes only from the server. |
-| `demo-scenarios` | Setting a state or loading a scenario needs a demo switch and works only on localhost. Validate the whole state shape when setting it. Never public. |
-| `final-polish` | Last security pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
+| `guests` | Number of guests is capped. Guest data comes only from the server. |
+| `demo-scenarios` | Loading a scenario needs the demo switch and works only on localhost. Validate the whole state shape. Never public. |
+| `final-polish` | Last pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
 
-## 4. What happens to the existing issues
+## 4. Specs
 
-| Issue | Action |
+Track: V = visuals, L = logic. Effort: S small, M medium, L large. Every line is one spec,
+one branch, one issue, one pull request.
+
+### 4.1 Open specs (in a sensible order)
+
+| Spec | Issue | Track | Effort | Depends on | What |
+|---|---|---|---|---|---|
+| `pricing` | #38 | L | M | day-context, shop-process (both done) | Replaces the solo project's demand steps (`customers_for`, `demand`): customers from price, weather, events and later popularity. The weather factors (`WEATHER[..]["demand_percent"]`) are shown and used for the tips but do not change customers yet. This is also what makes staff levels matter. |
+| `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
+| `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
+| `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
+| `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
+| `popularity` | #13 | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
+| `events-and-disruptions` | #14 | L | M | day-context | Campus events (exam period, party, career fair), trends, outages, strikes as entries in the day context. Felix' 7 day types are the event table. |
+| `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
+| `badges` | #15 | L | S | none | Badges awarded by the server after a day. Good first task. Felix' `scenarioGoals` as a model. |
+| `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
+| `guests` | #22 | L and V | L | pricing, shop-walk | Visible guests that choose a shop and walk there; replaces `ai-customers` and `walkways`. Open: sales per day on the server, or live guests. Decided later. |
+| `demo-scenarios` | #23 | L | M | the features chosen for the demo, editor-mode (done) | Built last. `scenarios.py`, loader, explanation overlay, free mode at the end. |
+| `final-polish` | #24 | V | M | demo-scenarios | Last. Animations, camera, details, last security pass (`/security-review`). |
+
+### 4.2 New from the notes of 2026-11-09 (proposal, no issue yet)
+
+The team's notes describe a fuller day. Part of it is built, the rest is two new specs.
+
+| Note | Status |
 |---|---|
-| #2 `longer-run` | Keep. PR #7 still waiting for a merge. |
-| #9 `split-map` | Rewrite as `world-core`. |
-| #10 `day-context`, #12 `outlook`, #14 `events-and-disruptions`, #15 `badges`, #20 `staff`, #21 `outfits`, #23 `demo-scenarios`, #24 `final-polish` | Keep. Update "Depends on" and add Felix references. |
-| #11 `campus-look` | Rewrite as `nova-design`. |
-| #13 `popularity` | Keep. Depends on `shop-unlock` once shops exist. |
-| #16 `weather-visuals` | Rewrite for the 2.5D renderer. |
-| #17 `multi-shop` | Rewritten as `shop-unlock`. |
-| #18 `shop-buildings` | Rewrite as `shop-art`. |
-| #19 `walkways` | Close. Zones and collision replace it. Waypoint routes come back inside `guests`. |
-| #22 `ai-customers` | Postpone, merge into `guests`. |
-| #29 `build-rules`, #30 `build-mode-ui` | Closed: fixed shop places replace the build mode. |
-| New | `world-art`, `world-api`, `nova-zones`, `shop-process` (#36) |
+| Try staff further | See `staff` follow-up above. |
+| End the day and start it at a fixed place | Decided on 2026-11-08 (the Dorm), still to build: `day-cycle`. |
+| A storage computer to order goods; they arrive by truck | New: `warehouse`. |
+| From there the storerooms of the shops are supplied | New: `warehouse` (carrying from the central storage to each shop). |
+| Then the workday starts; always the same length (one shift); only then money is earned | Built: `SHIFT_TICKS`, "whoever does not work earns nothing". |
+| After work, walk around and do things | The rest of the opened day is free time. What there is to do is open (section 7, question 4). |
 
-## 5. Suggested start (proposal)
+| Spec | Track | Effort | Depends on | What | Out of scope |
+|---|---|---|---|---|---|
+| `day-cycle` | L and V | M | outlook, nova-zones (done) | The day starts at the Dorm and ends there: "End the day" at the Dorm opens the day-end screen (the evening report), the next day begins at the Dorm. The dashboard button stays a second way. The position decides no rule: the server takes the end of the day as a plain request. | Ordering, trucks, shop work |
+| `warehouse` | L and V | L | shop-process (done), day-cycle | A central storage with a computer: the player orders stock there (server checks money and space), a truck brings it at a fixed time, the goods land in the central storage, and the player carries them to the storeroom of each shop. Replaces buying stock directly on the dashboard. Order, delivery and carrying are all server requests; the walk only decides when. | Pricing, guests, shop art, delivery events |
 
-| Person | First spec | Why |
-|---|---|---|
-| Felix | `walk-in`, then `nova-wings`, then `nova-zones`, then `shop-art` | He knows the world code. `world-core` and `world-art` were brought in from his project for the baseline, with credit, so this is where his own commits start. |
-| David | `shop-unlock` | Python rules and API, close to the current `logic.py` and `app.py`. |
-| Christopher | `day-context` | Independent of the map. |
-| Gregor | `badges` | Independent and small. |
+Effects to agree before building `warehouse`: `buy` and the stock model change (today one `stock`
+dict, bought straight into the storerooms), so tests that call `buy` need changes; the editor
+mode patches stock; `trade_day` (day without a player) must keep working. Name each test
+change in the spec. The old truck of the three.js map is only a reference for the look.
 
-Branch names are the spec names. Each spec gets its `specs/<name>.md` in its own PR.
+### 4.3 Cleanup (small)
 
-## 6. Open decisions
+- `specs/employees.md`, `investments.md`, `multi-business.md` and `net-worth.md` come from the
+  first draft (PR #1) and belong to the dropped plan; delete or mark them as replaced.
+- `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
-1. Old three.js map files: removed inside `world-core` or in a clearly named follow-up.
-2. (Decided in `shop-unlock`) Level-up: the player chooses. Each purchase in the shop window (a product or an employee place) raises the level by 1; employee places are bought in order.
-3. (Decided 2026-11-05) Shops: Cafe, Surf Shop, Merchandise, Beach Cafe with three products each (see section 1). The Cafe is open from the start with the coffee. Prices, unlock prices and level steps are placeholders in `logic.py`, to balance later. Starting with the coffee only means the old tests that bought the sandwich, coffee or cookie at the start were changed (exception confirmed by David), as with PR #7.
-3a. Who buys at the counter? Proposal: a simple queue, its size from price demand and the seed.
-3b. How long is a day? Proposal: 1 to 2 minutes with a key to skip. 30 days at 2 minutes is one hour of play.
-3c. What happens in a shop where nobody stands? Proposal: without staff it stays closed.
-3d. What happens to `trade_day`? Existing tests check it. Proposal: it stays as a day without a player and for skipping.
-4. (Decided) Season is 30 days.
-5. Forecast error rate (about 20 %) and the weather and event factors per shop.
-6. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
-7. Licence and credit: confirm with Felix and name the source in the README.
+## 5. Issue status (2026-11-09)
+
+| Issue | State |
+|---|---|
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode` |
+| Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
+| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #15 `badges`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #38 `pricing`, #40 `shop-walk` |
+| To open | `day-cycle`, `warehouse` |
+
+## 6. Suggested next steps (proposal)
+
+1. `pricing` (#38): it makes customers, weather and staff levels mean something. Everything in the depth phase builds on it. One person alone, it changes `customers_for` and the numbers of the shop tests.
+2. In parallel, small and independent: `badges` (#15), `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16).
+3. Agree on `day-cycle` and `warehouse` (section 4.2): write the specs, open the issues, decide the open questions below.
+4. `shop-walk` (#40) after `shop-art` has the shop places drawn; `popularity` (#13) after `pricing`.
+5. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
+
+No one is assigned yet. Each spec gets its `specs/<name>.md` in its own PR.
+
+## 7. Open decisions
+
+1. Forecast error rate (now 20 %) and the weather and event factors per shop: placeholders, to balance with `pricing`.
+2. Day length: an opened day is 300 ticks, a shift 90. Is one second a tick right, and how long should a play-through of 30 days take?
+3. Does `trade_day` (a day without a player) stay as it is, with no staff and no wages, or get staff too?
+4. What is there to do in the free time after the shift (`day-cycle`)? For example unlocking and levelling shops at their windows, hiring, walking to the Print Corner, rest at the Dorm.
+5. `warehouse`: one central storage for all shops or a storage per shop? How long does a truck take, and can a delivery fail (strike, shortage)? What does the storage hold at most?
+6. Who plays the Beach Cafe, Merchandise and Surf Shop shifts: only staff, or also the player (`SHIFT_SHOPS` has only the Cafe)?
+7. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
 8. Guests: sales computed per day on the server, or live guests on the map?
-9. Ideas from the team, not yet a spec: Merchandise (customers walking out wear the clothes, a visual feature for `shop-art` or `guests`), beach loungers to rent at the Beach Cafe, and up to three printers on the campus where paper and ink have to be refilled.
+9. Ideas from the team, not yet a spec: Merchandise customers wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on the campus where paper and ink have to be refilled.
+10. Licence and credit for Felix' project: confirm and keep the README credit.
 
 ---
 
-# Part B: Game design reference (from roadmap v1, still valid)
-
-Some wording in v1 mentioned the three.js map, walkways and the human review. Part A wins where they differ.
+# Part B: Game design reference
 
 ## B1. How a game day works (the core loop)
 
-Read this as a numbered chain. Each step feeds the next one.
+Built today, in this order:
 
-1. External influences are rolled once per day from a seed: weather, campus events, trends, disruptions (outages, strikes). Together they are the DAY CONTEXT.
-2. For each shop, DEMAND = base demand (from price) x weather factor x event factor x trend factor x popularity factor x outfit bonus.
-3. SALES = min(demand, stock, capacity). Capacity grows with staff.
-4. The day produces revenue, minus wages. Badges are checked against the history.
-5. POPULARITY of each shop is updated: it rises with fair prices and full shelves, it falls with empty shelves and too high prices. The new value affects the next day.
-6. The EVENING REPORT (outlook) shows a forecast of tomorrow's day context. The forecast is wrong sometimes (suggested error rate about 20 %).
-7. The player decides: purchases, prices, staff, outfits, unlocking shops. Then the next day starts at step 1.
+1. The seed gives the day context: weather with a temperature. Before the day opens only a forecast is shown.
+2. The player buys stock directly into the storeroom of a shop, on the dashboard or in the order panel of the campus page (planned: ordering and a truck, `warehouse`).
+3. The player opens the day (300 ticks). The real weather appears.
+4. The player starts the shift (90 ticks) in the Cafe: carry stock from the storeroom to the counter (20 units), serve the queue. Employees do the same on the server in every shop. Whoever does not work earns nothing; Skip lets the rest of the day pass without a sale.
+5. The day closes into the history: revenue, cost of goods, wages.
+6. The evening report shows the forecast for tomorrow and a tip per shop.
+7. The player decides: stock, prices, unlocking, levels, staff. The next day starts.
 
-Everything is per shop once there are several shops: each shop has its own demand, popularity, stock and staff.
+Planned on top: demand from price, weather, events and popularity (`pricing`, `popularity`,
+`events-and-disruptions`): DEMAND = base from price x weather x event x trend x popularity
+x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
+shelves and too high prices; it affects the next day. The day starts and ends at the Dorm
+(`day-cycle`).
 
-## B2. Weather and events against shops (example values)
+Everything is per shop: each shop has its own demand, stock, counter and staff.
 
-These factors are examples to discuss, not final numbers. 1.0 means normal demand.
+## B2. Weather and events against shops
+
+Weather factors are in `logic.py` (`WEATHER[..]["demand_percent"]`), 100 means normal demand.
+They are placeholders to balance. Today they drive the tips of the evening report; customers
+follow them once `pricing` is built.
 
 | Weather | Cafe | Surf Shop | Merchandise | Beach Cafe |
 |---|---|---|---|---|
-| Sun | 0.8 | 1.3 | 1.0 | 1.5 |
-| Heat | 0.6 | 1.2 | 0.8 | 1.8 |
-| Rain | 1.4 | 0.5 | 1.2 | 0.4 |
-| Storm | 1.0 | 0.2 | 1.0 | 0.2 |
+| Sunny | 80 | 130 | 100 | 150 |
+| Rainy | 140 | 50 | 120 | 40 |
+| Hot | 60 | 120 | 80 | 180 |
+| Stormy | 100 | 20 | 100 | 20 |
+
+Event factors are not built yet (`events-and-disruptions`). Starting proposal, 1.0 is normal:
 
 | Event | Cafe | Surf Shop | Merchandise | Beach Cafe |
 |---|---|---|---|---|
@@ -225,46 +257,51 @@ These factors are examples to discuss, not final numbers. 1.0 means normal deman
 | Party | 0.8 | 1.0 | 1.1 | 1.5 |
 | Career fair | 1.3 | 0.7 | 1.4 | 0.9 |
 
-The factors are multiplied. Example: heat on a party day gives the Beach Cafe
-1.8 x 1.5 = 2.7, so the player should order much more beer and coke zero. Above 1.15 the
-player should order more, below 0.85 less.
+The factors are multiplied. Example: hot weather on a party day gives the Beach Cafe
+1.8 x 1.5 = 2.7, so the player should order much more beer and coke zero. A tip says more
+customers at or above 115, fewer at or below 85 (`OUTLOOK_MORE_AT`, `OUTLOOK_LESS_AT`).
 
 ## B3. Rules for every feature spec
 
-So that the demo mode needs no rebuild later, every feature spec follows these
-three rules from the start:
+So that the demo mode needs no rebuild later, every feature spec follows these three rules
+from the start:
 
-1. The whole game state is complete and can be set directly: day, cash, shops, stock, popularity, staff all live in the state.
-2. The day context can be overridden. `make_day_context(seed, day)` takes an optional argument that fixes weather or event.
-3. No randomness without the seed. Every random choice comes from the seed stored in the state.
+1. The whole game state is complete and can be set directly: day, cash, shops, stock, popularity, staff, player position all live in the state.
+2. The day context can be overridden. `make_day_context(seed, day, override)` takes an optional argument that fixes weather or event.
+3. No randomness without the seed. Every random choice comes from the seed stored in the state, also anything drawn on screen (no `Math.random` in `static/world/`).
 
 ## B4. Demo mode (presentation)
 
-Built like a tutorial, about 5 minutes. Days are skipped: each scenario loads a
-prepared start state and shows an explanation text. After the goal of a
-scenario is reached, the next scenario loads. At the end the player can keep
-playing freely, so the professor can see that the game also works without a script.
+Built like a tutorial, about 5 minutes, and built last, once the game is complete. Days are
+skipped: each scenario loads a prepared start state and shows an explanation text. After
+the goal of a scenario is reached, the next scenario loads. At the end the player can keep
+playing freely. The editor mode (`editor-mode`) already sets cash, weather, day, shops and
+stock; the demo adds scenarios on top.
 
-Scenario data (pure data in a new `scenarios.py`): start state, fixed weather or
-event for these days, explanation text, goal condition. Functions:
-`load_scenario(id)` and `scenario_done(state, id)`.
+Scenario data (pure data in a new `scenarios.py`): start state, fixed weather or event for
+these days, explanation text, goal condition. Functions: `load_scenario(id)` and
+`scenario_done(state, id)`.
 
-Example sequence (a suggestion, the final choice comes after the game is complete):
+Example sequence (a suggestion, the team chooses after the game is complete):
 
-1. Basics: day 1, 100 euro. Buy stock, set a price, play the day.
-2. Weather and outlook: the evening report predicts heat. The player orders more beer and coke zero at the Beach Cafe and sees the effect.
+1. Basics: day 1 at the Dorm, 100 euro. Order stock, play a shift in the Cafe.
+2. Weather and outlook: the evening report predicts heat. The player stocks beer and coke zero for the Beach Cafe and sees the effect.
 3. Second shop: more money, the Surf Shop is unlocked. Then a storm: the Surf Shop collapses, the Cafe profits.
-4. Popularity and staff: empty shelves lower popularity. At a party, hiring staff pays off.
+4. Staff and popularity: hire a seller. At a party, staff pays off; empty shelves lower popularity.
 5. Disruption and finish: power cut or strike, then badges and the final settlement.
 
 ## B5. Glossary
 
 | Term | Meaning |
 |---|---|
-| Day context (Tageskontext) | The result of one day's rolled external influences: weather, events, trends, disruptions. |
-| Outlook | The evening report with a forecast of the next day's day context. |
-| Popularity (Beliebtheit) | Per shop, 0 to 100 %. Scales customer numbers on the next day. |
+| Day context | The result of one day's rolled external influences: weather, later events, trends, disruptions. |
+| Outlook | The forecast and the evening report with tips for the next day. |
+| Open day | The day clock (300 ticks) that starts when the player opens the day. |
+| Shift | The one work period of a day (90 ticks) in a shop. Only it earns money. |
+| Tick | One server step of the day clock, about a second. |
+| Storeroom, counter | The shop's stock (100 units) and the part carried to the counter (20 units). |
+| Popularity | Per shop, 0 to 100. Scales customer numbers on the next day. Planned. |
 | Seed | A number stored in the state from which all randomness is derived, so runs are reproducible and testable. |
+| Editor mode | Dev tools behind `CT_EDITOR=1`, local only. |
 | Scenario | A prepared start state with explanation text and a goal, used by the demo mode. |
-| Track | Either logic (game rules) or visuals (appearance, walking paths). |
-
+| Track | Either logic (game rules) or visuals (looks, walking). |
