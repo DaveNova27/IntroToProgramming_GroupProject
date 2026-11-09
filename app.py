@@ -97,6 +97,10 @@ def staff_view(state):
             "upgrade_price": (logic.UPGRADE_PRICES[level + 1]
                               if level < logic.EMPLOYEE_MAX_LEVEL else None),
         })
+    # an open day pays only the shops that run a shift; before it every unlocked shop would
+    shift = state["shift"]
+    paid_shops = ({s for s in [shift["shop"], *shift.get("extra", {})] if s} if shift
+                  else {sid for sid, shop in state["shops"].items() if shop["unlocked"]})
     places = []
     for shop in logic.STAFF_SHOPS:
         taken = {e["place"]: e["id"] for e in state["employees"] if e["shop"] == shop}
@@ -112,7 +116,8 @@ def staff_view(state):
         "max_level": logic.EMPLOYEE_MAX_LEVEL,
         "employees": employees,
         "places": places,
-        "wages_today": sum(e["wage"] for e in employees if e["working"]),
+        "wages_today": sum(e["wage"] for e in employees
+                           if e["working"] and e["shop"] in paid_shops),
     }
 
 

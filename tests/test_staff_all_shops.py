@@ -127,7 +127,7 @@ def test_cash_never_goes_negative_with_several_crews():
     assert state["cash"] >= 0 and result["wages_unpaid"]
 
 
-def test_a_single_shop_day_has_no_extra_keys():
+def test_a_single_shop_day_has_no_extra_key_and_lists_its_shop():
     state = logic.open_day(two_shops(beach_staff=False))
     assert "extra" not in state["shift"]
-    assert "shops" not in run(state)[1]
+    assert run(state)[1]["shops"] == ["cafe"]
