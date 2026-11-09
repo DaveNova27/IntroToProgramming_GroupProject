@@ -2,7 +2,9 @@
 
 Runs the real browser modules with Node, like tests/test_world_paths.py: the route comes from
 `findPath` and a copy of the walk loop of main.js (step, slide along a wall, give up after 0.5 s
-without progress). On a computer without Node the test is skipped.
+without progress). main.js cannot run without a browser, so the numbers here (speed, 0.15 turn
+tolerance, 0.5 s, the progress threshold) must be kept the same as in `walk()` there.
+On a computer without Node the test is skipped.
 """
 
 import json
@@ -34,12 +36,11 @@ const pick = () => {
     if (!pointBlocked(p, solid, RADIUS + 0.05)) return p;
   }
 };
-let arrived = 0, gaveUp = 0, noWay = 0;
-for (let i = 0; i < PAIRS; i++) {
-  let position = pick();
-  const route = findPath(position, pick(), zone, solid, RADIUS);
-  if (!route) { noWay++; continue; }
-  let stuck = 0, time = 0, failed = false;
+function walk(from, to) {
+  let position = from;
+  const route = findPath(position, to, zone, solid, RADIUS);
+  if (!route) return "noWay";
+  let stuck = 0, time = 0;
   while (route.length && time < 90) {
     let distance = Math.hypot(route[0].x - position.x, route[0].y - position.y);
     while (route.length && distance < 0.15) {
@@ -51,12 +52,21 @@ for (let i = 0; i < PAIRS; i++) {
     position = resolveMovement(position, delta, zone, solid, RADIUS);
     const gained = distance - Math.hypot(route[0].x - position.x, route[0].y - position.y);
     stuck = gained > SPEED * DT * 0.2 ? 0 : stuck + DT;
-    if (stuck > 0.5) { failed = true; break; }
+    if (stuck > 0.5) return "gaveUp";
     time += DT;
   }
-  failed ? gaveUp++ : arrived++;
+  return "arrived";
 }
-console.log(JSON.stringify({ pairs: PAIRS, arrived, gaveUp, noWay }));
+// the walk that stopped at the corner of hub-west-wall: from the Nova to the steps of the Dorm
+const dorm = walk({ x: 23.06, y: 8.11 }, { x: 38, y: 12.9 });
+let arrived = 0, gaveUp = 0, noWay = 0;
+for (let i = 0; i < PAIRS; i++) {
+  const outcome = walk(pick(), pick());
+  if (outcome === "arrived") arrived++;
+  else if (outcome === "gaveUp") gaveUp++;
+  else noWay++;
+}
+console.log(JSON.stringify({ dorm, pairs: PAIRS, arrived, gaveUp, noWay }));
 """
 
 
@@ -70,6 +80,8 @@ def test_a_clicked_route_is_walked_to_the_end(tmp_path):
     done = subprocess.run([NODE, "check.js", "world.json"], cwd=tmp_path, capture_output=True, text=True, timeout=120)
     assert done.returncode == 0, done.stderr
     result = json.loads(done.stdout)
+    assert result["dorm"] == "arrived", result
     assert result["noWay"] == 0
-    # before the fix 27 of 400 walks gave up at a corner, after it 2 do (a few tight spots remain)
-    assert result["gaveUp"] <= 5, result
+    # before the fix 27 of 400 walks gave up at a corner, after it none does; a few are allowed so that
+    # a change of the campus layout does not break this test for no reason of the route
+    assert result["gaveUp"] <= 2, result
