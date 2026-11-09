@@ -76,3 +76,70 @@ function showWeather(el, weather) {
   el.setAttribute("role", "img");
   el.setAttribute("aria-label", `${weather.name}, ${weather.temperature} °C`);
 }
+
+// ---- customers and the price curve (pricing) -------------------------------------------
+// Every number comes from the server (state.products[].breakdown, state.price_curves,
+// POST /api/price_preview). Nothing here decides a rule; this only draws and words it.
+
+function customersText(n) {
+  return n === 0 ? "no customers today" : n === 1 ? "about 1 customer today" : `about ${n} customers today`;
+}
+
+function splitText(split, segments) {
+  return segments.map((seg) => `${esc(seg.name.toLowerCase())} ${split[seg.id] ?? 0}`).join(" · ");
+}
+
+// The "why" lines of one product: base, each step, the total and the expected profit.
+function breakdownHtml(b, segments) {
+  const keep = segments.map((seg) => `${esc(seg.name.toLowerCase())} ${b.keep[seg.id]} %`).join(", ");
+  const lines = [`<li><span>Normal day</span><b>${b.base}</b></li>`];
+  b.steps.forEach((step, i) => {
+    lines.push(`<li><span>${esc(step.name)}</span><b>${step.customers}</b><small>${splitText(step.split, segments)}</small></li>`);
+    if (i === 0) lines.push(`<li class="aside">At this price they still buy: ${keep} of their normal amount.</li>`);
+  });
+  const limited = b.sellable < b.customers ? ` · the stock of ${b.sellable} limits it` : "";
+  lines.push(`<li class="total"><span>Customers today</span><b>${b.customers}</b><small>${splitText(b.split, segments)}</small></li>`);
+  lines.push(`<li class="aside">Expected profit: ${b.sellable} × ${fmt(b.unit_profit)} = <b>${fmt(b.expected_profit)}</b>${limited}</li>`);
+  return `<ul class="why-lines">${lines.join("")}</ul>`;
+}
+
+// A shop's curve on a normal day: price in percent of the reference price (0 to 250) across,
+// customers up. points = [[percent, hundredths of a customer]] from the server.
+const CURVE_TOP = 1700;
+function curveSvg(points, pricePercent) {
+  const h = 56;
+  const y = (hundredths) => (h - (Math.min(hundredths, CURVE_TOP) / CURVE_TOP) * (h - 4)).toFixed(1);
+  const line = [[0, points[0][1]], ...points].map(([x, v]) => `${x},${y(v)}`).join(" ");
+  const at = Math.max(0, Math.min(pricePercent, 250));
+  return `<svg class="curve-svg" viewBox="0 0 250 ${h}" preserveAspectRatio="none" role="img"
+      aria-label="Customers at each price on a normal day">
+    <polygon class="curve-area" points="0,${h} ${line} 250,${h}"/>
+    <polyline class="curve-line" points="${line}" vector-effect="non-scaling-stroke"/>
+    <line class="curve-ref" x1="100" x2="100" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/>
+    <line class="curve-marker" x1="${at}" x2="${at}" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+}
+
+function setCurveMarker(root, pricePercent) {
+  const at = Math.max(0, Math.min(pricePercent, 250));
+  const marker = root.querySelector(".curve-marker");
+  if (marker) {
+    marker.setAttribute("x1", at);
+    marker.setAttribute("x2", at);
+  }
+}
+
+// What a typed price would bring, asked from the server (nothing is saved). null if refused.
+async function fetchPricePreview(product, price) {
+  try {
+    const res = await fetch("/api/price_preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product, price }),
+    });
+    const data = await res.json();
+    return data.preview ?? null;
+  } catch {
+    return null;
+  }
+}

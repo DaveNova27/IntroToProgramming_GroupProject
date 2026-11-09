@@ -12,6 +12,7 @@ import copy
 import random
 import secrets
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 
 import world
 
@@ -246,15 +247,20 @@ def set_price(state, product, price_cents):
         raise RejectedAction("The run is complete. Prices are locked.")
     if state.get("shift") is not None:
         raise RejectedAction("Prices are fixed while a shift is running.")
+    _check_price(price_cents)
+    new = copy.deepcopy(state)
+    new["prices"][product] = price_cents
+    return new
+
+
+def _check_price(price_cents):
+    """A selling price is a whole number of cents, more than 0 and not absurdly high."""
     if isinstance(price_cents, bool) or not isinstance(price_cents, int):
         raise RejectedAction("The selling price must be a whole number of cents.")
     if price_cents <= 0:
         raise RejectedAction("The selling price must be more than €0.")
     if price_cents > MAX_PRICE:
         raise RejectedAction(f"The selling price can be at most {fmt(MAX_PRICE)}.")
-    new = copy.deepcopy(state)
-    new["prices"][product] = price_cents
-    return new
 
 
 def _check_shop(shop):
@@ -446,7 +452,10 @@ def fire_employee(state, employee_id):
 
 
 def demand(price_cents, ref_price_cents):
-    """CT R1: 10 units up to the reference price, 5 up to twice it, 0 above."""
+    """CT R1: 10 units up to the reference price, 5 up to twice it, 0 above.
+
+    The solo project's rule. The game no longer uses it (customers_for does, specs/pricing.md);
+    it stays because tests/test_first_feature.py pins it."""
     if price_cents <= ref_price_cents:
         return DEMAND_AT_OR_BELOW_REF
     if price_cents <= 2 * ref_price_cents:
@@ -466,7 +475,7 @@ def trade_day(state):
     for pid in owned_products(new):
         item = CATALOGUE[pid]
         price = new["prices"][pid]
-        wanted = demand(price, item["ref_price"])
+        wanted = customers_today(state, pid)
         sold = min(wanted, new["stock"][pid])  # CT R2: stock limits sales
         revenue = sold * price
         cogs = sold * item["cost"]  # CT R4: purchase cost of the units sold
@@ -529,12 +538,178 @@ def set_day_override(state, weather):
     return new
 
 
-def customers_for(price_cents, ref_price_cents):
+# ---- customers: the price logic (specs/pricing.md, issue #38) ----------------------------
+# Two kinds of customers react to the price in different ways, every shop has its own mix of
+# them, and the day's conditions (FACTORS) move each kind. A curve says how much of a
+# segment's base amount still buys at a price given in percent of the reference price, in
+# percent; straight lines between the points, flat below the first point, 0 above the last.
+# All numbers below are placeholders to balance. Everything is calculated with exact fractions.
+SEGMENTS = {
+    "students": {"name": "Students", "curve": (
+        (50, 170), (75, 135), (100, 100), (125, 65), (150, 28), (175, 8), (200, 0))},
+    "visitors": {"name": "Visitors", "curve": (
+        (50, 115), (75, 107), (100, 100), (125, 95), (150, 85), (175, 70), (200, 50),
+        (225, 20), (250, 0))},
+}
+# Customers per product and day at the reference price on a neutral day, per shop and segment.
+# Every shop adds up to BASE_CUSTOMERS, so nothing changes at the reference price.
+BASE_CUSTOMERS = 10
+SHOP_MIX = {
+    "cafe": {"students": 8, "visitors": 2},
+    "beach_cafe": {"students": 6, "visitors": 4},
+    "merchandise": {"students": 5, "visitors": 5},
+    "surf_shop": {"students": 3, "visitors": 7},
+}
+DEFAULT_MIX = {"students": 6, "visitors": 4}  # for a call without a shop
+MAX_CUSTOMERS = 30  # most customers of one product in one shift or day: a safety net
+CURVE_POINTS = sorted({x for segment in SEGMENTS.values() for x, _ in segment["curve"]})
+
+# The day's conditions. Each factor is a function (state, shop) -> (label, {segment: percent}).
+# Percents of all factors multiply; a segment a factor does not name stays at 100.
+# Weather is the first; events, trend, popularity and outfit add theirs here.
+FACTORS = ()
+
+
+def _round_half_up(value):
+    return int(value + Fraction(1, 2))
+
+
+def _curve_percent(curve, price_percent):
+    """How many percent of its base a segment buys at this price (percent of the reference)."""
+    if price_percent <= curve[0][0]:
+        return Fraction(curve[0][1])
+    for (x0, y0), (x1, y1) in zip(curve, curve[1:]):
+        if price_percent <= x1:
+            return y0 + Fraction(y1 - y0) * (price_percent - x0) / (x1 - x0)
+    return Fraction(0)
+
+
+def segment_amounts(price_cents, ref_price_cents, mix=DEFAULT_MIX, percents=None):
+    """The exact (not rounded) customers of each segment: base x curve x the day's percent."""
+    if price_cents <= 0 or ref_price_cents <= 0:
+        raise ValueError("price and reference price must be more than 0")
+    x = Fraction(price_cents * 100, ref_price_cents)
+    amounts = {}
+    for segment, base in mix.items():
+        percent = Fraction((percents or {}).get(segment, 100))
+        if percent < 0:
+            raise ValueError("a percent cannot be negative")
+        amounts[segment] = base * _curve_percent(SEGMENTS[segment]["curve"], x) / 100 * percent / 100
+    return amounts
+
+
+def customers_for(price_cents, ref_price_cents, mix=DEFAULT_MIX, percents=None):
     """How many customers want one product on a played day.
 
-    The one place that turns a price into customers. It is the old demand() for now;
-    the new price logic (issue #38) replaces only this function."""
-    return demand(price_cents, ref_price_cents)
+    The one place that turns a price into customers (price curves of the segments, the shop's
+    mix, the day's percents per segment). Whole number, half up, at most MAX_CUSTOMERS."""
+    total = sum(segment_amounts(price_cents, ref_price_cents, mix, percents).values())
+    return min(MAX_CUSTOMERS, _round_half_up(total))
+
+
+def shop_of_product(product):
+    return next(sid for sid in SHOPS if product in shop_product_ids(sid))
+
+
+def _active_factors(state, shop):
+    """The factors of today that change something: [(label, {segment: percent})]."""
+    out = []
+    for factor in FACTORS:
+        label, percents = factor(state, shop)
+        if any(Fraction(p) != 100 for p in percents.values()):
+            out.append((label, percents))
+    return out
+
+
+def _combine(combined, percents):
+    for segment, percent in percents.items():
+        if segment in combined:
+            combined[segment] = combined[segment] * Fraction(percent) / 100
+    return combined
+
+
+def segment_percents(state, shop):
+    """Today's combined percent per segment for a shop (100 = normal)."""
+    combined = {segment: Fraction(100) for segment in SEGMENTS}
+    for _label, percents in _active_factors(state, shop):
+        _combine(combined, percents)
+    return combined
+
+
+def customers_today(state, product):
+    """Customers of one product today at its saved price: shift, trade_day, overview, screen."""
+    shop = shop_of_product(product)
+    return customers_for(state["prices"][product], CATALOGUE[product]["ref_price"],
+                         SHOP_MIX[shop], segment_percents(state, shop))
+
+
+def _split(amounts, total):
+    """Spread a whole total over the segments (largest remainder, ties to the first)."""
+    weight = sum(amounts.values())
+    if weight == 0:
+        return {segment: 0 for segment in amounts}
+    exact = {segment: a * total / weight for segment, a in amounts.items()}
+    split = {segment: int(value) for segment, value in exact.items()}
+    order = sorted(amounts, key=lambda sg: (-(exact[sg] - split[sg]), list(amounts).index(sg)))
+    for segment in order[:total - sum(split.values())]:
+        split[segment] += 1
+    return split
+
+
+def customer_breakdown(state, product, price_cents=None):
+    """Why a product has the customers it has today, step by step, in whole numbers.
+
+    Each step is the running total after it (rounded from the exact value); the last one is
+    exactly customers_today. price_cents tries another price without saving it."""
+    item = CATALOGUE[product]
+    shop = shop_of_product(product)
+    mix = SHOP_MIX[shop]
+    price = state["prices"][product] if price_cents is None else price_cents
+    ref = item["ref_price"]
+    price_percent = _round_half_up(Fraction(price * 100, ref))
+
+    amounts = segment_amounts(price, ref, mix)
+    steps = [{"id": "price", "name": f"Your price ({price_percent} % of the reference price)",
+              "customers": _round_half_up(sum(amounts.values())),
+              "split": _split(amounts, _round_half_up(sum(amounts.values())))}]
+    combined = {segment: Fraction(100) for segment in mix}
+    for label, percents in _active_factors(state, shop):
+        amounts = segment_amounts(price, ref, mix, _combine(combined, percents))
+        total = _round_half_up(sum(amounts.values()))
+        steps.append({"id": "factor", "name": label, "customers": total,
+                      "split": _split(amounts, total)})
+    total = _round_half_up(sum(amounts.values()))
+    customers = min(MAX_CUSTOMERS, total)
+    if customers < total:
+        steps.append({"id": "cap", "name": f"At most {MAX_CUSTOMERS} customers of one product",
+                      "customers": customers, "split": _split(amounts, customers)})
+    x = Fraction(price * 100, ref)
+    sellable = min(customers, state["stock"][product])
+    return {
+        "product": product, "shop": shop, "price": price, "price_percent": price_percent,
+        "base": sum(mix.values()), "steps": steps,
+        "keep": {segment: _round_half_up(_curve_percent(SEGMENTS[segment]["curve"], x))
+                 for segment in mix},
+        "customers": customers, "split": steps[-1]["split"],
+        "unit_profit": price - item["cost"], "sellable": sellable,
+        "expected_profit": sellable * (price - item["cost"]),
+    }
+
+
+def price_preview(state, product, price_cents):
+    """The customers a price would bring today, without saving it (the screen's live preview)."""
+    _check_product(state, product)
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Prices are locked.")
+    _check_price(price_cents)
+    return customer_breakdown(state, product, price_cents)
+
+
+def shop_price_curve(shop):
+    """A shop's curve on a neutral day for drawing the meter: [[price %, hundredths of a customer]]."""
+    mix = SHOP_MIX[shop]
+    return [[x, _round_half_up(sum(segment_amounts(x, 100, mix).values()) * 100)]
+            for x in CURVE_POINTS]
 
 
 def _check_open_shift(state):
@@ -617,7 +792,7 @@ def start_shift(state, shop):
         raise RejectedAction("Too late for a shift: the day ends before it could be played.")
     planned, queue = {}, []
     for k, pid in enumerate(products):
-        count = customers_for(state["prices"][pid], CATALOGUE[pid]["ref_price"])
+        count = customers_today(state, pid)
         planned[pid] = count
         for j in range(count):
             arrives = start + min((j * SHIFT_TICKS) // count + k, SHIFT_TICKS - 1)
@@ -861,7 +1036,7 @@ def stock_overview(state):
     for pid in owned_products(state):
         item = CATALOGUE[pid]
         units = state["stock"][pid]
-        wanted = 0 if is_finished(state) else demand(state["prices"][pid], item["ref_price"])
+        wanted = 0 if is_finished(state) else customers_today(state, pid)
         sells = min(wanted, units)
         lines.append({
             "product": pid,

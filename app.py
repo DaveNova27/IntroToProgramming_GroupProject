@@ -139,7 +139,10 @@ def view(state):
         "ref_price": item["ref_price"],
         "price": state["prices"][pid],
         "stock": state["stock"][pid],
-        "demand": logic.demand(state["prices"][pid], item["ref_price"]),
+        "shop": logic.shop_of_product(pid),
+        # why a product has the customers it has today (None once the season is over)
+        "customers": 0 if finished else logic.customers_today(state, pid),
+        "breakdown": None if finished else logic.customer_breakdown(state, pid),
     } for pid, item in logic.CATALOGUE.items() if pid in owned]
     return {
         "day": state["day"],
@@ -162,10 +165,10 @@ def view(state):
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
         "player": state["player"],
-        "demand_levels": {
-            "at_or_below_ref": logic.DEMAND_AT_OR_BELOW_REF,
-            "up_to_double_ref": logic.DEMAND_UP_TO_DOUBLE_REF,
-        },
+        "base_customers": logic.BASE_CUSTOMERS,
+        "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
+        # each shop's curve on a neutral day, for drawing the meter
+        "price_curves": {sid: logic.shop_price_curve(sid) for sid in logic.SHOPS},
     }
 
 
@@ -261,6 +264,19 @@ def set_price():
         return new_state, f"{name} now sells for {logic.fmt(price)}."
 
     return apply(action)
+
+
+@app.post("/api/price_preview")
+def price_preview():
+    """What a price would bring today. Read-only: nothing is saved."""
+    body = json_body()
+    with _lock:
+        state = load_run()
+        try:
+            price = logic.euros_to_cents(body.get("price", ""))
+            return jsonify({"preview": logic.price_preview(state, body.get("product"), price)})
+        except logic.RejectedAction as reason:
+            return jsonify({"error": str(reason)}), 400
 
 
 @app.post("/api/shop/unlock")
