@@ -71,12 +71,16 @@ def test_the_demand_percent_is_whole_numbers_for_every_shop():
         assert all(isinstance(v, int) and v > 0 for v in w["demand_percent"].values())
 
 
-def test_the_weather_does_not_change_the_customers_yet():
-    for override in (None, {"weather": "storm"}, {"weather": "heat"}):
-        state = logic.new_state(SEED)
-        state["day_override"] = override
-        state["stock"]["coffee"] = 10
-        assert logic.trade_day(state)[1]["lines"][0]["sold"] == 10
+# The weather now changes the customers (specs/pricing.md, Decide 4, group C): this was
+# "test_the_weather_does_not_change_the_customers_yet". Coffee at the reference price in the
+# Cafe: 10 on a storm day (100 %), 8 in sun (80 %), 13 in rain (140 %), 6 in heat (60 %); the
+# visitors react a little more than the students (logic.VISITOR_WEATHER).
+@pytest.mark.parametrize("weather, customers", [("storm", 10), ("sun", 8), ("rain", 13), ("heat", 6)])
+def test_the_weather_changes_the_customers_by_the_percent_of_the_shop(weather, customers):
+    state = logic.new_state(SEED)
+    state["day_override"] = {"weather": weather}
+    state["stock"]["coffee"] = 30
+    assert logic.trade_day(state)[1]["lines"][0]["sold"] == customers
 
 
 # ---- Check 3: override ----------------------------------------------------

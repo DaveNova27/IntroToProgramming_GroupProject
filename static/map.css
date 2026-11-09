@@ -278,6 +278,16 @@ p { margin: 0; }
 .price-row .euro input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; font: 700 14px var(--mono); }
 .price-row .btn { grid-column: 3; min-height: 34px; padding: 0 8px; font-size: 13px; }
 .price-row .demand { grid-column: 1 / 3; grid-row: 2; color: var(--ink-soft); font-size: 12px; }
+.price-row .why { grid-column: 1 / -1; font-size: 12px; }
+.price-row .why summary { cursor: pointer; color: var(--ink-soft); font-weight: 700; }
+.why-lines { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; }
+.why-lines li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 8px; }
+.why-lines li > span { flex: 1 1 auto; color: var(--ink-soft); }
+.why-lines li > b { font-family: var(--mono); }
+.why-lines li > small { flex-basis: 100%; color: var(--ink-soft); font-size: 11px; }
+.why-lines .total { padding-top: 3px; border-top: 1px solid var(--line); }
+.why-lines .total > span { color: inherit; font-weight: 700; }
+.why-lines .aside { display: block; color: var(--ink-soft); }
 .price-row .error { grid-column: 1 / -1; margin: 0; }
 
 /* ---- end of day, end of run ------------------------------------------------ */
