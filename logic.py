@@ -41,6 +41,8 @@ STAFF_PLACE_PRICE = 6_000  # cents = 60 euro, the same in every shop
 STORAGE_UNITS = 100  # storeroom space per shop, checked when buying stock
 COUNTER_UNITS = 20  # counter space per shop (limits refills in a shift)
 FIRST_SHOP = "cafe"
+MAX_CASH = 100_000_000  # cents, the most the editor can give (editor-mode)
+MAX_SEED = 2**32 - 1  # new_seed() draws 32 bits
 DEFAULT_SEED = 1  # only for tests and the demo; real runs draw one with new_seed()
 
 # The weather (day-context, issue #10). weight: how often it appears, in percent.
@@ -531,6 +533,172 @@ def set_day_override(state, weather):
         raise RejectedAction(f"Unknown weather '{weather}'.")
     new = copy.deepcopy(state)
     new["day_override"] = None if weather is None else {"weather": weather}
+    return new
+
+
+# --- Editor mode (specs/editor-mode.md): rules for the dev tools. The server decides
+# whether the editor is on; these functions only check the values and never change a state
+# they refuse. ---
+
+def _whole(value, low, high, what):
+    """A whole number (no bool, no float) from low to high, or a refusal."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RejectedAction(f"{what} must be a whole number.")
+    if not low <= value <= high:
+        raise RejectedAction(f"{what} must be from {low} to {high}.")
+    return value
+
+
+def check_seed(seed):
+    return _whole(seed, 0, MAX_SEED, "The seed")
+
+
+def _check_no_open_day(state):
+    if state.get("shift") is not None:
+        raise RejectedAction("A day is open. Finish or skip it first.")
+
+
+def editor_cash(state, mode, cents):
+    """Set the cash to an amount ("set") or add to it ("add"), in whole cents."""
+    if mode not in ("set", "add"):
+        raise RejectedAction("The mode must be 'set' or 'add'.")
+    if isinstance(cents, bool) or not isinstance(cents, int):
+        raise RejectedAction("The amount must be a whole number of cents.")
+    total = cents if mode == "set" else state["cash"] + cents
+    if not 0 <= total <= MAX_CASH:
+        raise RejectedAction(f"The cash must stay between {fmt(0)} and {fmt(MAX_CASH)}.")
+    new = copy.deepcopy(state)
+    new["cash"] = total
+    return new
+
+
+def editor_skip_days(state, days):
+    """Let several days pass with trade_day (current prices and stock). All or nothing."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Trading is closed.")
+    _check_no_open_day(state)
+    _whole(days, 1, LAST_DAY - state["day"] + 1, "The number of days")
+    for _ in range(days):
+        state, _result = trade_day(state)
+    return state
+
+
+def shop_at_level(shop_id, level):
+    """The entry of a shop on a level: 0 is locked, level n has the start product and the
+    first n - 1 offers of its window (in window order)."""
+    _check_shop(shop_id)
+    offers = list(SHOPS[shop_id]["window"].values())
+    _whole(level, 0, 1 + len(offers), "The level")
+    if level == 0:
+        return {"unlocked": False, "level": 0, "products": [], "staff_places": 0}
+    bought = offers[:level - 1]
+    return {
+        "unlocked": True,
+        "level": level,
+        "products": [SHOPS[shop_id]["start_product"]]
+                    + [o["product"] for o in bought if o["kind"] == "product"],
+        "staff_places": sum(1 for o in bought if o["kind"] == "staff"),
+    }
+
+
+def _check_shop_entry(shop_id, entry):
+    """A shop entry that could have come from play, or a refusal. Returns the clean entry."""
+    if isinstance(entry, dict) and set(entry) == {"level"}:
+        return shop_at_level(shop_id, entry["level"])
+    keys = {"unlocked", "level", "products", "staff_places"}
+    if not isinstance(entry, dict) or set(entry) != keys:
+        raise RejectedAction(f"A shop needs exactly: {', '.join(sorted(keys))} (or just a level).")
+    if not isinstance(entry["unlocked"], bool):
+        raise RejectedAction("'unlocked' must be true or false.")
+    products = entry["products"]
+    if not isinstance(products, list) or any(not isinstance(p, str) for p in products) \
+            or len(set(products)) != len(products):
+        raise RejectedAction("'products' must be a list of different product ids.")
+    allowed = shop_product_ids(shop_id)
+    if any(p not in allowed for p in products):
+        raise RejectedAction(f"{SHOPS[shop_id]['name']} does not sell those products.")
+    _whole(entry["staff_places"], 0, 2, "The employee places")
+    _whole(entry["level"], 0, 1 + len(SHOPS[shop_id]["window"]), "The level")
+    if entry["unlocked"]:
+        if SHOPS[shop_id]["start_product"] not in products:
+            raise RejectedAction("An unlocked shop always has its first product.")
+        if entry["level"] != len(products) + entry["staff_places"]:
+            raise RejectedAction("The level must equal the products plus the employee places.")
+    elif entry["level"] or products or entry["staff_places"]:
+        raise RejectedAction("A locked shop has level 0 and nothing in it.")
+    return {"unlocked": entry["unlocked"], "level": entry["level"],
+            "products": [p for p in allowed if p in products],
+            "staff_places": entry["staff_places"]}
+
+
+def _check_player(player):
+    if not isinstance(player, dict) or set(player) != {"zone", "x", "y"}:
+        raise RejectedAction("A position needs zone, x and y.")
+    return move_player({"player": None}, player["zone"], player["x"], player["y"])["player"]
+
+
+def editor_set_state(state, patch):
+    """Set any part of the run from a patch. Everything is checked first; a refused patch
+    changes nothing. Keys not in the patch stay as they are.
+
+    The keys: day, cash, seed, day_override, stock, prices, shops, player. Setting an earlier
+    day cuts the history to the days before it. Refused while a day is open."""
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player"}
+    if not isinstance(patch, dict) or not patch:
+        raise RejectedAction("The patch must be a dictionary with at least one field.")
+    unknown = sorted(str(k) for k in patch if k not in keys)
+    if unknown:
+        raise RejectedAction(f"Unknown field: {', '.join(unknown)}.")
+    _check_no_open_day(state)
+    new = copy.deepcopy(state)
+    if "day" in patch:
+        new["day"] = _whole(patch["day"], 1, LAST_DAY + 1, "The day")
+        new["history"] = [r for r in new["history"] if r["day"] < new["day"]]
+    if "cash" in patch:
+        new["cash"] = _whole(patch["cash"], 0, MAX_CASH, "The cash")
+    if "seed" in patch:
+        new["seed"] = check_seed(patch["seed"])
+    if "day_override" in patch:
+        override = patch["day_override"]
+        if override is None:
+            weather = None
+        elif isinstance(override, dict) and set(override) == {"weather"}:
+            weather = override["weather"]
+        else:
+            raise RejectedAction("'day_override' must be null or {\"weather\": id}.")
+        new["day_override"] = set_day_override(new, weather)["day_override"]
+    for field in ("stock", "prices"):
+        if field in patch:
+            if not isinstance(patch[field], dict):
+                raise RejectedAction(f"'{field}' must map products to numbers.")
+            for pid, value in patch[field].items():
+                if not isinstance(pid, str) or pid not in CATALOGUE:
+                    raise RejectedAction(f"Unknown product '{pid}'.")
+                if field == "prices":
+                    new[field][pid] = _whole(value, 1, MAX_PRICE, f"The price of {pid}")
+                else:
+                    new[field][pid] = _whole(value, 0, STORAGE_UNITS, f"The stock of {pid}")
+    if "shops" in patch:
+        if not isinstance(patch["shops"], dict):
+            raise RejectedAction("'shops' must map shop ids to entries.")
+        for sid, entry in patch["shops"].items():
+            _check_shop(sid)
+            new["shops"][sid] = _check_shop_entry(sid, entry)
+            if sid == FIRST_SHOP and not new["shops"][sid]["unlocked"]:
+                raise RejectedAction(f"{SHOPS[sid]['name']} is open from the start and stays open.")
+        # an employee needs the place he works on: those whose place is gone are dismissed
+        new["employees"] = [e for e in new["employees"]
+                            if new["shops"][e["shop"]]["unlocked"]
+                            and e["place"] <= new["shops"][e["shop"]]["staff_places"]]
+    if "player" in patch:
+        new["player"] = _check_player(patch["player"])
+    # the storeroom limit is per shop: check it for the stock as a whole
+    touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
+               if pid in shop_product_ids(sid)}
+    for sid in touched:
+        if sum(new["stock"][p] for p in shop_product_ids(sid)) > SHOPS[sid]["storage"]:
+            raise RejectedAction(f"The {SHOPS[sid]['name']} storeroom holds at most "
+                                 f"{SHOPS[sid]['storage']} units.")
     return new
 
 
