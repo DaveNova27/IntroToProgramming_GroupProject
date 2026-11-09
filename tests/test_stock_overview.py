@@ -8,7 +8,8 @@ import logic
 def example_state():
     """12 Coffees at €2, 3 Cakes at €9 (above 2x reference), no Bagels."""
     # a run starts with the coffee only: cake and bagel come from the window (shop-unlock)
-    state = logic.buy_upgrade(logic.new_state(), "cafe", "cake")
+    state = logic.set_day_override(logic.new_state(), "storm")  # a normal day for the Cafe (pricing, group A)
+    state = logic.buy_upgrade(state, "cafe", "cake")
     state = logic.buy_upgrade(state, "cafe", "bagel")
     state = logic.buy(state, "coffee", 12)
     state = logic.buy(state, "cake", 3)
@@ -64,7 +65,8 @@ def test_nothing_sells_on_a_complete_run():
     # Bagels at the reference price sell 10 a day. Buy 10 before every day and
     # 20 before the last one: 10 are left after the last day, and at this price
     # they would sell on an open run.
-    state = logic.buy_upgrade(logic.new_state(), "cafe", "bagel")  # shop-unlock
+    state = logic.set_day_override(logic.new_state(), "storm")  # a normal day for the Cafe (pricing, group A)
+    state = logic.buy_upgrade(state, "cafe", "bagel")  # shop-unlock
     for day in range(1, logic.LAST_DAY + 1):
         state = logic.buy(state, "bagel", 20 if day == logic.LAST_DAY else 10)
         state, _ = logic.trade_day(state)
