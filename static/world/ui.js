@@ -25,6 +25,8 @@ let wakeAt = () => {};
 // Kept only here, in the browser: it decides no rule, and after a reload it is simply morning.
 let evening = false;
 let fading = false;
+let dawn = false; // while the sun rises after sleeping the clock runs back, the display counts 05:00 to 09:00
+const DAWN_SHOWN = 300; // 05:00, the time shown when the night ends
 
 // What happened plays one after another, wherever the action came from.
 let chain = Promise.resolve();
@@ -164,7 +166,8 @@ function goToBed() {
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
 
-// Sleep: the screen goes black, the morning comes, the player stands up beside the bed.
+// Sleep: the screen goes black, then the dark night with the player asleep, then the sun rises
+// (the light runs back from dusk to the morning), and the player stands up beside the bed.
 async function sleep() {
   hideOverlay();
   evening = false;
@@ -173,24 +176,60 @@ async function sleep() {
   try {
     await pause(800);
     clockRun++; // stops a clock still running to the evening
-    scene.clock = MORNING;
+    scene.clock = DAY_END; // the dark night
+    dawn = true;
+    renderAll();
+    const fade = $("#night-fade");
+    fade.classList.add("night"); // from black to a deep night, the player asleep (Zzz)
+    fade.classList.remove("on");
+    await pause(1900);
+    fade.classList.add("sunrise"); // the dark lifts as slowly as the sun rises
+    fade.classList.remove("night");
+    await runClock(DAY_END, MORNING, 3600); // the sunrise
     scene.sleeping = false;
     const wake = world.dorm?.wake;
     if (wake) wakeAt(wake);
-    renderAll();
-    await pause(300);
-    $("#night-fade").classList.remove("on");
-    await pause(700);
   } finally {
+    dawn = false;
+    clockRun++;
+    scene.clock = MORNING;
+    scene.sleeping = false;
     fading = false;
-    $("#night-fade").classList.remove("on");
-    renderEvening();
+    $("#night-fade").classList.remove("on", "night", "sunrise");
+    renderAll();
   }
   if (state.finished) showFinal();
+  else showMorning();
+}
+
+// The morning card: the day, the forecast with the tips, the stock and what to do. Everything in
+// it comes from the server's state; the card decides nothing.
+function showMorning() {
+  const o = state.outlook;
+  const forecast = o ? `
+    <p class="forecast"><span class="icon" aria-hidden="true">${weatherIconMarkup(o.id, 22)}</span>
+      <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C <small>(forecast)</small></p>
+    <ul class="tips">${o.tips.map((t) => `
+      <li><b>${esc(t.name)}:</b> ${esc(TIP_TEXT[t.advice]?.(t.percent) ?? "")}</li>`).join("")}</ul>` : "";
+  const stock = state.products.map((p) => `${EMOJI[p.id] ?? ""} ${esc(p.name)} ${esc(p.stock)}`).join(" · ");
+  const crews = state.staff?.employees?.length ?? 0;
+  showOverlay(`
+    <p class="eyebrow">Good morning · Day ${esc(state.day)} of ${esc(state.last_day)}</p>
+    <p class="big">☀ ${esc(state.day)}</p>
+    <p class="note">Cash ${fmt(state.cash)} · in stock: ${stock}</p>
+    <div class="evening-report">${forecast}</div>
+    <ol class="todo">
+      <li>Buy stock with the forecast in mind (<b>Stock</b>).</li>
+      <li>Check your prices (<b>Prices</b>).</li>
+      <li>Open the day, then start your shift (<b>Shift</b>)${crews ? "" : ": without a shift or staff nothing is sold"}.</li>
+    </ol>
+    <div class="actions"><button class="btn" type="button" data-dismiss>Let's go</button></div>`);
 }
 
 export function updateClock() {
-  const minutes = Math.floor(scene.clock);
+  const minutes = Math.floor(dawn
+    ? DAWN_SHOWN + ((DAY_END - scene.clock) / (DAY_END - MORNING)) * (MORNING - DAWN_SHOWN)
+    : scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   const el = $("#stat-time");
   if (el.textContent !== text) el.textContent = text;
@@ -847,7 +886,39 @@ async function playDay(after) {
 async function openDay() {
   if (evening) return walkHome();
   if (animating || state.finished) return;
+  if (state.shift) {
+    const warning = endDayWarning();
+    if (warning) return askEndDay(warning);
+  }
   return shiftAction(state.shift ? "/api/shift/skip" : "/api/day/open", {});
+}
+
+// Ending a day early lets the rest pass without the player serving (skip_shift on the server).
+// Ask first when that costs sales: nobody works today, or the player's own shift still runs.
+// Only a question in the browser; the server decides the skip as before.
+function endDayWarning() {
+  const sh = state.shift;
+  if (!sh) return "";
+  if (!sh.shop && !(sh.crews?.length)) {
+    return "Nobody works today: no shift has started and no staff are on duty. If you end the day now, nothing is sold.";
+  }
+  if (sh.shop && !sh.over && !sh.staffed) { // a staffed shift runs on without the player
+    const name = state.shops.find((shop) => shop.id === sh.shop)?.name ?? "shop";
+    return `Your shift in the ${name} is still running. If you end the day now, the customers still to come are lost.`;
+  }
+  return "";
+}
+
+function askEndDay(text) {
+  $("#end-day-text").textContent = text;
+  const dialog = $("#end-day-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+}
+
+function endDayConfirmed() {
+  if (!state.shift || animating) return;
+  return shiftAction("/api/shift/skip", {});
 }
 
 // The dashboard did something: its own screen already shows the numbers.
@@ -1005,7 +1076,7 @@ function setMode(mode) {
 
 // while a card or dialog is open, the figure stays where it is
 export function inputBlocked() {
-  return !$("#overlay").hidden || $("#new-run-dialog").open || scene.sleeping || fading;
+  return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || scene.sleeping || fading;
 }
 
 export function initUi(firstState, actions) {
@@ -1028,6 +1099,9 @@ export function initUi(firstState, actions) {
   $("#btn-new-run").addEventListener("click", askNewRun);
   $("#btn-go-home").addEventListener("click", walkHome);
   $("#btn-skip-walk").addEventListener("click", skipWalk);
+  $("#end-day-dialog").addEventListener("close", (e) => {
+    if (e.target.returnValue === "confirm") endDayConfirmed();
+  });
   window.addEventListener("message", (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
     const msg = e.data || {};

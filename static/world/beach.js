@@ -20,7 +20,7 @@ import {
   drawWorldLabel,
   mixColor,
 } from "./primitives.js";
-import { ctx, isoPoint, reducedMotion, scene, world } from "./scene.js";
+import { ctx, isoPoint, reducedMotion, scene, wingIsOpen, world } from "./scene.js";
 
 const TEAL = "#31545b";
 const AQUA = "#64cbc8";
@@ -1693,6 +1693,11 @@ function drawDormFront(t, amount) {
   const lamp = isoPoint(doorEnd - 0.3, front + 0.1, 38);
   dot(lamp, 3, amount > 0.1 ? "#ffe9a8" : "#eee2b8");
   if (amount > 0.05) glow(doorEnd - 0.3, front + 0.4, 36, 90, amount);
+  // the lamp in the room, seen while its roof is gone: on in the evening, off while the player sleeps
+  // (spec day-cycle)
+  if (amount > 0.05 && !scene.sleeping && wingIsOpen("dorm")) {
+    glow(part.x + part.w / 2, part.y + part.h / 2, 8, 150, amount * 0.9);
+  }
 }
 
 // the balcony on the Dorm's east wall: a white ledge, a glass rail, pots

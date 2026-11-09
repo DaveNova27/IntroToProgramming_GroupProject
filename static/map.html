@@ -95,6 +95,17 @@
     </form>
   </dialog>
 
+  <dialog id="end-day-dialog" class="dialog" aria-labelledby="end-day-title">
+    <form method="dialog">
+      <h2 id="end-day-title">End the day now?</h2>
+      <p id="end-day-text"></p>
+      <div class="dialog-actions">
+        <button class="btn ghost" value="cancel" autofocus>Keep playing</button>
+        <button class="btn danger" value="confirm">End the day</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
   <script src="/static/common.js"></script>

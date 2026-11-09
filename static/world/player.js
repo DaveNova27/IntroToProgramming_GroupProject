@@ -3,7 +3,7 @@
 
 import { drawPersonFigure } from "./people.js";
 import { drawRaisedSlab } from "./primitives.js";
-import { ctx, isoPoint, scene, world } from "./scene.js";
+import { ctx, isoPoint, reducedMotion, scene, world } from "./scene.js";
 
 const bedOf = () => world.dorm?.interior.solid.find((item) => item.id === "dorm-bed");
 
@@ -21,6 +21,27 @@ function drawSleeper(t, bed) {
   // the blanket pulled up to the chest, in the colours of the bed's blanket (rooms.js)
   const top = bed.y + 0.95;
   drawRaisedSlab(bed.x + 0.04, top, bed.w - 0.08, bed.y + bed.h - top - 0.01, 25, 4, "#ff8a6e", "#c25a42", "#e06d52");
+  drawSnore(t, isoPoint(x, bed.y + 0.5, 36));
+}
+
+// three Z rising from the pillow and fading, one after the other (still with reduced motion)
+function drawSnore(t, head) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#f4efe6";
+  ctx.strokeStyle = "rgba(23,55,67,.85)";
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = "round";
+  for (let i = 0; i < 3; i++) {
+    const k = reducedMotion ? i / 3 : ((t / 2400 + i / 3) % 1); // 0 just out, 1 gone
+    ctx.globalAlpha = Math.sin(Math.PI * Math.min(1, k * 1.1));
+    ctx.font = `800 ${8 + k * 9}px Menlo, Consolas, monospace`;
+    const x = head.x + 6 + k * 22 + Math.sin(k * 6 + i) * 2;
+    const y = head.y - 6 - k * 34;
+    ctx.strokeText("z", x, y);
+    ctx.fillText("z", x, y);
+  }
+  ctx.restore();
 }
 
 export function drawPlayer(t) {

@@ -88,6 +88,13 @@ def test_the_evening_hint_offers_go_home_and_skip_the_walk():
     assert 'id="btn-go-home"' in page and 'id="btn-skip-walk"' in page
 
 
+def test_ending_a_day_early_asks_first_and_then_sends_the_skip_that_exists():
+    page = (WORLD_JS.parent / "map.html").read_text()
+    assert 'id="end-day-dialog"' in page
+    ui = (WORLD_JS / "ui.js").read_text()
+    assert 'shiftAction("/api/shift/skip", {})' in ui  # the same request as before, no new one
+
+
 def test_the_browser_draws_the_cycle_without_randomness_or_server_calls_from_the_figures():
     for name in ("main.js", "ui.js", "player.js", "people.js"):
         assert "Math.random" not in (WORLD_JS / name).read_text(), name

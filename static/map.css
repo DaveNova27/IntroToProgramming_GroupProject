@@ -205,8 +205,12 @@ p { margin: 0; }
 .evening-hint .btn:hover { background: #ffe07d; }
 .evening-hint .btn.skip { background: transparent; color: var(--on-panel); box-shadow: inset 0 0 0 1px rgba(255, 212, 84, 0.5); }
 .evening-hint .btn.skip:hover { background: rgba(255, 212, 84, 0.15); }
+.card-pop .todo { margin: 12px 0 4px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.card-pop .forecast small { color: var(--ink-soft); font-size: 11px; }
 .night-fade { position: absolute; inset: 0; z-index: 9; background: #03141a; opacity: 0; pointer-events: none; transition: opacity 0.7s ease; }
 .night-fade.on { opacity: 1; pointer-events: auto; }
+.night-fade.night { opacity: 0.55; pointer-events: auto; }
+.night-fade.sunrise { pointer-events: auto; transition: opacity 3.6s ease-in; }
 
 /* ---- toolbar ------------------------------------------------------------- */
 .toolbar {

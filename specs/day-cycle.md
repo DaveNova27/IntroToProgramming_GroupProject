@@ -31,8 +31,21 @@ one ended. After this spec:
 5. **Going to bed.** At the bed the player **lies down** on it (a new pose "lie" of the
    person figure) and the panel shows the day summary and the evening report of
    `outlook` (the same overlay as today). Its button is "Sleep".
-6. **Sleep.** The screen fades to black and back, the clock is set to the morning, and the
-   player stands up beside the bed: step 1 of the next day.
+6. **Sleep.** The screen goes black, then shows the dark night with the player asleep (a "z z
+   z" rises from the pillow, the lamp in the room is off). Then the sun rises: the light runs
+   from dusk back to the morning while the display counts 05:00 to 09:00, and the extra dark
+   lifts with it. The player stands up beside the bed: step 1 of the next day.
+7. **Good morning.** A card shows the day, the cash, the stock, the forecast with its tips
+   (`outlook`) and three things to do: buy stock, check prices, open the day and start the
+   shift. "Let's go" closes it. Not after the last day (the final result comes instead).
+
+### Ending a day early asks first
+
+Added by Christopher on 2026-11-09. "End the day" at the bed and "Skip day" in the toolbar
+first ask "End the day now?" when it costs sales: nobody works today (no shift started and
+no staff on duty), or the player's own shift still runs. "Keep playing" changes nothing;
+"End the day" sends the same `/api/shift/skip` as before. A question in the browser only:
+the server decides the skip as before.
 
 The server decides no rule from the position. Every step is a request that already
 exists; the Dorm is only the way to reach it. The dashboard keeps its own buttons and its
