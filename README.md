@@ -33,7 +33,7 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 
 ## Working in the group
 
-1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 3, open specs) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
+1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 4.1, open specs) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
 2. Create a branch named after the spec, e.g. `day-context`, from an up-to-date `main`. Never commit a feature to `main` directly.
 3. Write `specs/<name>.md` (What, Out of scope, Done when), then build only that.
 4. Run `uv run pytest` before every push. Never edit, delete or skip anything in `tests/`; add new test files for your spec. If your spec changes data that an old test names on purpose, you may confirm that change yourself (rules in `AGENTS.md`).

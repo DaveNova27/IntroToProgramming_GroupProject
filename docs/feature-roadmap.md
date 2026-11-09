@@ -11,7 +11,7 @@ shop, the weather, the forecast, staff and the editor mode are built and merged.
 work is now the price logic, walking through the shift, popularity, events, the looks
 (`shop-art`, `nova-design`, `weather-visuals`), guests, badges, outfits, the demo and the
 polish. New in the notes of 2026-11-09: a day flow with a storage computer and a truck
-(section 3, `warehouse` and `day-cycle`).
+(section 4.2, `warehouse` and `day-cycle`).
 
 # Part A: Plan and state
 
@@ -32,7 +32,7 @@ and serves a queue of customers. Skipping lets the rest of the day pass without 
 does not work earns nothing. Employees (refiller, seller; levels 1 to 3; wage per day) work on
 the server in every shop. Before the day opens only a forecast of the weather is shown; the
 real weather appears once the day is open. The evening report shows tomorrow's forecast
-(wrong about 20 % of the time) and a tip per shop. Stock is still bought on the dashboard.
+(wrong about 20 % of the time) and a tip per shop. Stock is still bought directly, on the dashboard and in the order panel on the campus page.
 The price logic is still the placeholder of the solo project (10, 5 or 0 customers).
 
 ### What is built (merged)
@@ -81,22 +81,64 @@ management overlays, guest needs, progression levels, showcase editor.
 | Guests | Own feature, decided later. |
 | Review | An AI reviews every pull request; merging needs the passing `Tests` check. |
 | Test changes | The owner of a PR may confirm a test change for their own PR, only when the old test names data the spec changes on purpose (see `AGENTS.md`). |
-| Security | Every spec follows section 4a and the per spec list in 4b. |
+| Security | Every spec follows section 3a and the per spec list in 3b. |
 | AI use | Required by the course. Felix' code and art are AI made and may be used. Credit is in the README. |
 | Demo mode | Built last, after the game is complete. The team then chooses which features appear. The editor mode is the base. |
 
-## 3. Specs
+## 3. Security
+
+### 3a. Security: rules for every spec
+
+Add these to every spec's "Done when" and to the AI review. Detailed list per spec in 3b.
+
+1. The server decides every rule. The browser only shows and previews. Money, stock, unlocking, levelling up, hiring, ordering: always re-checked on the server.
+2. Every endpoint takes JSON and validates all fields: type, whole numbers, finite, in range, ids from a fixed list (whitelist). Anything else is a `RejectedAction` and changes nothing.
+3. Money stays integer cents. A rejected action changes no saved data. One lock per change (load, rule, save).
+4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
+5. No secrets in the repo. Pin dependencies. Nothing from outside the app: no CDN, no web fonts.
+6. Error answers contain only our own rule messages, never paths or stack traces.
+7. Anything that sets the state directly (editor mode, demo mode) works only locally with an explicit config switch. Never on a public deployment.
+8. If the app is deployed: HTTPS, a production server, a session per player, rate limit, security headers (CSP, X-Content-Type-Options, X-Frame-Options).
+9. Tests for the security part of each spec: a crafted bad request is refused and the saved state stays identical.
+
+Known weak spot (from the README): a played day is paced by the browser, one tick request a
+second counted by the server, so a script can play a day in an instant. Only the player's own
+run is affected. Revisit it before any deployment.
+
+### 3b. Security: what to watch per spec
+
+| Spec | Watch out for |
+|---|---|
+| `shop-unlock`, `shop-process`, `shop-skip` | Built. The server checks cash, shop id and level, storeroom, counter space and queue. Locked shops and a sale after the day ended are refused. Keep the tests for the locked case. |
+| `staff` | Built. Wages in integer cents, cash never negative, hiring limit from the level, ids validated. Employees run on the server. |
+| `editor-mode` | Built. Active only with `CT_EDITOR=1` and only for requests from this computer. One validated state patch. Must stay off on a public deployment. |
+| `pricing` | Prices come from the server. Weather and event factors are integers. A crafted price or demand never changes more than the rule allows. |
+| `shop-walk` | Every refill and sale is a request the server checks. No rule depends on the position the browser sends. |
+| `day-cycle` | The end of the day is a plain request; the position is never trusted. |
+| `warehouse` | Order quantity and total price checked on the server (whole numbers, product id from the list, space in the storage, cash). The delivery time counts server ticks, never the browser clock. Carrying checks the stock that really lies in the storage. A crafted request cannot deliver early or twice. |
+| `shop-art`, `nova-design` | Assets only, drawn in code. Labels through `textContent`. |
+| `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
+| `outlook` | Built. The forecast is made on the server. Known: the API still sends the real weather, only the display hides it. Never expose the seed. |
+| `events-and-disruptions` | Events come from the seed. The browser cannot choose one, only the editor override can. |
+| `weather-visuals` | The browser only reads the weather it may show. No `eval`, no external scripts. |
+| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
+| `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
+| `guests` | Number of guests is capped. Guest data comes only from the server. |
+| `demo-scenarios` | Loading a scenario needs the demo switch and works only on localhost. Validate the whole state shape. Never public. |
+| `final-polish` | Last pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
+
+## 4. Specs
 
 Track: V = visuals, L = logic. Effort: S small, M medium, L large. Every line is one spec,
 one branch, one issue, one pull request.
 
-### 3a. Open specs (in a sensible order)
+### 4.1 Open specs (in a sensible order)
 
 | Spec | Issue | Track | Effort | Depends on | What |
 |---|---|---|---|---|---|
 | `pricing` | #38 | L | M | day-context, shop-process (both done) | Replaces the solo project's demand steps (`customers_for`, `demand`): customers from price, weather, events and later popularity. The weather factors (`WEATHER[..]["demand_percent"]`) are shown and used for the tips but do not change customers yet. This is also what makes staff levels matter. |
 | `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
-| `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Close when `pricing` and the figures for the other shops are in. |
+| `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
 | `popularity` | #13 | L | M | day-context, shop-process | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
@@ -108,7 +150,7 @@ one branch, one issue, one pull request.
 | `demo-scenarios` | #23 | L | M | the features chosen for the demo, editor-mode (done) | Built last. `scenarios.py`, loader, explanation overlay, free mode at the end. |
 | `final-polish` | #24 | V | M | demo-scenarios | Last. Animations, camera, details, last security pass (`/security-review`). |
 
-### 3b. New from the notes of 2026-11-09 (proposal, no issue yet)
+### 4.2 New from the notes of 2026-11-09 (proposal, no issue yet)
 
 The team's notes describe a fuller day. Part of it is built, the rest is two new specs.
 
@@ -131,53 +173,11 @@ dict, bought straight into the storerooms), so tests that call `buy` need change
 mode patches stock; `trade_day` (day without a player) must keep working. Name each test
 change in the spec. The old truck of the three.js map is only a reference for the look.
 
-### 3c. Cleanup (small)
+### 4.3 Cleanup (small)
 
 - `specs/employees.md`, `investments.md`, `multi-business.md` and `net-worth.md` come from the
   first draft (PR #1) and belong to the dropped plan; delete or mark them as replaced.
-- The README still points to "section 7" of the roadmap for the spec list and lists the
-  specs of v2 in "Group project roadmap". Update both when this roadmap is merged (the spec
-  list is section 3, the three rules are B3).
-
-## 4a. Security: rules for every spec
-
-Add these to every spec's "Done when" and to the AI review. Detailed list per spec in 4b.
-
-1. The server decides every rule. The browser only shows and previews. Money, stock, unlocking, levelling up, hiring, ordering: always re-checked on the server.
-2. Every endpoint takes JSON and validates all fields: type, whole numbers, finite, in range, ids from a fixed list (whitelist). Anything else is a `RejectedAction` and changes nothing.
-3. Money stays integer cents. A rejected action changes no saved data. One lock per change (load, rule, save).
-4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
-5. No secrets in the repo. Pin dependencies. Nothing from outside the app: no CDN, no web fonts.
-6. Error answers contain only our own rule messages, never paths or stack traces.
-7. Anything that sets the state directly (editor mode, demo mode) works only locally with an explicit config switch. Never on a public deployment.
-8. If the app is deployed: HTTPS, a production server, a session per player, rate limit, security headers (CSP, X-Content-Type-Options, X-Frame-Options).
-9. Tests for the security part of each spec: a crafted bad request is refused and the saved state stays identical.
-
-Known weak spot (from the README): a played day is paced by the browser, one tick request a
-second counted by the server, so a script can play a day in an instant. Only the player's own
-run is affected. Revisit it before any deployment.
-
-## 4b. Security: what to watch per spec
-
-| Spec | Watch out for |
-|---|---|
-| `shop-unlock`, `shop-process`, `shop-skip` | Built. The server checks cash, shop id and level, storeroom, counter space and queue. Locked shops and a sale after the day ended are refused. Keep the tests for the locked case. |
-| `staff` | Built. Wages in integer cents, cash never negative, hiring limit from the level, ids validated. Employees run on the server. |
-| `editor-mode` | Built. Active only with `CT_EDITOR=1` and only for requests from this computer. One validated state patch. Must stay off on a public deployment. |
-| `pricing` | Prices come from the server. Weather and event factors are integers. A crafted price or demand never changes more than the rule allows. |
-| `shop-walk` | Every refill and sale is a request the server checks. No rule depends on the position the browser sends. |
-| `day-cycle` | The end of the day is a plain request; the position is never trusted. |
-| `warehouse` | Order quantity and total price checked on the server (whole numbers, product id from the list, space in the storage, cash). The delivery time counts server ticks, never the browser clock. Carrying checks the stock that really lies in the storage. A crafted request cannot deliver early or twice. |
-| `shop-art`, `nova-design` | Assets only, drawn in code. Labels through `textContent`. |
-| `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
-| `outlook` | Built. The forecast is made on the server. Known: the API still sends the real weather, only the display hides it. Never expose the seed. |
-| `events-and-disruptions` | Events come from the seed. The browser cannot choose one, only the editor override can. |
-| `weather-visuals` | The browser only reads the weather it may show. No `eval`, no external scripts. |
-| `badges` | Awarded only by the server after a day. No endpoint lets the browser grant a badge. |
-| `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
-| `guests` | Number of guests is capped. Guest data comes only from the server. |
-| `demo-scenarios` | Loading a scenario needs the demo switch and works only on localhost. Validate the whole state shape. Never public. |
-| `final-polish` | Last pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
+- `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
 ## 5. Issue status (2026-11-09)
 
@@ -192,7 +192,7 @@ run is affected. Revisit it before any deployment.
 
 1. `pricing` (#38): it makes customers, weather and staff levels mean something. Everything in the depth phase builds on it. One person alone, it changes `customers_for` and the numbers of the shop tests.
 2. In parallel, small and independent: `badges` (#15), `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16).
-3. Agree on `day-cycle` and `warehouse` (section 3b): write the specs, open the issues, decide the open questions below.
+3. Agree on `day-cycle` and `warehouse` (section 4.2): write the specs, open the issues, decide the open questions below.
 4. `shop-walk` (#40) after `shop-art` has the shop places drawn; `popularity` (#13) after `pricing`.
 5. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
 
@@ -220,7 +220,7 @@ No one is assigned yet. Each spec gets its `specs/<name>.md` in its own PR.
 Built today, in this order:
 
 1. The seed gives the day context: weather with a temperature. Before the day opens only a forecast is shown.
-2. The player buys stock on the dashboard into the storeroom of a shop (planned: ordering and a truck, `warehouse`).
+2. The player buys stock directly into the storeroom of a shop, on the dashboard or in the order panel of the campus page (planned: ordering and a truck, `warehouse`).
 3. The player opens the day (300 ticks). The real weather appears.
 4. The player starts the shift (90 ticks) in the Cafe: carry stock from the storeroom to the counter (20 units), serve the queue. Employees do the same on the server in every shop. Whoever does not work earns nothing; Skip lets the rest of the day pass without a sale.
 5. The day closes into the history: revenue, cost of goods, wages.

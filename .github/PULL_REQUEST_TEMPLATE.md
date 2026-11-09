@@ -14,7 +14,7 @@ Short description. List every file you changed.
 - [ ] Nothing in `tests/` was edited, deleted or skipped (new test files are fine)
 - [ ] Money is integer cents, a rejected action changes no saved data
 - [ ] Randomness comes from the seed, state stays complete and settable
-- [ ] Security rules of the roadmap (4a) and the points for this spec (4b) are done and tested
+- [ ] Security rules of the roadmap (3a) and the points for this spec (3b) are done and tested
 - [ ] If the UI changed: checked in the browser (dashboard and map)
 - [ ] AI code review done (for example `/code-review`), findings fixed or answered below
 
