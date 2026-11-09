@@ -93,6 +93,10 @@ state. One employee per place. `working` is `false` while the wage could not be 
    an open day and a whole shift still fits, the shop's shift starts; later it does not.
    `start_shift` by the player keeps the crews running. Without a second staffed shop the
    state has no `extra` key and nothing changes.
+   **Editor mode (`specs/editor-mode.md`).** Its state patch and day skipping are refused while
+   a day is open, so a crew in `extra` is never patched half way. Lowering a shop there
+   dismisses the employees whose place is gone, in every shop. The editor does not hire: a
+   place set by a patch is hired through `hire`.
 3. **`start_shift`.** Unchanged for a shop with no employees. On a shop with employees it
    is only reached through `open_day`; the shift is the same one.
 4. **Each tick**, after the tick counter went up and before impatient customers leave, in
