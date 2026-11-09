@@ -50,16 +50,17 @@ def test_price_preview_before_open_does_not_depend_on_the_real_weather(tmp_path,
 
 
 def test_open_day_uses_the_real_weather():
-    # once the day is open the real weather counts again (and is shown)
-    for seed in range(1, 200):
-        if logic.make_outlook(seed, 1)["weather"] != logic.make_day_context(seed, 1)["weather"]:
-            break
+    # a seed whose forecast is wrong: once the day is open every shown number is the real one
+    seed = next(sd for sd in range(1, 500)
+                if logic.make_outlook(sd, 1)["weather"] != logic.make_day_context(sd, 1)["weather"])
     state = logic.open_day(_stocked(seed))
     assert logic.known_state(state) is state
-    real = logic.day_context(state)["weather"]
-    assert app.view(state)["weather"]["id"] == real
-    assert any(step["name"] == f"Weather: {logic.WEATHER[real]['name']}" or logic.WEATHER[real]["demand_percent"]["cafe"] == 100
-               for step in app.view(state)["products"][0]["breakdown"]["steps"] + [{"name": ""}])
+    view = app.view(state)
+    assert view["weather"]["id"] == logic.day_context(state)["weather"]
+    for product in view["products"]:
+        assert product["customers"] == logic.customers_today(state, product["id"])
+    assert {l["product"]: l["sells_today"] for l in view["stock_overview"]["lines"]} == {
+        l["product"]: l["sells_today"] for l in logic.stock_overview(state)["lines"]}
 
 
 def test_known_state_leaves_the_saved_state_alone():

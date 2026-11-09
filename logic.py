@@ -619,12 +619,16 @@ def known_state(state):
 
     For showing only (the screens' customers, the overview, the preview); the rules that book
     a day always use the real state. An open day or a finished run returns the state itself."""
-    forecast = None if state.get("shift") is not None else outlook(state)
+    forecast = None if day_is_open(state) else outlook(state)
     if forecast is None:
         return state
-    shown = copy.deepcopy(state)
-    shown["day_override"] = {"weather": forecast["weather"]}
-    return shown
+    # a shallow copy is enough: the readers of the shown numbers copy before they change anything
+    return {**state, "day_override": {"weather": forecast["weather"]}}
+
+
+def day_is_open(state):
+    """True while the day is open (the clock runs). The one place that says so."""
+    return state.get("shift") is not None
 
 
 def set_day_override(state, weather):

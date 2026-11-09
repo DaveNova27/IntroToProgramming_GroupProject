@@ -213,7 +213,7 @@ def view(state):
         "shops": shops_view(state),
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
-        "forecast": None if finished or state["shift"] else logic.trade_day(known)[1],
+        "forecast": None if finished or logic.day_is_open(state) else logic.trade_day(known)[1],
         "weather": weather_view(state),
         "outlook": outlook_view(state),
         "editor": editor_on,
