@@ -128,11 +128,11 @@ def weather_view(state):
     }
 
 
-def view(state):
-    """Everything the dashboard shows, calculated by the rules, never by the browser."""
-    finished = logic.is_finished(state)
-    owned = logic.owned_products(state)
-    products = [{
+def product_view(state, pid, finished):
+    item = logic.CATALOGUE[pid]
+    # why the product has the customers it has today (None once the season is over)
+    breakdown = None if finished else logic.customer_breakdown(state, pid)
+    return {
         "id": pid,
         "name": item["name"],
         "cost": item["cost"],
@@ -140,10 +140,20 @@ def view(state):
         "price": state["prices"][pid],
         "stock": state["stock"][pid],
         "shop": logic.shop_of_product(pid),
-        # why a product has the customers it has today (None once the season is over)
-        "customers": 0 if finished else logic.customers_today(state, pid),
-        "breakdown": None if finished else logic.customer_breakdown(state, pid),
-    } for pid, item in logic.CATALOGUE.items() if pid in owned]
+        "customers": 0 if finished else breakdown["customers"],
+        "breakdown": breakdown,
+    }
+
+
+# Each shop's curve on a neutral day, for drawing the meter. Constant, so worked out once.
+PRICE_CURVES = {sid: logic.shop_price_curve(sid) for sid in logic.SHOPS}
+
+
+def view(state):
+    """Everything the dashboard shows, calculated by the rules, never by the browser."""
+    finished = logic.is_finished(state)
+    owned = logic.owned_products(state)
+    products = [product_view(state, pid, finished) for pid in logic.CATALOGUE if pid in owned]
     return {
         "day": state["day"],
         "last_day": logic.LAST_DAY,
@@ -167,8 +177,7 @@ def view(state):
         "player": state["player"],
         "base_customers": logic.BASE_CUSTOMERS,
         "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
-        # each shop's curve on a neutral day, for drawing the meter
-        "price_curves": {sid: logic.shop_price_curve(sid) for sid in logic.SHOPS},
+        "price_curves": PRICE_CURVES,
     }
 
 

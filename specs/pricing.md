@@ -233,6 +233,14 @@ both read `demand_levels`); after this spec neither copy exists.
    - `test_full_run.py` (2): `test_full_run_gives_the_final_result`,
      `test_complete_run_survives_a_restart`
 
+   As built, where a test file has a shared setup helper the storm line sits in that helper, not in
+   each test: `stocked()` in `test_shop_process.py`, `started()` and `opened()` in `test_shop_skip.py`,
+   `example_state()` in `test_stock_overview.py`, `complete_run()` in `test_full_run.py`. So every test
+   that uses one of them now also runs on a storm day (about 24, 13, 3 and 6 uses): they all still
+   pass, none of them is about the weather, and the Cafe at 100 % behaves as before. The two
+   tests of `test_first_feature.py` and the Cafe and Merchandise rows of `test_shop_scenarios.py`
+   have the line in the test itself.
+
    Alternative for group A: change the expected numbers to the heat numbers instead (cafe 60 %, so
    6 instead of 10 customers). I advise against it: the tests would then be about heat without
    saying so.

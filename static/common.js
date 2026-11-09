@@ -129,6 +129,23 @@ function setCurveMarker(root, pricePercent) {
   }
 }
 
+// One live preview per price row (a dashboard card or a campus panel row): wait a moment after
+// typing, ask the server, hand the answer to onAnswer. Typing again, an empty or invalid value,
+// or saving cancels the one that is still waiting, so a late answer never overwrites the row.
+function cancelPricePreview(row) {
+  row.dataset.ask = String((Number(row.dataset.ask) || 0) + 1);
+  clearTimeout(row.previewTimer);
+}
+
+function schedulePricePreview(row, product, text, onAnswer) {
+  cancelPricePreview(row);
+  const ask = row.dataset.ask;
+  row.previewTimer = setTimeout(async () => {
+    const b = await fetchPricePreview(product, text);
+    if (b && row.isConnected && row.dataset.ask === ask) onAnswer(b);
+  }, 200);
+}
+
 // What a typed price would bring, asked from the server (nothing is saved). null if refused.
 async function fetchPricePreview(product, price) {
   try {

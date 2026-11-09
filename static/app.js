@@ -239,22 +239,17 @@ function previewPrice(card) {
   const p = state.products.find((x) => x.id === card.dataset.product);
   const text = card.querySelector('[name="price"]').value.trim().replace(",", ".");
   const value = Number(text);
-  if (text === "" || !Number.isFinite(value) || value <= 0) return;
+  if (text === "" || !Number.isFinite(value) || value <= 0) return cancelPricePreview(card);
   const cents = Math.round(value * 100);
   setCurveMarker(card, pricePercentOf(cents, p.ref_price));
   if (state.finished) return;
   const unsaved = cents !== p.price;
-  const ask = (Number(card.dataset.ask) || 0) + 1;
-  card.dataset.ask = ask;
-  clearTimeout(card.previewTimer);
-  card.previewTimer = setTimeout(async () => {
-    const b = await fetchPricePreview(p.id, text);
-    if (!b || !card.isConnected || Number(card.dataset.ask) !== ask) return;
+  schedulePricePreview(card, p.id, text, (b) => {
     card.querySelector(".demand-text").innerHTML =
       `${unsaved ? '<span class="unsaved">unsaved</span> · ' : ""}${customersText(b.customers)}`;
     const body = card.querySelector(".why-body");
     if (body) body.innerHTML = breakdownHtml(b, state.segments);
-  }, 200);
+  });
 }
 
 // Typed values per product: the quantity always, the price only if it was

@@ -212,7 +212,7 @@ def _check_product(state, product):
 
 def _check_storeroom_space(state, product, quantity):
     """The storeroom of the product's shop holds at most SHOPS[shop]["storage"] units."""
-    shop = next(sid for sid in SHOPS if product in shop_product_ids(sid))
+    shop = shop_of_product(product)
     held = sum(state["stock"][pid] for pid in shop_product_ids(shop))
     room = SHOPS[shop]["storage"] - held
     if quantity > room:

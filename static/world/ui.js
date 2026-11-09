@@ -516,19 +516,14 @@ function wirePanel() {
     const p = product(form.dataset.priceForm);
     const text = e.target.value.trim().replace(",", ".");
     const value = Number(text);
-    if (text === "" || !Number.isFinite(value) || value <= 0 || state.finished) return;
+    if (text === "" || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
     const unsaved = Math.round(value * 100) !== p.price;
-    const ask = (Number(form.dataset.ask) || 0) + 1;
-    form.dataset.ask = ask;
-    clearTimeout(form.previewTimer);
-    form.previewTimer = setTimeout(async () => {
-      const b = await fetchPricePreview(p.id, text);
-      if (!b || !form.isConnected || Number(form.dataset.ask) !== ask) return;
+    schedulePricePreview(form, p.id, text, (b) => {
       form.querySelector("[data-demand]").innerHTML =
         `${customersText(b.customers)}${unsaved ? " · not saved yet" : ""}`;
       const body = form.querySelector(".why-body");
       if (body) body.innerHTML = breakdownHtml(b, state.segments);
-    }, 200);
+    });
   });
   // remember which "why" lines are open (the toggle event does not bubble, so capture it)
   panel.addEventListener("toggle", (e) => {
@@ -582,6 +577,7 @@ async function shopAction(path, body) {
 
 async function savePrice(form) {
   const pid = form.dataset.priceForm;
+  cancelPricePreview(form); // a preview still waiting must not overwrite the saved state
   const data = await send("/api/price", { product: pid, price: form.price.value });
   if (!data) return;
   state = data.state;
