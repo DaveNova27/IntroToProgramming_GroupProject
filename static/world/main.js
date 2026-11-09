@@ -23,6 +23,8 @@ import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
 
 const CLICK_REACH = 1.35; // tiles around a door or desk that count as clicking it
+const MAX_FRAME = 0.1; // seconds: the longest frame the world follows in real time
+const MAX_STEP = 0.04; // seconds: the longest step of walking and collision
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
 const keys = new Set();
@@ -297,10 +299,11 @@ function renderHint() {
 }
 
 function loop(t) {
-  const dt = Math.min((t - lastTime) / 1000 || 0, 0.04);
+  const dt = Math.min((t - lastTime) / 1000 || 0, MAX_FRAME);
   lastTime = t;
   scene.time = t;
-  walk(dt);
+  // a slow frame advances the world by its real time, walked in small steps so the collision holds
+  for (let left = dt; left > 0; left -= MAX_STEP) walk(Math.min(left, MAX_STEP));
   updateRoof(dt);
   updateWalkers(dt);
   moveCamera(dt);
