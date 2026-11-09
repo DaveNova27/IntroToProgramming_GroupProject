@@ -277,6 +277,8 @@ function renderAll() {
   if (panelMode) renderPanel();
   syncShiftTimer();
   followDay();
+  noticeBadges();
+  placeBadge();
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -984,10 +986,23 @@ function showDaySummary(result) {
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
-    </table>${eveningReport()}
+    </table>${newBadges(result)}${eveningReport()}
     <div class="actions">
       <button class="btn" type="button" data-next>${state.finished ? "Sleep · see the final result" : "Sleep"}</button>
     </div>`);
+}
+
+// Every badge earned on this day (specs/badges.md), also those that popped up during it, as
+// medals. The list comes from the server (result.badges).
+function newBadges(result) {
+  const ids = result.badges || [];
+  if (!ids.length) return "";
+  const badges = ids.map((id) => (state.badges || []).find((b) => b.id === id)).filter(Boolean);
+  return `
+    <div class="evening-report day-badges">
+      <p class="eyebrow">Badges today · ${badges.length}</p>
+      ${medalGridHtml(badges)}
+    </div>`;
 }
 
 // The forecast for the next day and one tip per open shop (outlook). Shown in the day
@@ -1018,11 +1033,157 @@ function showFinal() {
     <p class="eyebrow">Run complete · ${state.history.length} days</p>
     <p class="big ${gain > 0 ? "up" : gain < 0 ? "down" : ""}">${fmtSigned(gain)}</p>
     <p class="note">overall result = final cash ${fmt(state.cash)} + stock at cost ${fmt(state.stock_value)} − ${fmt(state.starting_cash)} start</p>
+    <div class="evening-report final-badges">
+      <p class="eyebrow">Your badges · ${earnedBadges().length} / ${(state.badges || []).length}</p>
+      ${medalGridHtml(state.badges)}
+    </div>
     <div class="actions">
       <button class="btn" type="button" data-new-run>Start a new run</button>
       <button class="btn ghost" type="button" data-dashboard>Dashboard</button>
     </div>
     <div class="actions"><button class="btn ghost" type="button" data-dismiss>Look around the campus</button></div>`);
+}
+
+// ---- badges (specs/badges.md) ---------------------------------------------------------------
+// The server gives a badge the moment it is reached. Every badge that shows up in the state and
+// was not earned before appears as a card at the top left, one after the other, and leaves by
+// itself: the game keeps running, nothing has to be clicked. The page decides nothing.
+const BADGE_SHOW_MS = 4500;
+const BADGE_LEAVE_MS = 260;
+const SPARK_COLORS = ["#f2bf2e", "#e86f55", "#2a78d6", "#1baf7a", "#d9487b", "#bce65f"];
+const SPARKS = 12;
+let seenBadges = null; // the ids earned when the state was last looked at
+const badgeQueue = [];
+let badgeTimer = null;
+let badgeShowing = false;
+let badgeOnScreen = null; // the id of the badge whose card is shown now
+
+const earnedBadges = () => (state.badges || []).filter((b) => b.day !== null);
+
+function noticeBadges() {
+  const earned = earnedBadges();
+  const ids = new Set(earned.map((b) => b.id));
+  if (seenBadges) {
+    for (const b of earned) if (!seenBadges.has(b.id) && !badgeQueue.includes(b.id)) badgeQueue.push(b.id);
+  }
+  seenBadges = ids;
+  // a badge that is gone again (a new run, an earlier day set in the editor) is not shown,
+  // and its card goes at once if it is on screen
+  for (let i = badgeQueue.length - 1; i >= 0; i--) if (!ids.has(badgeQueue[i])) badgeQueue.splice(i, 1);
+  if (badgeOnScreen && !ids.has(badgeOnScreen)) endBadges();
+  // in the small preview on the dashboard the badge waits until the campus is shown again
+  if (!scene.preview && !badgeShowing && badgeQueue.length) showNextBadge();
+}
+
+// Sparks fly out of the medal: direction and colour from the piece's number, no randomness.
+function sparksHtml() {
+  let pieces = "";
+  for (let i = 0; i < SPARKS; i++) {
+    const angle = (i / SPARKS) * Math.PI * 2;
+    const reach = 30 + (i % 3) * 7;
+    const style = [
+      `--tx:${Math.round(Math.cos(angle) * reach)}px`,
+      `--ty:${Math.round(Math.sin(angle) * reach)}px`,
+      `--r:${(i * 67) % 360}deg`,
+      `--delay:${0.1 + (i % 4) * 0.04}s`,
+      `--c:${SPARK_COLORS[i % SPARK_COLORS.length]}`,
+    ].join(";");
+    pieces += `<i style="${style}"></i>`;
+  }
+  return `<span class="sparks" aria-hidden="true">${pieces}</span>`;
+}
+
+// Below whatever stands at the top left: the stock card (wide screens) or the place label
+// (phones), never on top of it.
+function badgeTop() {
+  const bar = $(".topbar")?.getBoundingClientRect().bottom ?? 56;
+  const bottoms = [".hud-stock", ".zone-banner"]
+    .map((sel) => $(sel))
+    .filter((el) => el && el.getClientRects().length)
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.left < 60 && r.top < bar + 80)
+    .map((r) => r.bottom);
+  return Math.round(Math.max(bar, ...bottoms) + 8);
+}
+
+function showNextBadge() {
+  const badge = (state.badges || []).find((b) => b.id === badgeQueue[0]);
+  badgeQueue.shift();
+  if (!badge) return badgeQueue.length ? showNextBadge() : endBadges();
+  badgeShowing = true;
+  badgeOnScreen = badge.id;
+  const area = $("#badge-pop");
+  area.innerHTML = `
+    <div class="badge-toast">
+      <div class="badge-toast-medal">${medalHtml(badge)}${sparksHtml()}</div>
+      <div class="badge-toast-text">
+        <p class="eyebrow">Badge earned</p>
+        <p class="name">${esc(badge.name)}</p>
+        <p class="meta">${esc(TIER_NAME[badge.tier] ?? "")} · ${earnedBadges().length} / ${state.badges.length}</p>
+        <p class="what">${esc(badge.text)}</p>
+      </div>
+      <button class="close" type="button" aria-label="Close" title="Close">×</button>
+      <span class="timer" style="--show:${BADGE_SHOW_MS}ms" aria-hidden="true"></span>
+    </div>`;
+  area.hidden = false;
+  placeBadge();
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(leaveBadge, BADGE_SHOW_MS);
+}
+
+// The short messages (toasts) stand at the top centre. While a badge card is shown they move
+// into the space right of it, or below it where that space is too narrow (phones), so the two
+// never overlap. Only positions are set here (badges.css), nothing else.
+const TOAST_ROOM = 240; // px a toast needs beside the card
+
+// Where the card stands and where the toasts go. Run again whenever what is above it may have
+// changed size: every redraw (the stock card gains rows), a fold of the stock card, a resize.
+function placeBadge() {
+  if (!badgeShowing) return;
+  const area = $("#badge-pop");
+  const top = `${badgeTop()}px`;
+  if (area.style.top !== top) area.style.top = top;
+  makeRoomForBadge(area);
+}
+
+function makeRoomForBadge(area) {
+  const box = area.getBoundingClientRect();
+  const body = document.body;
+  body.style.setProperty("--badge-right", `${Math.round(box.right)}px`);
+  body.style.setProperty("--badge-bottom", `${Math.round(box.bottom)}px`);
+  const beside = window.innerWidth - box.right >= TOAST_ROOM;
+  body.classList.toggle("badge-beside", beside);
+  body.classList.toggle("badge-below", !beside);
+}
+
+// The card slides out; the next badge follows, or the corner is empty again.
+function leaveBadge() {
+  const card = $("#badge-pop .badge-toast");
+  if (card?.classList.contains("leaving")) return; // already on its way out: keep its timer
+  clearTimeout(badgeTimer);
+  if (!card) return endBadges();
+  card.classList.add("leaving");
+  badgeTimer = setTimeout(() => {
+    if (badgeQueue.length && !scene.preview) showNextBadge();
+    else endBadges();
+  }, reducedMotion ? 0 : BADGE_LEAVE_MS);
+}
+
+function endBadges() {
+  clearTimeout(badgeTimer);
+  badgeShowing = false;
+  badgeOnScreen = null;
+  document.body.classList.remove("badge-beside", "badge-below");
+  const area = $("#badge-pop");
+  area.hidden = true;
+  area.innerHTML = "";
+}
+
+function wireBadgePop() {
+  $("#badge-pop").addEventListener("click", (e) => {
+    if (e.target.closest(".close")) leaveBadge();
+  });
+  window.addEventListener("resize", placeBadge);
 }
 
 function askNewRun() {
@@ -1073,6 +1234,7 @@ function setMode(mode) {
   scene.preview = mode === "preview";
   document.body.classList.toggle("preview", scene.preview);
   if (scene.preview) closePanel();
+  else noticeBadges(); // a badge earned while the dashboard was in front pops up now
 }
 
 // while a card or dialog is open, the figure stays where it is
@@ -1100,11 +1262,13 @@ function wireStockToggle() {
     folded = !$("#hud-stock-card").classList.contains("collapsed");
     setStockFolded(folded);
     try { localStorage.setItem(STOCK_FOLDED_KEY, folded ? "1" : "0"); } catch { /* not remembered */ }
+    placeBadge(); // the badge card stands below the stock card
   });
 }
 
 export function initUi(firstState, actions) {
   state = firstState;
+  seenBadges = new Set(earnedBadges().map((b) => b.id)); // badges from before the page loaded do not pop up
   placePlayer = actions.placePlayer;
   goHome = actions.goHome;
   jumpHome = actions.jumpHome;
@@ -1112,6 +1276,7 @@ export function initUi(firstState, actions) {
   wirePanel();
   wireEditor();
   wireOverlay();
+  wireBadgePop();
   wireStockToggle();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
