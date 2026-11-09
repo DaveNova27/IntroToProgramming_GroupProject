@@ -90,11 +90,11 @@ def test_a_crew_uses_the_shared_stock_and_counter_units_return_to_it():
 def test_stock_value_counts_the_counter_of_every_crew():
     state = logic.open_day(two_shops())
     value = logic.stock_value(state)
-    for _ in range(5):
+    for _ in range(3):  # before the first customer arrives: nothing is sold, units only move
         state, _ = logic.tick(state)
-    assert logic.stock_value(state) <= value  # carrying to a counter loses nothing, only sales do
-    assert state["shift"]["extra"]["beach_cafe"]["counter"]["beer"] >= 0
-
+    carried = sum(state["shift"]["extra"]["beach_cafe"]["counter"].values())
+    assert carried > 0 and state["shift"]["sold"]["coffee"] == 0
+    assert logic.stock_value(state) == value  # units on a counter still count
 
 def test_hiring_later_on_the_open_day_starts_that_shops_crew():
     state = logic.open_day(two_shops(beach_staff=False))

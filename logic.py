@@ -363,11 +363,12 @@ def buy_upgrade(state, shop, item):
         new_entry["products"].append(offer["product"])
     else:
         new_entry["staff_places"] += 1
-        # the bought place comes with its employee (only where staff can work, see hire)
-        if shop in STAFF_SHOPS and offer["place"] <= len(SHOPS[shop]["jobs"]):
+        # the bought place comes with its employee (if the shop has a job for that place)
+        if offer["place"] <= len(SHOPS[shop]["jobs"]):
             _add_employee(new, shop, offer["place"])
     new_entry["level"] += 1
-    return _open_staffed_shift(new)
+    # only a new employee can start a crew on an open day, not a new product
+    return _open_staffed_shift(new) if offer["kind"] == "staff" else new
 
 
 def _add_employee(new, shop, place):
@@ -406,8 +407,6 @@ def hire(state, shop, place):
     if is_finished(state):
         raise RejectedAction("The run is complete. Nobody can be hired.")
     name = SHOPS[shop]["name"]
-    if shop not in STAFF_SHOPS:
-        raise RejectedAction(f"Nobody can work in the {name} yet.")
     if not state["shops"][shop]["unlocked"]:
         raise RejectedAction(f"The {name} is not unlocked.")
     _check_whole(place, "The place")
@@ -1010,20 +1009,13 @@ def _close_shift(new):
     shift["lost"] += len(shift["queue"])  # whoever is still in the queue goes home
     shift["queue"] = []
     lines = []
-    for pid, sold in shift["sold"].items():
-        item = CATALOGUE[pid]
-        price = new["prices"][pid]
-        lines.append({
-            "product": pid, "price": price, "demand": shift["planned"][pid],
-            "sold": sold, "revenue": sold * price, "cogs": sold * item["cost"],
-            "gross_profit": sold * (price - item["cost"]),
-        })
-        new["stock"][pid] += shift["counter"][pid]
     ran = {shift["shop"]} if shift["shop"] else set()
-    lost = shift["lost"]
-    for shop, sub in sorted(shift.get("extra", {}).items()):  # the other staffed shops
-        ran.add(shop)
-        lost += sub["lost"] + len(sub["queue"])
+    lost = 0
+    # the player's shift (or the open day) and the other staffed shops, booked the same way
+    for sub in [shift, *(shift["extra"][sid] for sid in sorted(shift.get("extra", {})))]:
+        if sub is not shift:
+            ran.add(sub["shop"])
+        lost += sub["lost"] + (len(sub["queue"]) if sub is not shift else 0)
         for pid, sold in sub["sold"].items():
             item = CATALOGUE[pid]
             price = new["prices"][pid]
