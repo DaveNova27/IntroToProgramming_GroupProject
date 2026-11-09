@@ -1,6 +1,6 @@
 # Price, customers and the day's conditions (`pricing`, issue #38)
 
-Agreed by Felix on 2026-11-09 and built in two commits: part 1 (everything except the weather, no existing test touched) and part 2 (the weather factor and the changes to old tests, which wait for the owner's confirmation in their own words, see Decide 4).
+Agreed by Felix on 2026-11-09 and built in two commits: part 1 (everything except the weather, no existing test touched) and part 2 (the weather factor and the changes to old tests, confirmed by Felix in his own words the same day, see Decide 4).
 
 ## What
 
@@ -241,7 +241,10 @@ both read `demand_levels`); after this spec neither copy exists.
    are at 20 % in a storm, and no weather is 100 % for all four shops. These tests walk through
    every shop, so each shop's expected number becomes that shop's own number from the formula (day
    1 of seed 1 is heat). The checks stay the same, only the number they compare to changes; the new
-   numbers are written next to the old ones in the PR description.
+   numbers are written next to the old ones in the PR description. As built: a product at the
+   reference price has 14 customers in the surf shop and 19 in the beach cafe on that hot day; the
+   price test of the beach cafe expects 19, 10 and 0 customers at 100 %, 150 % and 300 % (before 10,
+   5, 0); the Cafe and Merchandise rows of the same tests get the storm line and keep their 10.
    - `test_shop_scenarios.py`: `test_every_shop_sells_every_product_in_a_full_day[surf_shop]` and
      `[beach_cafe]`, `test_a_day_without_stock_loses_every_customer[surf_shop]` and `[beach_cafe]`,
      `test_the_price_decides_how_many_customers_come[1.0-10]` and `[1.5-5]`

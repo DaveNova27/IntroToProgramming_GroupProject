@@ -242,7 +242,7 @@ def test_the_last_line_is_the_real_number_and_the_split_adds_up():
 
 
 def test_the_explanation_of_a_known_price():
-    state = logic.buy(logic.new_state(SEED), "coffee", 12)
+    state = logic.buy(logic.set_day_override(logic.new_state(SEED), "storm"), "coffee", 12)  # normal day
     b = logic.customer_breakdown(state, "coffee", 250)  # 125 % in the Cafe
     assert b["price_percent"] == 125 and b["base"] == 10
     assert [(s["id"], s["customers"], s["split"]) for s in b["steps"]] == [
@@ -253,7 +253,7 @@ def test_the_explanation_of_a_known_price():
 
 
 def test_the_stock_limits_the_expected_profit():
-    state = logic.buy(logic.new_state(SEED), "coffee", 3)
+    state = logic.buy(logic.set_day_override(logic.new_state(SEED), "storm"), "coffee", 3)  # normal day
     b = logic.customer_breakdown(state, "coffee", 250)
     assert b["customers"] == 7 and b["sellable"] == 3 and b["expected_profit"] == 3 * 170
 
@@ -367,3 +367,131 @@ def test_the_old_demand_rule_is_still_there_but_the_game_does_not_use_it():
     state = logic.buy(logic.new_state(SEED), "coffee", 12)
     state = logic.set_price(state, "coffee", 400)  # 200 %: the old rule said 5, the new one 1
     assert logic.demand(400, 200) == 5 and logic.customers_today(state, "coffee") == 1
+
+
+# ==== Part 2: the weather ===================================================
+
+def on_a_day_with(weather, state=None):
+    return logic.set_day_override(state or logic.new_state(SEED), weather)
+
+
+# Customers of the first product of each shop at the reference price (neutral price, one day).
+WEATHER_CUSTOMERS = {
+    "cafe": {"sun": 8, "rain": 13, "heat": 6, "storm": 10},
+    "merchandise": {"sun": 12, "rain": 10, "heat": 9, "storm": 10},
+    "beach_cafe": {"sun": 17, "rain": 4, "heat": 19, "storm": 2},
+    "surf_shop": {"sun": 16, "rain": 4, "heat": 14, "storm": 2},
+}
+
+
+@pytest.mark.parametrize("shop", list(logic.SHOPS))
+@pytest.mark.parametrize("weather", list(logic.WEATHER))
+def test_the_weather_decides_how_many_customers_come(shop, weather):
+    state = rich()
+    pid = logic.shop_product_ids(shop)[0]
+    state = on_a_day_with(weather, state)
+    assert logic.customers_today(state, pid) == WEATHER_CUSTOMERS[shop][weather]
+
+
+@pytest.mark.parametrize("shop", list(logic.SHOPS))
+@pytest.mark.parametrize("weather", list(logic.WEATHER))
+def test_the_percents_are_the_shop_table_and_the_visitor_extra(shop, weather):
+    state = on_a_day_with(weather)
+    table = logic.WEATHER[weather]["demand_percent"][shop]
+    got = logic.segment_percents(state, shop)
+    assert got["students"] == table
+    assert got["visitors"] == logic.Fraction(table * logic.VISITOR_WEATHER[weather], 100)
+
+
+def test_the_percents_are_exact_fractions_never_cut_off():
+    state = on_a_day_with("rain")  # cafe 140 x visitors 70 % = 98
+    assert logic.segment_percents(state, "cafe")["visitors"] == logic.Fraction(98)
+    state = on_a_day_with("sun")  # beach cafe 150 x 130 % = 195
+    assert logic.segment_percents(state, "beach_cafe")["visitors"] == logic.Fraction(195)
+
+
+def test_the_weather_table_is_still_the_one_source():
+    """The outlook reads this table too: its numbers are not copied or changed here."""
+    assert logic.WEATHER["heat"]["demand_percent"] == {
+        "cafe": 60, "surf_shop": 120, "merchandise": 80, "beach_cafe": 180}
+    assert logic.WEATHER["storm"]["demand_percent"]["cafe"] == 100
+    assert logic.VISITOR_WEATHER["storm"] == 100  # a storm is 100 % for both kinds of customers
+    assert logic.FACTORS == (logic._weather_factor,)
+
+
+def test_the_override_changes_the_customers_and_clearing_it_brings_the_roll_back():
+    state = logic.buy(logic.new_state(SEED), "coffee", 30)
+    rolled = logic.customers_today(state, "coffee")
+    other = next(w for w in logic.WEATHER if WEATHER_CUSTOMERS["cafe"][w] != rolled)
+    fixed = logic.set_day_override(state, other)
+    assert logic.customers_today(fixed, "coffee") == WEATHER_CUSTOMERS["cafe"][other]
+    assert logic.customers_today(logic.set_day_override(fixed, None), "coffee") == rolled
+
+
+def test_the_shift_and_the_day_without_a_player_see_the_same_weather():
+    state = logic.buy(on_a_day_with("heat"), "coffee", 30)
+    assert logic.start_shift(state, "cafe")["shift"]["planned"] == {"coffee": 6}
+    assert logic.trade_day(state)[1]["lines"][0]["demand"] == 6
+    assert logic.stock_overview(state)["lines"][0]["sells_today"] == 6
+    assert app.view(state)["forecast"]["lines"][0]["demand"] == 6
+    assert app.view(state)["products"][0]["customers"] == 6
+
+
+def test_the_weather_shows_as_a_line_of_the_explanation_with_its_name():
+    state = logic.buy(on_a_day_with("heat"), "coffee", 12)
+    b = logic.customer_breakdown(state, "coffee", 250)
+    assert [(s["id"], s["name"], s["customers"]) for s in b["steps"]] == [
+        ("price", "Your price (125 % of the reference price)", 7),
+        ("factor", "Weather: Hot", 4)]
+    assert b["customers"] == 4 and b["split"] == {"students": 3, "visitors": 1}
+    assert b["expected_profit"] == 4 * 170
+
+
+def test_a_weather_at_100_percent_has_no_line():
+    state = logic.buy(on_a_day_with("storm"), "coffee", 12)  # Cafe: storm is 100 % for both
+    assert [s["id"] for s in logic.customer_breakdown(state, "coffee")["steps"]] == ["price"]
+    surf = logic.buy(on_a_day_with("storm", rich()), "surfboard", 1)  # 20 % there
+    assert [s["id"] for s in logic.customer_breakdown(surf, "surfboard")["steps"]] == ["price", "factor"]
+
+
+def test_the_preview_uses_todays_weather_too():
+    state = logic.buy(on_a_day_with("rain"), "coffee", 30)
+    assert logic.price_preview(state, "coffee", 200)["customers"] == 13
+    assert logic.price_preview(state, "coffee", 200)["steps"][-1]["name"] == "Weather: Rainy"
+
+
+def exact_best_price(state, pid, shop):
+    """The price with the highest profit, on exact values (before the customers are rounded)."""
+    item = logic.CATALOGUE[pid]
+    ref, cost = item["ref_price"], item["cost"]
+    percents = logic.segment_percents(state, shop)
+    return max(range(cost + 1, 3 * ref, max(1, ref // 200)),
+               key=lambda p: (sum(logic.segment_amounts(p, ref, logic.SHOP_MIX[shop], percents).values()) * (p - cost), -p))
+
+
+def test_the_weather_moves_who_comes_and_so_the_best_price_of_a_visitor_shop():
+    """Sun brings visitors who mind the price less: the surf shop can charge more than in rain."""
+    surf_sun = exact_best_price(on_a_day_with("sun", rich()), "surfboard", "surf_shop")
+    surf_rain = exact_best_price(on_a_day_with("rain", rich()), "surfboard", "surf_shop")
+    assert surf_sun - surf_rain >= 0.08 * logic.CATALOGUE["surfboard"]["ref_price"]
+    cafe_sun = exact_best_price(on_a_day_with("sun", rich()), "coffee", "cafe")
+    cafe_rain = exact_best_price(on_a_day_with("rain", rich()), "coffee", "cafe")
+    assert cafe_sun - cafe_rain <= 0.08 * logic.CATALOGUE["coffee"]["ref_price"]  # hardly moves
+
+
+def test_the_largest_crowd_stays_under_the_cap_with_the_weather_alone():
+    top = 0
+    for weather in logic.WEATHER:
+        state = on_a_day_with(weather, rich())
+        for pid, item in logic.CATALOGUE.items():
+            ref, mix = item["ref_price"], logic.SHOP_MIX[PRODUCT_SHOP[pid]]
+            percents = logic.segment_percents(state, PRODUCT_SHOP[pid])
+            top = max(top, max(logic.customers_for(p, ref, mix, percents)
+                               for p in range(1, 2 * ref, max(1, ref // 50))))
+    assert top == 28 < logic.MAX_CUSTOMERS
+
+
+def test_the_weather_adds_no_state_and_a_save_round_trips():
+    state = on_a_day_with("heat", logic.buy(logic.new_state(SEED), "coffee", 5))
+    assert set(state) == set(logic.new_state(SEED))
+    assert all_ints(logic.customer_breakdown(state, "coffee"))

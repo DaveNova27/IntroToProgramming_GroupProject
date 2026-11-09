@@ -21,7 +21,7 @@ def run_on_disk(tmp_path, monkeypatch):
 
 
 def stocked(coffee=30):
-    state = logic.new_state()
+    state = logic.set_day_override(logic.new_state(), "storm")  # a normal day for the Cafe (pricing, group A)
     state["stock"]["coffee"] = coffee
     return state
 

@@ -10,7 +10,7 @@ import logic
 
 
 def started(coffee=30):
-    state = logic.new_state()
+    state = logic.set_day_override(logic.new_state(), "storm")  # a normal day for the Cafe (pricing, group A)
     state["stock"]["coffee"] = coffee
     return logic.start_shift(state, "cafe")
 
@@ -63,7 +63,7 @@ def test_the_api_skips_the_day_and_a_second_skip_is_refused(tmp_path, monkeypatc
 # ---- the day is opened first, the shift starts while it runs ----------------
 
 def opened(coffee=30):
-    state = logic.new_state()
+    state = logic.set_day_override(logic.new_state(), "storm")  # a normal day for the Cafe (pricing, group A)
     state["stock"]["coffee"] = coffee
     return logic.open_day(state)
 

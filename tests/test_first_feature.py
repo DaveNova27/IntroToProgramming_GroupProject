@@ -24,7 +24,8 @@ def test_buying_ten_coffees_costs_eight_euro():
 
 
 def test_trading_one_day_reconciles():
-    state = logic.set_price(bought_ten_coffees(), "coffee", 200)
+    state = logic.set_day_override(bought_ten_coffees(), "storm")  # a normal day for the Cafe (pricing, group A)
+    state = logic.set_price(state, "coffee", 200)
     state, result = logic.trade_day(state)
     assert result["revenue"] == 2_000
     assert result["cogs"] == 800
@@ -63,7 +64,8 @@ def test_quantity_must_be_a_positive_whole_number(quantity):
 # ---- Check 3: restart restores the run without replay (A5) ---------------
 
 def test_restart_restores_state_with_one_history_record(db_path):
-    state = logic.set_price(bought_ten_coffees(), "coffee", 200)
+    state = logic.set_day_override(bought_ten_coffees(), "storm")  # a normal day for the Cafe (pricing, group A)
+    state = logic.set_price(state, "coffee", 200)
     state, _ = logic.trade_day(state)
     db.save(state, db_path)
 

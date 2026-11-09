@@ -14,6 +14,7 @@ def db_path(tmp_path):
 def complete_run():
     """The scenario from the spec: 15 Coffees, day 1 at €2, all later days at €5."""
     state = logic.buy(logic.new_state(), "coffee", 15)
+    state = logic.set_day_override(state, "storm")  # a normal day for the Cafe, every day (pricing, group A)
     state = logic.set_price(state, "coffee", 200)
     state, _ = logic.trade_day(state)
     state = logic.set_price(state, "coffee", 500)  # above 2x reference: demand 0

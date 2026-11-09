@@ -46,8 +46,8 @@ DEFAULT_SEED = 1  # only for tests and the demo; real runs draw one with new_see
 
 # The weather (day-context, issue #10). weight: how often it appears, in percent.
 # temp: range in whole degrees Celsius. demand_percent: the demand factor per shop in
-# whole percent (100 = normal), from the roadmap's table B2. Calculated and shown only:
-# the customers are not changed by it yet (the price logic, issue #38, applies it).
+# whole percent (100 = normal), from the roadmap's table B2. The customers use it through
+# FACTORS (the price logic, specs/pricing.md).
 # All numbers are placeholders to balance.
 WEATHER = {
     "sun": {"name": "Sunny", "weight": 40, "temp": (22, 28),
@@ -564,10 +564,23 @@ DEFAULT_MIX = {"students": 6, "visitors": 4}  # for a call without a shop
 MAX_CUSTOMERS = 30  # most customers of one product in one shift or day: a safety net
 CURVE_POINTS = sorted({x for segment in SEGMENTS.values() for x, _ in segment["curve"]})
 
+# Visitors react to the weather more than students (in percent, on top of the shop's weather
+# percent). Storm is 100: the shop table already holds the whole storm effect.
+VISITOR_WEATHER = {"sun": 130, "rain": 70, "heat": 120, "storm": 100}
+
+
+def _weather_factor(state, shop):
+    """Today's weather: the shop's percent for both segments, extra for the visitors."""
+    context = day_context(state)
+    percent = context["demand_percent"][shop]
+    visitors = Fraction(percent * VISITOR_WEATHER[context["weather"]], 100)
+    return f"Weather: {WEATHER[context['weather']]['name']}", {"students": percent, "visitors": visitors}
+
+
 # The day's conditions. Each factor is a function (state, shop) -> (label, {segment: percent}).
 # Percents of all factors multiply; a segment a factor does not name stays at 100.
 # Weather is the first; events, trend, popularity and outfit add theirs here.
-FACTORS = ()
+FACTORS = (_weather_factor,)
 
 
 def _round_half_up(value):
