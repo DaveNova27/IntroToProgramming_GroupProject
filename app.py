@@ -360,6 +360,14 @@ def weather_view(state):
     }
 
 
+def event_view(state):
+    """Today's event for the screen, with the weather's rule: only once the day is open and
+    none once the season is over. None when there is no event."""
+    if logic.is_finished(state) or state.get("shift") is None:
+        return None
+    return logic.day_context(state)["event"]
+
+
 def outlook_view(state):
     """The forecast for the screen: today before the day is opened, tomorrow while it is
     open (none when there is no such day), with a tip per open shop.
@@ -387,6 +395,8 @@ def editor_info(state):
         # the fixed weather (none: the seed's), for the dropdown; the real weather of the
         # day is not in the answer before the day is open
         "weather_override": (state["day_override"] or {}).get("weather"),
+        "events": [{"id": eid, "name": e["name"]} for eid, e in logic.EVENTS.items()],
+        "event_override": (state["day_override"] or {}).get("event"),
         "max_level": {sid: 1 + len(shop["window"]) for sid, shop in logic.SHOPS.items()},
         "max_cash": logic.MAX_CASH,
         "max_seed": logic.MAX_SEED,
@@ -439,6 +449,7 @@ def view(state):
         # so it doubles as a preview of "what happens if I open now".
         "forecast": None if finished or logic.day_is_open(state) else logic.trade_day(known)[1],
         "weather": weather_view(state),
+        "event": event_view(state),
         "outlook": outlook_view(state),
         "editor": editor_on,
         "editor_info": editor_info(state) if editor_on else None,
@@ -655,6 +666,22 @@ def editor_switch_on():
     return os.environ.get("CT_EDITOR") == "1" and local_request() and not public_mode()
 
 
+def override_message(weather, event):
+    """What the demo switch and the editor tell after fixing (or clearing) weather and event."""
+    if weather is None and event is None:
+        return "Weather and event back to the seed's."
+    parts = []
+    if weather is not None:
+        parts.append(f"Weather fixed to {logic.WEATHER[weather]['name']}.")
+    if event == "none":
+        parts.append("No event.")
+    elif event is not None:
+        parts.append(f"Event fixed to {logic.EVENTS[event]['name']}.")
+    else:
+        parts.append("No event (only the weather is fixed).")
+    return " ".join(parts)
+
+
 @app.post("/api/day-override")
 def day_override():
     body = json_body()
@@ -662,11 +689,9 @@ def day_override():
     def action(state):
         if not demo_switch_on():
             raise logic.RejectedAction("The weather override is a demo switch and is off.")
-        weather = body.get("weather")
-        new_state = logic.set_day_override(state, weather)
-        if weather is None:
-            return new_state, "Weather back to the seed's forecast."
-        return new_state, f"Weather fixed to {logic.WEATHER[weather]['name']}."
+        weather, event = body.get("weather"), body.get("event")
+        new_state = logic.set_day_override(state, weather, event)
+        return new_state, override_message(weather, event)
 
     return apply(action)
 
@@ -699,10 +724,9 @@ def editor_weather():
     body = json_body()
 
     def rule(state):
-        weather = body.get("weather")
-        new_state = logic.set_day_override(state, weather)
-        return new_state, ("Weather back to the seed's forecast." if weather is None
-                           else f"Weather fixed to {logic.WEATHER[weather]['name']}.")
+        weather, event = body.get("weather"), body.get("event")
+        new_state = logic.set_day_override(state, weather, event)
+        return new_state, override_message(weather, event)
 
     return editor_action(rule)
 
