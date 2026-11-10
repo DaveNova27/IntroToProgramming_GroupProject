@@ -10,7 +10,8 @@ The campus does less work and allocates less in every frame, and draws exactly t
 1. **Tiles once.** `drawTerrain` (`static/world/campus.js`) builds the tile list of a zone with its
    colours and its back-to-front order once (`tilesOf`) and keeps where each row starts, so a frame walks
    only the rows in view. `drawTile` works the corners out with `isoX` and `isoY` (new in `scene.js`,
-   the one definition of the projection that `isoPoint` is built from) instead of making four objects
+   next to `isoPoint`, with the same two formulas; `tests/test_render_cache.py` keeps them equal. `isoPoint`
+   itself stays as it was: `tests/test_map_view.py` pins its text) instead of making four objects
    per tile.
 2. **Walls and canopy once.** `novaActors` (`static/world/nova.js`) builds the wall slices and the canopy
    from the building's data once; their draw functions still read the roofs when they draw. They are

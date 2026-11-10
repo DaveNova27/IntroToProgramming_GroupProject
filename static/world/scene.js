@@ -53,11 +53,13 @@ export const wingIsOpen = (wingId) => roofOf(wingId) < 0.98;
 export const activeZone = () => world.zones[scene.zoneId];
 
 // From map tiles (and a height in pixels) to the screen. The name is older than the straight view.
+export function isoPoint(x, y, z = 0) {
+  return { x: x * TILE, y: y * DEPTH - z };
+}
+// The same projection without making an object, for what is drawn a thousand times a frame (the ground).
+// Keep the two in step: tests/test_render_cache.py compares the formulas.
 export const isoX = (x) => x * TILE;
 export const isoY = (y, z = 0) => y * DEPTH - z;
-export function isoPoint(x, y, z = 0) {
-  return { x: isoX(x), y: isoY(y, z) };
-}
 
 // The order to draw in: what stands further south (larger y) is in front. A small share of x keeps
 // two things on the same row in a fixed order, so nothing flickers.

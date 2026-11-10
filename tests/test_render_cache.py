@@ -63,9 +63,12 @@ def test_the_terrain_works_from_a_tile_list_made_once_and_walks_only_the_rows_in
     assert "mixColor(" not in body and ".sort(" not in body  # nothing is mixed or sorted per frame
 
 
-def test_there_is_one_definition_of_the_projection_and_a_tile_makes_no_objects():
+def test_the_projection_without_objects_has_the_same_formulas_as_isopoint_and_a_tile_makes_no_objects():
     scene = source("scene.js")
-    assert "export const isoX" in scene and "isoX(x)" in scene  # isoPoint is built from them
+    point = scene[scene.index("export function isoPoint"):scene.index("// The same projection")]
+    assert "x * TILE" in point and "y * DEPTH - z" in point
+    assert "export const isoX = (x) => x * TILE;" in scene
+    assert "export const isoY = (y, z = 0) => y * DEPTH - z;" in scene  # the same two formulas
     body = source("primitives.js")
     body = body[body.index("export function drawTile"):body.index("export function drawPlane")]
     assert "isoPoint" not in body and "isoX(" in body and "* TILE" not in body
