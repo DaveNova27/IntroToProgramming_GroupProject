@@ -36,11 +36,13 @@ Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoo
 Local play needs nothing. For other people (spec `deploy-ready`):
 
 ```
-CT_PUBLIC=1 uv run --with gunicorn gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 app:app
+CT_PUBLIC=1 CT_PROXY=1 uv run --with gunicorn gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 app:app
 ```
 
-Put a proxy with HTTPS in front (the cookie is then Secure). Use **one worker**: the lock and the rate
-counter live in the process. Every player gets a run in `data/players/`; the editor and the weather
+Put a proxy with HTTPS in front and set `CT_PROXY=1` (only if the proxy is the only way to reach the
+server: it then tells the server who the visitor is, and the cookie is Secure). Use **one worker**: the
+locks and the rate counter live in the process. Every player gets a run in `data/players/` (the cookie
+is signed with `CT_SECRET`, or a random key in `data/players/.secret`); the editor and the weather
 override are off. The server never shows a path or a stack trace to a player.
 
 ## Working in the group

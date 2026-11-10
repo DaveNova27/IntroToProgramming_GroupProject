@@ -8,10 +8,12 @@ refresh or a double click cannot repeat a day.
 Run it with:  uv run python app.py   (then open http://127.0.0.1:8000)
 
 Public mode (specs/deploy-ready.md): with CT_PUBLIC=1 every player gets a run of their own (a cookie),
-the number of requests is limited, the dev switches are off and the cookie is Secure. Without it
+the number of requests is limited, the dev switches are off and the cookie is signed and Secure. Without it
 nothing changes: one run on this computer.
 """
 
+import hashlib
+import hmac
 import os
 import re
 import secrets
@@ -19,7 +21,8 @@ import threading
 import time
 from collections import deque
 
-from flask import Flask, g, has_request_context, jsonify, redirect, request, send_from_directory
+from flask import Flask, abort, g, has_request_context, jsonify, redirect, request, send_from_directory
+from werkzeug.exceptions import HTTPException
 
 import db
 import logic
@@ -29,18 +32,27 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Let the browser re-check the page files on every load (a cheap "not modified"
 # answer), so an updated dashboard or map is never served from an old cache.
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
-_lock = threading.Lock()  # one change at a time: load -> rule -> save
+_locks = [threading.Lock() for _ in range(64)]  # one change at a time per run: load -> rule -> save
+
+
+def run_lock():
+    """The lock of this player's run (a stripe of 64, so players hardly wait for each other). Without
+    public mode there is one run and one lock."""
+    player = getattr(g, "player", None)
+    return _locks[0 if player is None else int.from_bytes(hashlib.sha256(player.encode()).digest()[:2], "big") % 64]
 
 # ---- public mode (specs/deploy-ready.md) ---------------------------------------------------------
 PLAYER_COOKIE = "ct_player"
 PLAYER_ID = re.compile(r"[A-Za-z0-9_-]{22}")  # what secrets.token_urlsafe(16) gives: nothing else is a file name
 PLAYERS_DIR = db.DEFAULT_PATH.parent / "players"
-MAX_PLAYERS = 2000  # runs on disk; more is refused ("the game is full")
+MAX_PLAYERS = 2000  # runs on disk; a new run beyond it is refused ("the game is full")
 RATE_LIMIT = 240  # API requests per player and window (a played day needs about 60 a minute)
 RATE_WINDOW = 60  # seconds
 NEW_PLAYER_LIMIT = 30  # new players per address and window
+MAX_KEYS = 20_000  # counters kept at once; beyond it a new key is refused until old ones have gone quiet
 _hits = {}  # key -> recent request times
 _hits_lock = threading.Lock()
+_secret_cache = []
 
 
 def public_mode():
@@ -48,13 +60,64 @@ def public_mode():
     return os.environ.get("CT_PUBLIC") == "1"
 
 
+def behind_proxy():
+    """CT_PROXY=1: a proxy that we trust (and only it can reach us) says who the visitor is and
+    whether it was HTTPS. Without it those headers are ignored: anybody can write them."""
+    return os.environ.get("CT_PROXY") == "1"
+
+
+def client_address():
+    if behind_proxy():
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()  # the address our proxy saw
+    return request.remote_addr
+
+
+def is_https():
+    if behind_proxy():
+        return request.headers.get("X-Forwarded-Proto", "").lower() == "https"
+    return request.is_secure
+
+
+def _secret():
+    """The key that signs the player cookies: CT_SECRET, else a random one kept in the players folder."""
+    if os.environ.get("CT_SECRET"):
+        return os.environ["CT_SECRET"].encode()
+    if not _secret_cache or _secret_cache[0][0] != PLAYERS_DIR:
+        PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+        path = PLAYERS_DIR / ".secret"
+        if not path.exists():
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(secrets.token_bytes(32))
+        _secret_cache[:] = [(PLAYERS_DIR, path.read_bytes())]
+    return _secret_cache[0][1]
+
+
+def _sign(player_id):
+    return hmac.new(_secret(), player_id.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def _player_from_cookie(cookie):
+    """The player id of a cookie we issued ("<id>.<signature>"), else None. A forged or altered
+    cookie is no cookie."""
+    player_id, _, signature = cookie.partition(".")
+    if PLAYER_ID.fullmatch(player_id) and hmac.compare_digest(signature, _sign(player_id)):
+        return player_id
+    return None
+
+
 def _too_many(key, limit):
-    """Count this request for the key; True when the limit of the window is used up."""
+    """Count this request for the key; True when the limit of the window is used up (or too many
+    keys are being counted at once)."""
     now = time.monotonic()
     with _hits_lock:
-        if len(_hits) > 20_000:  # bounded memory: forget keys that have been quiet
+        if len(_hits) >= MAX_KEYS and key not in _hits:  # sweep the quiet keys; if still full, refuse
             for old in [k for k, v in _hits.items() if not v or now - v[-1] > RATE_WINDOW]:
                 del _hits[old]
+            if len(_hits) >= MAX_KEYS:
+                return True
         times = _hits.setdefault(key, deque())
         while times and now - times[0] > RATE_WINDOW:
             times.popleft()
@@ -70,22 +133,20 @@ def _player_file(player_id):
 
 @app.before_request
 def identify_player():
-    """Public mode: who is this player (a valid cookie, or a new one), and is it too much."""
+    """Public mode: who is this player (a cookie we signed, or a new one for a page), and is it too much."""
     g.player, g.new_player = None, False
     if not public_mode():
         return None
     PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
-    cookie = request.cookies.get(PLAYER_COOKIE, "")
-    if PLAYER_ID.fullmatch(cookie):
-        g.player = cookie
-    elif request.path.startswith("/api/"):
-        # an API call without a valid cookie is no browser of ours: no run is made for it
-        return jsonify({"error": "Open the game page first."}), 400
-    else:
-        if _too_many(("new", request.remote_addr), NEW_PLAYER_LIMIT):
+    g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
+    if g.player is None:
+        if request.path.startswith("/api/"):
+            # an API call without our cookie is no browser of ours: no run is made for it
+            return jsonify({"error": "Open the game page first."}), 400
+        if request.path not in ("/", "/map"):
+            return None  # files, icons and probes get no player
+        if _too_many(("new", client_address()), NEW_PLAYER_LIMIT):
             return jsonify({"error": "Too many new players from this address. Try again in a minute."}), 429
-        if sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
-            return jsonify({"error": "The game is full right now. Try again later."}), 503
         g.player, g.new_player = secrets.token_urlsafe(16), True
     if request.path.startswith("/api/") and _too_many(("player", g.player), RATE_LIMIT):
         return jsonify({"error": "Too many requests. Slow down a little."}), 429
@@ -109,19 +170,20 @@ SECURITY_HEADERS = {
 def add_headers(response):
     for name, value in SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
-    if request.is_secure:
+    if is_https():
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
     if getattr(g, "new_player", False):
-        response.set_cookie(PLAYER_COOKIE, g.player, max_age=365 * 24 * 3600, httponly=True,
-                            samesite="Lax", secure=request.is_secure or None)
+        response.set_cookie(PLAYER_COOKIE, f"{g.player}.{_sign(g.player)}", max_age=365 * 24 * 3600,
+                            httponly=True, samesite="Lax", secure=is_https() or None)
     return response
 
 
 @app.errorhandler(Exception)
 def unexpected_error(error):
     """Only our own words reach the player: never a path or a stack trace (roadmap 3a, point 6)."""
-    from werkzeug.exceptions import HTTPException
     if isinstance(error, HTTPException):
+        if request.path.startswith("/api/"):  # the screens read every API answer as JSON
+            return jsonify({"error": error.description or error.name}), error.code
         return error
     app.logger.exception("unexpected error")
     return jsonify({"error": "The server hit an error. Nothing was saved."}), 500
@@ -133,7 +195,11 @@ def _db_kw():
 
 
 def load_run():
-    """Load the saved run, or start and save a fresh one (first start)."""
+    """Load the saved run, or start and save a fresh one (first start). In public mode a new run
+    is refused (503) once MAX_PLAYERS runs exist."""
+    if getattr(g, "player", None) and not _player_file(g.player).exists() \
+            and sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
+        abort(503, description="The game is full right now. Try again later.")
     state = db.load(**_db_kw())
     if state is None:
         state = logic.new_state(logic.new_seed())
@@ -360,7 +426,7 @@ def parse_quantity(value):
 
 def apply(action):
     """Run a rule on the saved run. Save only if it was accepted."""
-    with _lock:
+    with run_lock():
         state = load_run()
         try:
             new_state, message = action(state)
@@ -390,7 +456,7 @@ def campus_map():
 
 @app.get("/api/state")
 def get_state():
-    with _lock:
+    with run_lock():
         return jsonify(view(load_run()))
 
 
@@ -442,7 +508,7 @@ def set_price():
 def price_preview():
     """What a price would bring today. Read-only: nothing is saved."""
     body = json_body()
-    with _lock:
+    with run_lock():
         state = load_run()
         try:
             price = logic.euros_to_cents(body.get("price", ""))
@@ -560,7 +626,7 @@ def day_override():
 def editor_action(rule):
     """Run an editor rule on the saved run: only with the switch on, saved with save_new_run
     (an edit may move the day back and cut the history). Nothing is saved when refused."""
-    with _lock:
+    with run_lock():
         state = load_run()
         try:
             if not editor_switch_on():
@@ -717,7 +783,7 @@ def open_day():
 @app.post("/api/new-run")
 def new_run():
     body = json_body()
-    with _lock:
+    with run_lock():
         state = load_run()
         # CT01: the page asks the player first and only then sends confirm=true
         if body.get("confirm") is not True:
