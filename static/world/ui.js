@@ -517,6 +517,10 @@ function renderEditorPanel(body) {
         <button class="btn wide" type="submit" ${busy}>Set levels</button>
       </form>
       <div class="editor-row"><button class="btn ghost" type="button" data-editor-fill ${busy}>Fill storerooms</button></div></section>
+    <section class="editor-block"><h3>Staff</h3>
+      <div class="editor-row"><button class="btn ghost" type="button" data-editor-staff ${busy}>Staff on every bought place</button>
+        <button class="btn ghost" type="button" data-editor-staff="top" ${busy}>... on top level</button></div>
+      <p class="note">One employee on each bought place, working; or all dismissed with "Fill" of a shop at a lower level.</p></section>
     <section class="editor-block"><h3>Seed</h3>
       <form class="editor-row" data-editor="seed">
         <input name="seed" inputmode="numeric" aria-label="Seed" placeholder="0 to ${info.max_seed}">
@@ -591,6 +595,13 @@ function wireEditor() {
     }
   });
   panel.addEventListener("click", (e) => {
+    const staffBtn = e.target.closest("[data-editor-staff]");
+    if (staffBtn) {
+      // one employee on every bought place; the server checks the places and the levels
+      const level = staffBtn.dataset.editorStaff === "top" ? state.staff.max_level : 1;
+      const employees = state.staff.places.filter((p) => p.bought).map((p) => ({ shop: p.shop, place: p.place, level }));
+      return editorAction("/api/editor/state", { patch: { employees } });
+    }
     if (!e.target.closest("[data-editor-fill]")) return;
     // an even share of each storeroom per product; the server checks the limits
     const stock = {};

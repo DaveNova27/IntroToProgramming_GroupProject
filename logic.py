@@ -808,14 +808,50 @@ def _check_player(player):
     return move_player({"player": None}, player["zone"], player["x"], player["y"])["player"]
 
 
+def _check_employees(new, entries):
+    """The employees of a patch, checked against the shops of `new` (already patched): a list of
+    {"shop", "place", optional "level" (default 1) and "working" (default true)}. Every employee
+    sits on a bought place of an unlocked shop, one per place. They get new ids (never used
+    before) and their name and job from the rules. Returns the list; changes nothing."""
+    if not isinstance(entries, list):
+        raise RejectedAction("'employees' must be a list.")
+    allowed = {"shop", "place", "level", "working"}
+    seen, built = set(), []
+    seq = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0))
+    for entry in entries:
+        if not isinstance(entry, dict) or not {"shop", "place"} <= set(entry) <= allowed:
+            raise RejectedAction("An employee needs shop and place (and may have level and working).")
+        shop, place = entry["shop"], entry["place"]
+        _check_shop(shop)
+        _whole(place, 1, len(SHOPS[shop]["jobs"]), "The employee place")
+        shop_entry = new["shops"][shop]
+        if not shop_entry["unlocked"] or place > shop_entry["staff_places"]:
+            raise RejectedAction(f"The {SHOPS[shop]['name']} has no bought employee place {place}.")
+        if (shop, place) in seen:
+            raise RejectedAction(f"Place {place} of the {SHOPS[shop]['name']} is given twice.")
+        seen.add((shop, place))
+        level = _whole(entry.get("level", 1), 1, EMPLOYEE_MAX_LEVEL, "The employee level")
+        working = entry.get("working", True)
+        if not isinstance(working, bool):
+            raise RejectedAction("'working' must be true or false.")
+        seq += 1
+        built.append({
+            "id": seq, "name": EMPLOYEE_NAMES[(seq - 1) % len(EMPLOYEE_NAMES)],
+            "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
+            "level": level, "working": working,
+        })
+    return built, seq
+
+
 def editor_set_state(state, patch):
     """Set any part of the run from a patch. Everything is checked first; a refused patch
     changes nothing. Keys not in the patch stay as they are.
 
-    The keys: day, cash, seed, day_override, stock, prices, shops, player, badges. Setting an
+    The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges.
+    "employees" replaces all employees (see _check_employees). Setting an
     earlier day cuts the history and the badges to the days before it. Refused while a day
     is open."""
-    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player", "badges"}
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges"}
     if not isinstance(patch, dict) or not patch:
         raise RejectedAction("The patch must be a dictionary with at least one field.")
     unknown = sorted(str(k) for k in patch if k not in keys)
@@ -863,6 +899,8 @@ def editor_set_state(state, patch):
         new["employees"] = [e for e in new["employees"]
                             if new["shops"][e["shop"]]["unlocked"]
                             and e["place"] <= new["shops"][e["shop"]]["staff_places"]]
+    if "employees" in patch:
+        new["employees"], new["employee_seq"] = _check_employees(new, patch["employees"])
     if "player" in patch:
         new["player"] = _check_player(patch["player"])
     if "badges" in patch:
