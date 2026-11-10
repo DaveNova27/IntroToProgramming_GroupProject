@@ -31,6 +31,18 @@ uv run pytest               # all checks from the specs
 Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoon.db`
 (local only, not in Git) and is loaded again on the next start.
 
+## Putting it online
+
+Local play needs nothing. For other people (spec `deploy-ready`):
+
+```
+CT_PUBLIC=1 uv run --with gunicorn gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 app:app
+```
+
+Put a proxy with HTTPS in front (the cookie is then Secure). Use **one worker**: the lock and the rate
+counter live in the process. Every player gets a run in `data/players/`; the editor and the weather
+override are off. The server never shows a path or a stack trace to a player.
+
 ## Working in the group
 
 1. Pick a spec from the roadmap ([`docs/feature-roadmap.md`](docs/feature-roadmap.md), section 4.1, open specs) and open or find its GitHub Issue (template "Spec"). Assign yourself before you start.
@@ -91,6 +103,7 @@ animate that answer.
 | `smooth-frames.md` | `smooth-frames` | The campus runs at the screen's rate: no blur filter for the shadows, a slow frame advances the world by its real time. Browser check, not part of the tests. |
 | `calm-panels.md` | `calm-panels` | The side panels of the campus stay calm while a day runs: redrawn only when their content changed (typed values and focus stay), shift requests wait for each other instead of being dropped, two outdated texts fixed. |
 | `balance-pass.md` | `balance-pass` | The season is balanced: Surf Shop and Merchandise products cost and sell for less (a good season ends at about +5,000 EUR, not +25,000), a warning before a purchase that leaves nothing to buy, a hint for shops only employees can run, the storeroom limit counts the counter. A guard test plays whole seasons. |
+| `deploy-ready.md` | `deploy-ready` | Security headers on every answer; a public mode (`CT_PUBLIC=1`): a run per player (cookie), a rate limit, no dev switches, no paths in errors; how to run it with a production server. Local play is unchanged. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 

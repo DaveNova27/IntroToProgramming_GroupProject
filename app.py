@@ -6,12 +6,20 @@ loads the run fresh from the database: the database is the truth, so a browser
 refresh or a double click cannot repeat a day.
 
 Run it with:  uv run python app.py   (then open http://127.0.0.1:8000)
+
+Public mode (specs/deploy-ready.md): with CT_PUBLIC=1 every player gets a run of their own (a cookie),
+the number of requests is limited, the dev switches are off and the cookie is Secure. Without it
+nothing changes: one run on this computer.
 """
 
 import os
+import re
+import secrets
 import threading
+import time
+from collections import deque
 
-from flask import Flask, has_request_context, jsonify, redirect, request, send_from_directory
+from flask import Flask, g, has_request_context, jsonify, redirect, request, send_from_directory
 
 import db
 import logic
@@ -23,13 +31,113 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 _lock = threading.Lock()  # one change at a time: load -> rule -> save
 
+# ---- public mode (specs/deploy-ready.md) ---------------------------------------------------------
+PLAYER_COOKIE = "ct_player"
+PLAYER_ID = re.compile(r"[A-Za-z0-9_-]{22}")  # what secrets.token_urlsafe(16) gives: nothing else is a file name
+PLAYERS_DIR = db.DEFAULT_PATH.parent / "players"
+MAX_PLAYERS = 2000  # runs on disk; more is refused ("the game is full")
+RATE_LIMIT = 240  # API requests per player and window (a played day needs about 60 a minute)
+RATE_WINDOW = 60  # seconds
+NEW_PLAYER_LIMIT = 30  # new players per address and window
+_hits = {}  # key -> recent request times
+_hits_lock = threading.Lock()
+
+
+def public_mode():
+    """The server is open to other people (CT_PUBLIC=1): one run per player, limits, no dev switches."""
+    return os.environ.get("CT_PUBLIC") == "1"
+
+
+def _too_many(key, limit):
+    """Count this request for the key; True when the limit of the window is used up."""
+    now = time.monotonic()
+    with _hits_lock:
+        if len(_hits) > 20_000:  # bounded memory: forget keys that have been quiet
+            for old in [k for k, v in _hits.items() if not v or now - v[-1] > RATE_WINDOW]:
+                del _hits[old]
+        times = _hits.setdefault(key, deque())
+        while times and now - times[0] > RATE_WINDOW:
+            times.popleft()
+        if len(times) >= limit:
+            return True
+        times.append(now)
+        return False
+
+
+def _player_file(player_id):
+    return PLAYERS_DIR / f"{player_id}.db"
+
+
+@app.before_request
+def identify_player():
+    """Public mode: who is this player (a valid cookie, or a new one), and is it too much."""
+    g.player, g.new_player = None, False
+    if not public_mode():
+        return None
+    PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+    cookie = request.cookies.get(PLAYER_COOKIE, "")
+    if PLAYER_ID.fullmatch(cookie):
+        g.player = cookie
+    elif request.path.startswith("/api/"):
+        # an API call without a valid cookie is no browser of ours: no run is made for it
+        return jsonify({"error": "Open the game page first."}), 400
+    else:
+        if _too_many(("new", request.remote_addr), NEW_PLAYER_LIMIT):
+            return jsonify({"error": "Too many new players from this address. Try again in a minute."}), 429
+        if sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
+            return jsonify({"error": "The game is full right now. Try again later."}), 503
+        g.player, g.new_player = secrets.token_urlsafe(16), True
+    if request.path.startswith("/api/") and _too_many(("player", g.player), RATE_LIMIT):
+        return jsonify({"error": "Too many requests. Slow down a little."}), 429
+    return None
+
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",  # the campus is an iframe of our own page
+    "Referrer-Policy": "no-referrer",
+    # only our own files; inline styles are used for colours (style="--accent: ..."), nothing else inline
+    "Content-Security-Policy": (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+        "frame-src 'self'; frame-ancestors 'self'; connect-src 'self'; object-src 'none'; "
+        "base-uri 'none'; form-action 'self'"
+    ),
+}
+
+
+@app.after_request
+def add_headers(response):
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    if getattr(g, "new_player", False):
+        response.set_cookie(PLAYER_COOKIE, g.player, max_age=365 * 24 * 3600, httponly=True,
+                            samesite="Lax", secure=request.is_secure or None)
+    return response
+
+
+@app.errorhandler(Exception)
+def unexpected_error(error):
+    """Only our own words reach the player: never a path or a stack trace (roadmap 3a, point 6)."""
+    from werkzeug.exceptions import HTTPException
+    if isinstance(error, HTTPException):
+        return error
+    app.logger.exception("unexpected error")
+    return jsonify({"error": "The server hit an error. Nothing was saved."}), 500
+
+
+def _db_kw():
+    """The database of this player in public mode, the one run of this computer otherwise."""
+    return {"path": _player_file(g.player)} if getattr(g, "player", None) else {}
+
 
 def load_run():
     """Load the saved run, or start and save a fresh one (first start)."""
-    state = db.load()
+    state = db.load(**_db_kw())
     if state is None:
         state = logic.new_state(logic.new_seed())
-        db.save(state)
+        db.save(state, **_db_kw())
     return state
 
 
@@ -262,7 +370,7 @@ def apply(action):
         # a badge is reached the moment its condition is true, e.g. at the first sale
         # (specs/badges.md); only the server gives it, never from the request
         logic.award_badges(new_state)
-        db.save(new_state)
+        db.save(new_state, **_db_kw())
         return jsonify({"message": message, "state": view(new_state)})
 
 
@@ -425,12 +533,12 @@ def local_request():
 
 def demo_switch_on():
     """The weather override is a demo hook: only with the switch on and from this computer."""
-    return os.environ.get("CAMPUS_TYCOON_DEMO") == "1" and local_request()
+    return os.environ.get("CAMPUS_TYCOON_DEMO") == "1" and local_request() and not public_mode()
 
 
 def editor_switch_on():
     """The editor mode (specs/editor-mode.md): CT_EDITOR=1 and a request from this computer."""
-    return os.environ.get("CT_EDITOR") == "1" and local_request()
+    return os.environ.get("CT_EDITOR") == "1" and local_request() and not public_mode()
 
 
 @app.post("/api/day-override")
@@ -461,7 +569,7 @@ def editor_action(rule):
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
         logic.award_badges(new_state)  # e.g. cash set to 1,000 euro gives "Wealthy" at once
-        db.save_new_run(new_state)
+        db.save_new_run(new_state, **_db_kw())
         return jsonify({"message": message, "state": view(new_state)})
 
 
@@ -618,7 +726,7 @@ def new_run():
                 "state": view(state),
             }), 400
         fresh = logic.new_state(logic.new_seed())
-        db.save_new_run(fresh)
+        db.save_new_run(fresh, **_db_kw())
         return jsonify({
             "message": f"New run started: day 1, {logic.fmt(logic.STARTING_CASH)}, no stock.",
             "state": view(fresh),
@@ -626,4 +734,6 @@ def new_run():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8000, debug=False)
+    # CT_HOST and CT_PORT are for the public mode behind a proxy; the default stays this computer only.
+    # For people other than you use a production server, see specs/deploy-ready.md.
+    app.run(host=os.environ.get("CT_HOST", "127.0.0.1"), port=int(os.environ.get("CT_PORT", "8000")), debug=False)
