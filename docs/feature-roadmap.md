@@ -17,7 +17,7 @@ is proposed in section 4.2 (`warehouse`).
 What changed since v5: the requirements of the course and the time left are in section 1a (the
 submission is due 2026-11-23, 23:59, and the app must run live at a public URL), the new spec
 `deploy` (#93) is the first open spec, the demo mode has to run on the public URL, and the open
-decisions 7.11 to 7.15 come from the comparison with the course text.
+decisions 7.11 to 7.17 come from the comparison with the course text.
 
 # Part A: Plan and state
 
@@ -113,7 +113,7 @@ in the repository), walkthrough (20 %: how it is built, why, its limits and how 
 ### Proposed plan for the time left (to be agreed by the team)
 
 - Now: choose a host and deploy a first version (`deploy`, #93), even if the game is unfinished. It shows what only worked on one laptop.
-- Until about 2026-11-17: finish what the demo needs and cut the rest of section 4.1.
+- Until about 2026-11-17: finish what the demo needs and cut the rest of section 4.1. Which specs the demo needs, and who decides, is open (7.17). The date of the team's presentation slot is open too (7.16); move the dates below if it falls early in the week of 2026-11-23.
 - 2026-11-18 to 2026-11-22: no new features. Bug fixes, `final-polish`, smoke test of the deployed app, rehearsal of the demo, preparation of the walkthrough (where the data is stored, what the tests cover and what they miss, what happens when something fails).
 - 2026-11-23: submit the link in the morning, not at 23:59.
 
@@ -198,7 +198,7 @@ one branch, one issue, one pull request.
 
 | Spec | Issue | Track | Effort | Depends on | What |
 |---|---|---|---|---|---|
-| `deploy` | #93 | L | M | deploy-ready (done) | Put the app online at a public URL and keep it online: host, start command, pinned `gunicorn`, secrets in the host settings, storage decision, deploy from `main`, smoke test on the deployed URL, README with the URL. Needed by the course (section 1a). Free spec, no assignee yet. |
+| `deploy` | #93 | L | M | deploy-ready (done) | Put the app online at a public URL and keep it online: host, start command, pinned `gunicorn`, secrets in the host settings, storage decision, deploy from `main`, smoke test on the deployed URL, README with the URL. Needed by the course (section 1a). |
 | `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
 | `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
@@ -278,6 +278,8 @@ Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a
 13. Owners of the shared structures (the data format in `db.py` and `logic.py`, `app.py`, `world.py`, `AGENTS.md`): one name each.
 14. Ask the teaching staff whether the plain JavaScript canvas front end on a Flask backend is fine for the stack.
 15. Date after which no new feature is merged (proposal: 2026-11-17).
+16. In which week and on which day does the team present (week 11 or 12 of the course)? Ask the teaching staff or look it up on Moodle, then fix the dates of the plan in section 1a.
+17. Which of the open specs does the demo need, and which are cut? Proposal for the team to correct: keep `deploy`, `popularity`, `weather-visuals`, `demo-scenarios` and `final-polish`; `shop-walk` and `shop-art` only if they are finished by the freeze; cut `guests`, `warehouse`, `outfits` and `nova-design`. The team decides this in one call (proposal: by 2026-11-12).
 
 ---
 
