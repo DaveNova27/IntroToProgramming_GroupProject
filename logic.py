@@ -77,6 +77,25 @@ OUTLOOK_MISS = {
 # more customers, at or below LESS_AT fewer. Placeholders to balance.
 OUTLOOK_MORE_AT = 115
 OUTLOOK_LESS_AT = 85
+
+# Campus events (specs/events-and-disruptions.md, issue #14). An event starts on a day by a roll
+# of its own, lasts `days` days and moves the customers of every shop through FACTORS.
+# weight: how often it is the one that starts. demand_percent: per shop in whole percent
+# (100 = normal, the roadmap's table B2). visitors_percent: extra percent on top for the
+# visitors (100 = none). All numbers are placeholders to balance.
+EVENTS = {
+    "exam_period": {"name": "Exam period", "weight": 35, "days": 2, "visitors_percent": 70,
+                    "demand_percent": {"cafe": 150, "surf_shop": 60, "merchandise": 90, "beach_cafe": 70}},
+    "party": {"name": "Party", "weight": 30, "days": 1, "visitors_percent": 110,
+              "demand_percent": {"cafe": 80, "surf_shop": 100, "merchandise": 110, "beach_cafe": 150}},
+    "career_fair": {"name": "Career fair", "weight": 25, "days": 1, "visitors_percent": 120,
+                    "demand_percent": {"cafe": 130, "surf_shop": 70, "merchandise": 140, "beach_cafe": 90}},
+    "surf_festival": {"name": "Surf festival", "weight": 10, "days": 3, "visitors_percent": 150,
+                      "demand_percent": {"cafe": 90, "surf_shop": 170, "merchandise": 130, "beach_cafe": 160}},
+}
+EVENT_START_PERCENT = 30  # the chance that an event starts on a day, in whole percent
+FIRST_EVENT_DAY = 3       # the first days are quiet: the player learns the shops first
+MAX_EVENT_DAYS = max(event["days"] for event in EVENTS.values())
 SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
@@ -614,11 +633,47 @@ def _roll_weather(rng, override):
     return _override_weather(override) or rolled
 
 
-def make_day_context(seed, day, override=None):
-    """The weather of one day, from the seed and the day only (same input, same answer).
+def event_starting(seed, day):
+    """The event that starts on `day`, or None. Its own generator, so the weather rolls and the
+    outlook rolls stay as they are. The first days (before FIRST_EVENT_DAY) are quiet."""
+    if day < FIRST_EVENT_DAY:
+        return None
+    rng = random.Random(f"{seed}:{day}:event")
+    if rng.randrange(100) >= EVENT_START_PERCENT:
+        return None
+    return rng.choices(list(EVENTS), weights=[e["weight"] for e in EVENTS.values()])[0]
 
-    override: None, or {"weather": id} to fix the weather (demo mode); the temperature is
-    still rolled from the seed. Returns {"day", "weather", "temperature", "demand_percent"}."""
+
+def _event_info(event_id, day_of):
+    return {"id": event_id, "name": EVENTS[event_id]["name"], "day_of": day_of,
+            "days": EVENTS[event_id]["days"]}
+
+
+def make_event(seed, day, override=None):
+    """The event that is on during `day`, or None. From the seed and the day only, nothing is
+    saved: the newest event that started on `day` or earlier and still runs.
+
+    An override that is a dictionary decides alone: it names an event (that one, on its day
+    1) or it names none, which means no event (specs/events-and-disruptions.md, Decide 2).
+    An unknown saved id counts as none. Returns {"id", "name", "day_of", "days"} or None."""
+    if isinstance(override, dict):
+        event_id = override.get("event")
+        if isinstance(event_id, str) and event_id in EVENTS:
+            return _event_info(event_id, 1)
+        return None
+    for start in range(day, day - MAX_EVENT_DAYS, -1):  # newest start first
+        event_id = event_starting(seed, start)
+        if event_id and start + EVENTS[event_id]["days"] - 1 >= day:
+            return _event_info(event_id, day - start + 1)
+    return None
+
+
+def make_day_context(seed, day, override=None):
+    """The weather and the event of one day, from the seed and the day only (same input, same answer).
+
+    override: None, or {"weather": id} and/or {"event": id} to fix them (demo mode, editor); the
+    temperature is still rolled from the seed. An override without "event" means no event.
+    Returns {"day", "weather", "temperature", "demand_percent", "event"}."""
     rng = random.Random(f"{seed}:{day}")
     weather = _roll_weather(rng, override)
     low, high = WEATHER[weather]["temp"]
@@ -627,6 +682,7 @@ def make_day_context(seed, day, override=None):
         "weather": weather,
         "temperature": rng.randint(low, high),
         "demand_percent": dict(WEATHER[weather]["demand_percent"]),
+        "event": make_event(seed, day, override),
     }
 
 
@@ -704,12 +760,22 @@ def day_is_open(state):
     return state.get("shift") is not None
 
 
-def set_day_override(state, weather):
-    """Fix the weather (a demo switch) or clear it with None."""
+def set_day_override(state, weather, event=None):
+    """Fix the weather and/or the event (a demo switch) or clear both with None.
+
+    event: an id from EVENTS, "none" (no event) or None. An override without an event means
+    no event, so fixing only the weather gives a day without one."""
     if weather is not None and (not isinstance(weather, str) or weather not in WEATHER):
         raise RejectedAction(f"Unknown weather '{weather}'.")
+    if event is not None and (not isinstance(event, str) or (event != "none" and event not in EVENTS)):
+        raise RejectedAction(f"Unknown event '{event}'.")
+    override = {}
+    if weather is not None:
+        override["weather"] = weather
+    if event is not None:
+        override["event"] = event
     new = copy.deepcopy(state)
-    new["day_override"] = None if weather is None else {"weather": weather}
+    new["day_override"] = override or None
     return new
 
 
@@ -839,13 +905,15 @@ def editor_set_state(state, patch):
         new["seed"] = check_seed(patch["seed"])
     if "day_override" in patch:
         override = patch["day_override"]
+        weather = event = None
         if override is None:
-            weather = None
-        elif isinstance(override, dict) and set(override) == {"weather"}:
-            weather = override["weather"]
+            pass
+        elif isinstance(override, dict) and override and set(override) <= {"weather", "event"}:
+            weather = override.get("weather")
+            event = override.get("event")
         else:
-            raise RejectedAction("'day_override' must be null or {\"weather\": id}.")
-        new["day_override"] = set_day_override(new, weather)["day_override"]
+            raise RejectedAction("'day_override' must be null or {\"weather\": id, \"event\": id}.")
+        new["day_override"] = set_day_override(new, weather, event)["day_override"]
     for field in ("stock", "prices"):
         if field in patch:
             if not isinstance(patch[field], dict):
@@ -924,10 +992,22 @@ def _weather_factor(state, shop):
     return f"Weather: {WEATHER[context['weather']]['name']}", {"students": percent, "visitors": visitors}
 
 
+def _event_factor(state, shop):
+    """Today's event: the shop's percent for both segments, extra for the visitors. No event
+    is 100 for both, so the explanation shows no line for it."""
+    event = day_context(state)["event"]
+    if event is None:
+        return "Event: none", {"students": 100, "visitors": 100}
+    spec = EVENTS[event["id"]]
+    percent = spec["demand_percent"][shop]
+    return f"Event: {spec['name']}", {"students": percent,
+                                      "visitors": Fraction(percent * spec["visitors_percent"], 100)}
+
+
 # The day's conditions. Each factor is a function (state, shop) -> (label, {segment: percent}).
 # Percents of all factors multiply; a segment a factor does not name stays at 100.
 # Weather is the first; events, trend, popularity and outfit add theirs here.
-FACTORS = (_weather_factor,)
+FACTORS = (_weather_factor, _event_factor)
 
 
 def _round_half_up(value):

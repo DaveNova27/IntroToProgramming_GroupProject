@@ -96,6 +96,9 @@ function renderHeader() {
   $("#day-label").textContent = state.finished
     ? "Run complete"
     : `Day ${state.day} of ${state.last_day}`;
+  const eventLine = dayIsOpen(state) ? eventText(state.event) : "";
+  $("#event-chip").textContent = eventLine;
+  $("#event-chip").hidden = !eventLine;
   if (dayIsOpen(state)) {
     showWeather($("#weather-chip"), state.weather);
     showOutlook($("#outlook-chip"), state.outlook, "Tomorrow");

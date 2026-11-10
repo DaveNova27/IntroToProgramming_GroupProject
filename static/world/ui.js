@@ -227,6 +227,9 @@ function renderHud() {
   $("#stat-weather-label").textContent = open || state.finished ? "WEATHER" : "FORECAST";
   if (open) showWeather($("#stat-weather"), state.weather);
   else showOutlook($("#stat-weather"), state.outlook);
+  const eventLine = open ? eventText(state.event) : "";
+  $("#stat-event").textContent = eventLine;
+  $("#stat-event").closest(".stat").hidden = !eventLine;
   showOutlook($("#stat-outlook"), open ? state.outlook : null);
   $("#stat-outlook").closest(".stat").hidden = !(open && state.outlook);
   $("#stat-cash").textContent = fmt(state.cash);
@@ -312,6 +315,7 @@ function renderDormPanel(body) {
       <div><dt>Day</dt><dd>${state.finished ? "Done" : `${esc(state.day)} / ${esc(state.last_day)}`}</dd></div>
       <div><dt>Cash</dt><dd>${fmt(state.cash)}</dd></div>
       <div><dt>Weather</dt><dd>${weather}</dd></div>
+      ${state.event ? `<div><dt>Event</dt><dd>${esc(eventText(state.event))}</dd></div>` : ""}
     </dl>
     <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`);
 }
@@ -468,7 +472,7 @@ function renderEditorPanel(body) {
   const info = state.editor_info;
   if (!info) return;
   // do not redraw under the user's fingers while they type: only when the state changed
-  const key = JSON.stringify([state.day, state.cash, state.finished, info.weather_override, state.shops.map((s) => s.level), !!state.shift]);
+  const key = JSON.stringify([state.day, state.cash, state.finished, info.weather_override, info.event_override, state.shops.map((s) => s.level), !!state.shift]);
   if (key === editorKey) return;
   editorKey = key;
   const busy = state.shift ? "disabled title=\"A day is open: finish or skip it first\"" : "";
@@ -481,15 +485,20 @@ function renderEditorPanel(body) {
         <button class="btn" type="submit" value="set">Set</button>
         <button class="btn ghost" type="submit" value="add">Add</button>
       </form></section>
-    <section class="editor-block"><h3>Weather</h3>
+    <section class="editor-block"><h3>Weather and event</h3>
       <form class="editor-row" data-editor="weather">
         <select name="weather" aria-label="Weather">
           <option value="">Seed's forecast</option>
           ${info.weather.map((w) => `<option value="${esc(w.id)}" ${info.weather_override === w.id ? "selected" : ""}>${esc(w.name)}</option>`).join("")}
         </select>
-        <button class="btn" type="submit">Fix</button>
+        <select name="event" aria-label="Event">
+          <option value="none">No event</option>
+          ${info.events.map((ev) => `<option value="${esc(ev.id)}" ${info.event_override === ev.id ? "selected" : ""}>${esc(ev.name)}</option>`).join("")}
+        </select>
+        <button class="btn" type="submit" value="fix">Fix</button>
+        <button class="btn ghost" type="submit" value="clear">Seed's</button>
       </form>
-      <p class="note">Stays fixed for today and the days after, until set back to the forecast.</p></section>
+      <p class="note">Stays fixed for today and the days after, until set back to the seed's. A fixed weather without an event means no event.</p></section>
     <section class="editor-block"><h3>Skip days</h3>
       <form class="editor-row" data-editor="skip">
         <input name="days" inputmode="numeric" aria-label="Days" value="5">
@@ -563,7 +572,10 @@ function wireEditor() {
       const mode = e.submitter?.value || "set";
       return editorAction("/api/editor/cash", { mode, cents: centsOf(f.euros.value) });
     }
-    if (kind === "weather") return editorAction("/api/editor/weather", { weather: f.weather.value || null });
+    if (kind === "weather") {
+      if (e.submitter?.value === "clear") return editorAction("/api/editor/weather", { weather: null, event: null });
+      return editorAction("/api/editor/weather", { weather: f.weather.value || null, event: f.event.value });
+    }
     if (kind === "skip") return editorAction("/api/editor/skip-days", { days: wholeOrNull(f.days.value) });
     if (kind === "day") return editorAction("/api/editor/state", { patch: { day: wholeOrNull(f.day.value) } });
     if (kind === "seed") return editorAction("/api/editor/state", { patch: { seed: wholeOrNull(f.seed.value) } });
