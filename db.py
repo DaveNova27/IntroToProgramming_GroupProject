@@ -110,7 +110,10 @@ def load(path=DEFAULT_PATH):
     prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}
     for p, s, pr in products:
         if p in logic.CATALOGUE:
-            stock[p], prices[p] = s, pr
+            ref = logic.CATALOGUE[p]["ref_price"]
+            # a price far above the reference sells to nobody: a save from before a price change
+            # (balance-pass) starts again at the reference price
+            stock[p], prices[p] = s, (pr if pr <= 3 * ref else ref)
     return {
         "seed": json.loads(meta["seed"]),
         "day_override": json.loads(meta.get("day_override", "null")),

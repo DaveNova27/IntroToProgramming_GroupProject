@@ -416,6 +416,7 @@ function renderPanel() {
             <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
               ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
               storeroom ${s.storage}, counter ${s.counter}</p>
+            ${s.hint ? `<p class="note hint">${esc(s.hint)}</p>` : ""}
             ${staffBlock(s)}
             ${s.offers.map((o) => `
               <div class="shop-offer">
@@ -425,12 +426,15 @@ function renderPanel() {
                   : `<button class="btn" type="button" data-upgrade-shop="${esc(s.id)}" data-upgrade-item="${esc(o.id)}"
                       ${!o.affordable || !o.available ? "disabled" : ""}
                       ${o.available ? "" : 'title="Buy the first employee place first"'}>${fmt(o.price)}</button>`}
-              </div>`).join("")}`
+              </div>
+              ${o.warning ? `<p class="note warning" role="status">⚠ ${esc(o.warning)}</p>` : ""}`).join("")}`
           : `<div class="shop-offer">
               <span class="nm">Start with ${esc(s.start_product_name)}</span>
               <button class="btn" type="button" data-unlock="${esc(s.id)}"
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
-            </div>`}
+            </div>
+            ${s.hint ? `<p class="note hint">${esc(s.hint)}</p>` : ""}
+            ${s.unlock_warning ? `<p class="note warning" role="status">⚠ ${esc(s.unlock_warning)}</p>` : ""}`}
         </section>`).join("")}`);
   } else if (panelMode === "dorm") {
     renderDormPanel(body);

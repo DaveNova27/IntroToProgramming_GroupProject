@@ -45,6 +45,8 @@ def shops_view(state):
             "unlocked": mine["unlocked"],
             "unlock_price": shop["unlock_price"],
             "affordable": shop["unlock_price"] <= state["cash"],
+            "unlock_warning": None if mine["unlocked"] else logic.purchase_warning(state, sid),
+            "hint": logic.shop_hint(state, sid),
             "level": mine["level"],
             "products": mine["products"],
             "staff_places": mine["staff_places"],
