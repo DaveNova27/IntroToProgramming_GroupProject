@@ -12,9 +12,6 @@ const COLOR = ACCENT; // from common.js: one colour per product
 const embedded = new URLSearchParams(location.search).has("embed");
 
 let state = null;
-let animating = false;
-let dayRunning = null;
-let fast = false;
 let panelMode = null;
 let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
@@ -67,14 +64,14 @@ async function send(path, body) {
 const nextFrame = (cb) => (document.hidden ? setTimeout(() => cb(performance.now()), 100) : requestAnimationFrame(cb));
 
 function tween(ms, update) {
-  if (fast || reducedMotion || ms <= 0) {
+  if (reducedMotion || ms <= 0) {
     update(1);
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     const start = performance.now();
     const frame = (now) => {
-      const k = fast ? 1 : Math.max(0, Math.min((now - start) / ms, 1));
+      const k = Math.max(0, Math.min((now - start) / ms, 1));
       update(k);
       if (k < 1) nextFrame(frame);
       else resolve();
@@ -96,7 +93,7 @@ function runClock(from, to, ms) {
 // A big gap, e.g. after loading the page in the middle of a day, is closed at once.
 function followDay() {
   const sh = state.shift;
-  if (!sh || animating) return;
+  if (!sh) return;
   const target = MORNING + (DAY_END - MORNING) * Math.min(sh.tick / sh.day_ticks, 1);
   runClock(scene.clock, target, Math.abs(target - scene.clock) > 60 ? 0 : 1000);
 }
@@ -249,7 +246,7 @@ function renderHud() {
 }
 
 function renderToolbar() {
-  const locked = animating || state.finished;
+  const locked = state.finished;
   $("#btn-order").disabled = locked;
   $("#btn-prices").disabled = locked || !!state.shift;
   $("#btn-shops").disabled = locked;
@@ -257,14 +254,10 @@ function renderToolbar() {
   $("#btn-shift").querySelector(".txt").textContent = "Shift";
   $("#btn-open").disabled = locked;
   $("#btn-editor").hidden = !state.editor;
-  $("#btn-editor").disabled = animating;
-  $("#open-label").textContent = dayRunning
-    ? `Day ${dayRunning} is open…`
-    : evening ? "Go home"
+  $("#open-label").textContent = evening ? "Go home"
     : state.finished ? "Run complete"
     : dayButtonLabel();
-  if (evening) $("#btn-open").disabled = animating || scene.sleeping || fading;
-  $("#btn-fast").hidden = !animating;
+  if (evening) $("#btn-open").disabled = scene.sleeping || fading;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
 }
@@ -288,7 +281,7 @@ function renderAll() {
 // ---- panels --------------------------------------------------------------------------
 
 function openPanel(mode) {
-  if (animating || (state.finished && mode !== "editor")) return;
+  if (state.finished && mode !== "editor") return;
   panelMode = mode;
   panelHtml = "";
   editorKey = "";
@@ -551,7 +544,6 @@ function renderEditorPanel(body) {
 }
 
 async function editorAction(path, body, { moved = false } = {}) {
-  if (animating) return;
   const data = await send(path, body);
   if (!data) return;
   state = data.state;
@@ -870,7 +862,7 @@ function wirePanel() {
     const p = product(form.dataset.priceForm);
     const text = e.target.value.trim().replace(",", ".");
     const value = Number(text);
-    if (text === "" || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
+    if (!/^(?:\d+\.?\d*|\.\d+)$/.test(text) || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
     const unsaved = Math.round(value * 100) !== p.price;
     schedulePricePreview(form, p.id, text, (b) => {
       form.querySelector("[data-demand]").innerHTML =
@@ -897,7 +889,6 @@ function wirePanel() {
 // ---- actions -------------------------------------------------------------------------
 
 async function order(pid, quantityText) {
-  if (animating) return;
   const data = await send("/api/buy", { product: pid, quantity: quantityText });
   if (!data) return;
   state = data.state;
@@ -915,7 +906,6 @@ async function order(pid, quantityText) {
 
 // Unlock a shop or buy from a window. The server decides; the panel stays open.
 async function shopAction(path, body) {
-  if (animating) return;
   const data = await send(path, body);
   if (!data) return;
   state = data.state;
@@ -951,27 +941,11 @@ async function savePrice(form) {
   toast(data.message);
 }
 
-// The numbers are final on the server already. They appear when the day has played.
-async function playDay(after) {
-  dayRunning = after.history[after.history.length - 1].day;
-  animating = true;
-  renderToolbar();
-  try {
-    await runClock(scene.clock, DAY_END, 3200);
-  } finally {
-    state = after;
-    animating = false;
-    dayRunning = null;
-    fast = false;
-    renderAll();
-  }
-}
-
 // Open starts the day clock. The shift is started separately in the Shift panel while the
 // day runs; while it runs this button lets the time pass without any sale.
 async function openDay() {
   if (evening) return walkHome();
-  if (animating || state.finished) return;
+  if (state.finished) return;
   if (state.shift) {
     const warning = endDayWarning();
     if (warning) return askEndDay(warning);
@@ -1003,30 +977,23 @@ function askEndDay(text) {
 }
 
 function endDayConfirmed() {
-  if (!state.shift || animating) return;
+  if (!state.shift) return;
   return shiftAction("/api/shift/skip", {});
 }
 
 // The dashboard did something: its own screen already shows the numbers.
 function syncFromDashboard(msg) {
   enqueue(async () => {
-    if (msg.kind === "open") {
+    state = msg.after;
+    if (msg.kind === "new-run") {
       closePanel();
       hideOverlay();
-      await playDay(msg.after);
-      startEvening();
-    } else {
-      state = msg.after;
-      if (msg.kind === "new-run") {
-        closePanel();
-        hideOverlay();
-        evening = false;
-        scene.sleeping = false;
-        scene.clock = MORNING;
-        placePlayer(state.player);
-      }
-      renderAll();
+      evening = false;
+      scene.sleeping = false;
+      scene.clock = MORNING;
+      placePlayer(state.player);
     }
+    renderAll();
   });
 }
 
@@ -1056,7 +1023,7 @@ function hideOverlay() {
 function showDaySummary(result) {
   const gp = result.gross_profit;
   const rows = result.lines.map((line) => `
-    <tr><td>${EMOJI[line.product]} ${esc(product(line.product).name)}</td><td>${line.sold}</td>
+    <tr><td>${EMOJI[line.product] ?? ""} ${esc(product(line.product)?.name ?? line.product)}</td><td>${line.sold}</td>
     <td>${fmt(line.revenue)}</td><td>${fmt(line.gross_profit)}</td></tr>`).join("");
   const sold = result.lines.reduce((sum, l) => sum + l.sold, 0);
   showOverlay(`
@@ -1364,7 +1331,6 @@ export function initUi(firstState, actions) {
   $("#btn-shops").addEventListener("click", () => openPanel("shops"));
   $("#btn-shift").addEventListener("click", () => openPanel("shift"));
   $("#btn-open").addEventListener("click", openDay);
-  $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));
   $("#btn-new-run").addEventListener("click", askNewRun);
   $("#btn-go-home").addEventListener("click", walkHome);

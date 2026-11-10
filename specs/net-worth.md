@@ -1,3 +1,5 @@
+> **Dropped.** This spec comes from the first draft (PR #1) and belongs to the dropped plan. It is kept as history only and describes nothing in the game today. See `docs/feature-roadmap.md` for the plan that replaced it.
+
 # Group feature: Net worth and luxury purchases (Campus Tycoon)
 
 **Product:** Campus Tycoon, a growing tycoon business on campus. **User:** the player
