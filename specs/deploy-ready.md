@@ -20,13 +20,15 @@ README (`uv run python app.py`), does not change.
      year. The run is stored in `data/players/<id>.db`. A cookie we did not sign (forged, altered, only
      the right shape) is no cookie: an API call with it makes no run (400), so nobody can fill the disk
      with made-up ids.
-   - **Limits.** 240 API requests per player per minute (a played day needs about 60), 30 new players
-     per address per minute, at most 2,000 runs on disk (a new run is then refused with 503 "the game
-     is full"; whoever has a run stays in), at most 20,000 counters at once. A refused request changes
+   - **Limits.** 240 API requests per player per minute (a played day needs about 60), 60 new players
+     per address per minute, at most 2,000 runs on disk (made one at a time, so it is a hard limit; a new
+     run is then refused with 503 "the game is full"; whoever has a run stays in), at most 20,000
+     counters at once (beyond that 503 "busy", swept at most once a second). A refused request changes
      nothing. One lock per player (64 stripes), not one for everybody.
    - **Behind a proxy** (`CT_PROXY=1`, only when the proxy is the only way in): the address is the last
      `X-Forwarded-For` entry and HTTPS is `X-Forwarded-Proto: https`; this makes the limit per visitor
      instead of per proxy, and the cookie Secure with HSTS. Without the switch those headers are ignored.
+   - **The key** that signs the cookies is made once under a lock and written whole (never half a key).
    - **No dev switches.** The editor (`CT_EDITOR`) and the weather override (`CAMPUS_TYCOON_DEMO`)
      are off in public mode, whatever the environment says.
 3. **Answers without paths.** An unexpected error answers 500 with one fixed sentence; the details go

@@ -48,10 +48,16 @@ PLAYERS_DIR = db.DEFAULT_PATH.parent / "players"
 MAX_PLAYERS = 2000  # runs on disk; a new run beyond it is refused ("the game is full")
 RATE_LIMIT = 240  # API requests per player and window (a played day needs about 60 a minute)
 RATE_WINDOW = 60  # seconds
-NEW_PLAYER_LIMIT = 30  # new players per address and window
+NEW_PLAYER_LIMIT = 60  # new players per address and window (a class on one network, a crawler)
 MAX_KEYS = 20_000  # counters kept at once; beyond it a new key is refused until old ones have gone quiet
 _hits = {}  # key -> recent request times
 _hits_lock = threading.Lock()
+_last_sweep = [0.0]
+_create_lock = threading.Lock()  # a new run is made one at a time, so the cap is a hard one
+
+
+class Busy(Exception):
+    """Too many players are being counted at once: not this player's fault, try again later."""
 _secret_cache = []
 
 
@@ -80,19 +86,41 @@ def is_https():
     return request.is_secure
 
 
+_secret_lock = threading.Lock()
+
+
+_dirs_made = set()
+
+
+def _ensure_players_dir():
+    if PLAYERS_DIR not in _dirs_made:  # once, not on every request
+        PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+        _dirs_made.add(PLAYERS_DIR)
+
+
 def _secret():
-    """The key that signs the player cookies: CT_SECRET, else a random one kept in the players folder."""
+    """The key that signs the player cookies: CT_SECRET, else a random one kept in the players folder.
+    Made once, under a lock, and written whole before anybody can read it (never half a key)."""
     if os.environ.get("CT_SECRET"):
         return os.environ["CT_SECRET"].encode()
-    if not _secret_cache or _secret_cache[0][0] != PLAYERS_DIR:
-        PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+    with _secret_lock:
+        if _secret_cache and _secret_cache[0][0] == PLAYERS_DIR:
+            return _secret_cache[0][1]
+        _ensure_players_dir()
         path = PLAYERS_DIR / ".secret"
         if not path.exists():
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            temp = PLAYERS_DIR / f".secret.{secrets.token_hex(4)}"
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "wb") as handle:
                 handle.write(secrets.token_bytes(32))
+            try:
+                os.link(temp, path)  # fails if another process was first: then its key stands
+            except FileExistsError:
+                pass
+            finally:
+                os.unlink(temp)
         _secret_cache[:] = [(PLAYERS_DIR, path.read_bytes())]
-    return _secret_cache[0][1]
+        return _secret_cache[0][1]
 
 
 def _sign(player_id):
@@ -113,11 +141,14 @@ def _too_many(key, limit):
     keys are being counted at once)."""
     now = time.monotonic()
     with _hits_lock:
-        if len(_hits) >= MAX_KEYS and key not in _hits:  # sweep the quiet keys; if still full, refuse
-            for old in [k for k, v in _hits.items() if not v or now - v[-1] > RATE_WINDOW]:
-                del _hits[old]
+        if len(_hits) >= MAX_KEYS and key not in _hits:
+            # sweep the quiet keys (at most once a second, the scan is long); if still full: busy
+            if now - _last_sweep[0] >= 1:
+                _last_sweep[0] = now
+                for old in [k for k, v in _hits.items() if not v or now - v[-1] > RATE_WINDOW]:
+                    del _hits[old]
             if len(_hits) >= MAX_KEYS:
-                return True
+                raise Busy()
         times = _hits.setdefault(key, deque())
         while times and now - times[0] > RATE_WINDOW:
             times.popleft()
@@ -133,16 +164,23 @@ def _player_file(player_id):
 
 @app.before_request
 def identify_player():
+    try:
+        return _identify_player()
+    except Busy:
+        return jsonify({"error": "The game is busy right now. Try again in a minute."}), 503
+
+
+def _identify_player():
     """Public mode: who is this player (a cookie we signed, or a new one for a page), and is it too much."""
     g.player, g.new_player = None, False
     if not public_mode():
         return None
-    PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_players_dir()
     g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
     if g.player is None:
         if request.path.startswith("/api/"):
             # an API call without our cookie is no browser of ours: no run is made for it
-            return jsonify({"error": "Open the game page first."}), 400
+            return jsonify({"error": "Open the game page first (the game needs cookies)."}), 400
         if request.path not in ("/", "/map"):
             return None  # files, icons and probes get no player
         if _too_many(("new", client_address()), NEW_PLAYER_LIMIT):
@@ -182,8 +220,14 @@ def add_headers(response):
 def unexpected_error(error):
     """Only our own words reach the player: never a path or a stack trace (roadmap 3a, point 6)."""
     if isinstance(error, HTTPException):
-        if request.path.startswith("/api/"):  # the screens read every API answer as JSON
-            return jsonify({"error": error.description or error.name}), error.code
+        if request.path.startswith("/api/") and error.code and error.code >= 400:
+            # the screens read every API answer as JSON; the headers of the error (Allow, Retry-After) stay
+            response = jsonify({"error": error.description or error.name})
+            response.status_code = error.code
+            for name, value in error.get_headers():
+                if name.lower() not in ("content-type", "content-length"):
+                    response.headers[name] = value
+            return response
         return error
     app.logger.exception("unexpected error")
     return jsonify({"error": "The server hit an error. Nothing was saved."}), 500
@@ -197,9 +241,13 @@ def _db_kw():
 def load_run():
     """Load the saved run, or start and save a fresh one (first start). In public mode a new run
     is refused (503) once MAX_PLAYERS runs exist."""
-    if getattr(g, "player", None) and not _player_file(g.player).exists() \
-            and sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
-        abort(503, description="The game is full right now. Try again later.")
+    if getattr(g, "player", None) and not _player_file(g.player).exists():
+        with _create_lock:  # one new run at a time: the cap is a hard one
+            if sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
+                abort(503, description="The game is full right now. Try again later.")
+            state = logic.new_state(logic.new_seed())
+            db.save(state, **_db_kw())  # the file exists before the lock is let go
+            return state
     state = db.load(**_db_kw())
     if state is None:
         state = logic.new_state(logic.new_seed())

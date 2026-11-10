@@ -186,8 +186,17 @@ def test_behind_a_proxy_the_address_and_https_come_from_the_proxy_only_when_trus
 
 def test_the_rate_counter_has_a_bound(public, monkeypatch):
     monkeypatch.setattr(app, "MAX_KEYS", 3)
-    assert [app._too_many(("k", i), 5) for i in range(4)] == [False, False, False, True]
+    assert [app._too_many(("k", i), 5) for i in range(3)] == [False, False, False]
+    with pytest.raises(app.Busy):  # a fourth key when three are counted at once: busy, not "too many"
+        app._too_many(("k", 3), 5)
     assert app._too_many(("k", 0), 5) is False  # a key that is counted already goes on
+
+
+def test_a_full_counter_table_says_busy_not_too_many_new_players(public, monkeypatch):
+    monkeypatch.setattr(app, "MAX_KEYS", 1)
+    app._hits[("x", 1)] = app.deque([app.time.monotonic()])
+    response = app.app.test_client().get("/")
+    assert response.status_code == 503 and "busy" in response.get_json()["error"]
 
 
 def test_a_player_always_gets_the_same_lock(public):
@@ -205,3 +214,37 @@ def test_an_unknown_api_route_answers_json(public):
     client.get("/")
     response = client.get("/api/nothing")
     assert response.status_code == 404 and "error" in response.get_json()
+
+
+def test_the_secret_is_made_whole_once_even_when_threads_race(public):
+    import threading
+    app._secret_cache.clear()
+    keys = []
+    threads = [threading.Thread(target=lambda: keys.append(app._secret())) for _ in range(12)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert len(set(keys)) == 1 and len(keys[0]) == 32  # one key, never an empty one
+    assert [p.name for p in public.glob(".secret*")] == [".secret"]  # no temp file is left
+
+
+def test_an_api_error_keeps_the_headers_and_a_redirect_is_left_alone(public):
+    client = app.app.test_client()
+    client.get("/")
+    wrong = client.get("/api/buy")  # the route is POST only
+    assert wrong.status_code == 405 and wrong.get_json() and "Allow" in wrong.headers
+
+
+def test_a_new_run_is_made_one_at_a_time_and_the_cap_is_hard(public, monkeypatch):
+    import threading
+    monkeypatch.setattr(app, "MAX_PLAYERS", 3)
+    clients = []
+    for _ in range(8):
+        c = app.app.test_client()
+        c.get("/")
+        clients.append(c)
+    codes = []
+    threads = [threading.Thread(target=lambda c=c: codes.append(c.get("/api/state").status_code)) for c in clients]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sorted(codes) == [200, 200, 200] + [503] * 5
+    assert len(list(public.glob("*.db"))) == 3
