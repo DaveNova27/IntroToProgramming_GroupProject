@@ -2,6 +2,7 @@
 // Drawing code taken from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
+import { rowRange } from "./cull.js";
 import { drawTree, drawWindFlag, environmentalProfile } from "./environment.js";
 import {
   WORLD_MATERIALS,
@@ -27,6 +28,7 @@ import {
   canvas,
   ctx,
   isoPoint,
+  isoX,
   reducedMotion,
   scene,
   world,
@@ -62,9 +64,14 @@ function tilesOf(zone) {
           color = mixColor("#78a267", "#82ad70", f * 0.9 + ((x * 7 + y * 13) % 5) * 0.02);
         }
       } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
-      tiles.push({ x, y, d: depthOf(x, y), color, depth, shore: zone.outdoor && y === 34 });
+      tiles.push({ x, y, color, depth, shore: zone.outdoor && y === 34 });
     }
-  tiles.sort((a, b) => a.d - b.d);
+  tiles.sort((a, b) => depthOf(a.x, a.y) - depthOf(b.x, b.y));
+  // where each row starts in the sorted list, so a frame walks only the rows in view
+  const rowStart = [];
+  tiles.forEach((tile, i) => { if (rowStart[tile.y] === undefined) rowStart[tile.y] = i; });
+  rowStart[zone.height] = tiles.length;
+  tiles.rowStart = rowStart;
   tileLists.set(zone, tiles);
   return tiles;
 }
@@ -73,11 +80,12 @@ export function drawTerrain(t) {
   const zone = activeZone(),
     center = isoPoint(camera.x, camera.y),
     viewX = canvas.clientWidth / (2 * camera.zoom) + TILE * 2,
-    viewY = canvas.clientHeight / (2 * camera.zoom) + DEPTH * 3;
-  for (const tile of tilesOf(zone)) {
-    const px = tile.x * TILE,
-      py = tile.y * DEPTH;
-    if (Math.abs(px - center.x) > viewX || Math.abs(py - center.y) > viewY) continue;
+    viewY = canvas.clientHeight / (2 * camera.zoom) + DEPTH * 3,
+    tiles = tilesOf(zone),
+    [firstRow, lastRow] = rowRange(center.y - viewY, center.y + viewY, DEPTH, zone.height);
+  for (let i = tiles.rowStart[firstRow]; i < tiles.rowStart[lastRow + 1]; i++) {
+    const tile = tiles[i];
+    if (Math.abs(isoX(tile.x) - center.x) > viewX) continue;
     drawTile(tile.x, tile.y, tile.color, tile.depth);
     if (tile.shore) {
       const p = isoPoint(tile.x + 0.5, tile.y + 0.5, 5);

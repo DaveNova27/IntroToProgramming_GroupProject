@@ -1857,7 +1857,7 @@ export function beachActors(t) {
   const amount = night();
   const solid = world.colliders.campus;
   const actors = [];
-  const add = (depth, draw) => actors.push({ depth, draw });
+  const add = (depth, draw, always = false) => actors.push({ depth, draw, always });
 
   for (const c of solid) {
     if (c.id.startsWith("way-lamp")) add(depthOf(c.x, c.y) + 0.05, () => drawLamp(c.x, c.y, amount));
@@ -1924,7 +1924,7 @@ export function beachActors(t) {
   add(depthOf(dog.x, dog.y), () => drawDog(t));
   world.beach.surfers.forEach((sf, i) => add(depthOf(sf.x0, sf.y), () => drawSurfer(sf, i, t)));
   world.beach.paddlers.forEach((pd, i) => add(depthOf(pd.x, pd.y), () => drawPaddler(pd, i, t)));
-  add(1, () => drawTidePools(t));
+  add(1, () => drawTidePools(t), true);
   add(depthOf(world.beach.lighthouse.x, world.beach.lighthouse.y), () => drawLighthouse(world.beach.lighthouse, t, amount));
   const dorm = dormSpot();
   // the Dorm front sorts by the front edge of its canopy, which reaches 1.2 tiles beyond the wall
@@ -1947,13 +1947,13 @@ export function beachActors(t) {
   world.beach.flags.forEach((f) => add(depthOf(f.x, f.y) + 0.2, () => drawBeachFlag(f, t)));
   add(depthOf(world.beach.shower.x, world.beach.shower.y) + 0.3, () => drawShower(world.beach.shower));
   world.beach.swimmers.forEach((sw) => add(depthOf(sw.x, sw.y), () => drawSwimmer(sw, t)));
-  world.beach.kites.forEach((k) => add(200, () => drawKite(k, t)));
+  world.beach.kites.forEach((k) => add(200, () => drawKite(k, t), true));
   add(depthOf(world.beach.volleyball.x1, world.beach.volleyball.y + 0.2), () => drawVolleyNet(t));
   add(depthOf(world.beach.tower.x, world.beach.tower.y) + 1.7, () => drawLifeguardTower(t, amount));
   add(depthOf(world.beach.rescueBoat.x, world.beach.rescueBoat.y) + 1.0, drawRescueBoat);
   world.beach.buoys.forEach(([x, y], i) => add(depthOf(x, y), () => drawBuoy(x, y, t, i)));
   world.beach.boats.forEach((b, i) => add(depthOf(b.x, b.y), () => drawBoat(b, t, i)));
-  world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t)));
+  world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t), true));
 
   const bench = solid.find((c) => c.id === "dorm-bench");
   add(depthOf(bench.x, bench.y) + 0.5, () => drawCampusBench(bench.x, bench.y, 0));

@@ -452,10 +452,14 @@ const roofDepth = (wingId) => {
 
 // The walls and the canopy come from the building's data, which never changes while it runs; their draw
 // functions read the roofs at the moment they draw. So they are built once, not every frame.
-let built = { source: null, walls: [], canopy: [] };
+let built = { key: null, walls: [], canopy: [] };
+
+// the building replaced, or its parts or walls replaced or changed in length: built again
+const buildingKey = () => [world.nova, world.nova.parts, world.nova.walls, world.nova.parts.length, world.nova.walls.length];
 
 function fixedActors() {
-  if (built.source !== world.nova) built = { source: world.nova, walls: wallActors(), canopy: canopyActors() };
+  const key = buildingKey();
+  if (!built.key || key.some((part, i) => part !== built.key[i])) built = { key, walls: wallActors(), canopy: canopyActors() };
   return built;
 }
 

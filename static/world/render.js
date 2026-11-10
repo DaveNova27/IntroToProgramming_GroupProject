@@ -1,5 +1,6 @@
 // Draws one frame: sky, ground, then everything else sorted from back to front.
 
+import { actorVisible } from "./cull.js";
 import { beachActors, drawBeachGround, drawNightGrade, drawNightLights } from "./beach.js";
 import { campusActors, drawCampusGroundPlan, drawTerrain } from "./campus.js";
 import {
@@ -15,19 +16,9 @@ import { drawPlayer, playerDepth } from "./player.js";
 import { DEPTH, camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
 
-// Objects far above or below the view are not drawn. An object's depth is about its tile row, so the
-// screen row it stands on is depth * DEPTH. What stands above it reaches up at most TALL pixels (the
-// Nova's roofs cover eight rows and are about 120 px high), what hangs below it SKIRT rows. Depths
-// outside the map rows (the kites and gulls at 200, the tide pools at 1) are drawn always.
+// Objects far above or below the view are not drawn (see cull.js for how far is far).
 // `options.cull = false` draws everything: the check that nothing visible is lost.
 export const options = { cull: true };
-const TALL = 480;
-const SKIRT = 3;
-
-function visible(depth, top, bottom) {
-  if (!options.cull || depth < 2 || depth > 60) return true;
-  return (depth - SKIRT) * DEPTH - TALL <= bottom && (depth + SKIRT) * DEPTH >= top;
-}
 
 export function drawWorld(t) {
   const w = canvas.clientWidth;
@@ -68,7 +59,7 @@ export function drawWorld(t) {
   const top = center.y - h / (2 * camera.zoom);
   const bottom = center.y + h / (2 * camera.zoom);
   actors.sort((a, b) => a.depth - b.depth);
-  for (const actor of actors) if (visible(actor.depth, top, bottom)) actor.draw();
+  for (const actor of actors) if (!options.cull || actorVisible(actor, top, bottom, DEPTH)) actor.draw();
   ctx.restore();
 
   drawAmbientLighting(light, w, h);

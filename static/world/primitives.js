@@ -2,7 +2,7 @@
 // Drawing code taken from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
-import { DEPTH, TILE, ctx, isoPoint, scene } from "./scene.js";
+import { DEPTH, TILE, ctx, isoPoint, isoX, isoY, scene } from "./scene.js";
 
 export function roundedRect(x, y, w, h, r, fill) {
   ctx.beginPath();
@@ -11,26 +11,16 @@ export function roundedRect(x, y, w, h, r, fill) {
   ctx.fill();
 }
 
-// The mix of two colours is asked for again and again with the same values (every tile, every
-// frame): worked out once. The amount is part of the key as it is, so the answer is exactly the same.
-const mixed = new Map();
 export function mixColor(a, b, amount) {
-  const key = `${a}|${b}|${amount}`;
-  let color = mixed.get(key);
-  if (color === undefined) {
-    const value = (c) => c.match(/\w\w/g).map((hex) => parseInt(hex, 16)),
-      x = value(a),
-      y = value(b);
-    color = `rgb(${x.map((channel, index) => Math.round(channel + (y[index] - channel) * amount)).join(",")})`;
-    if (mixed.size > 5000) mixed.clear(); // a moving amount (the light) must not fill the memory
-    mixed.set(key, color);
-  }
-  return color;
+  const value = (color) => color.match(/\w\w/g).map((hex) => parseInt(hex, 16)),
+    x = value(a),
+    y = value(b);
+  return `rgb(${x.map((channel, index) => Math.round(channel + (y[index] - channel) * amount)).join(",")})`;
 }
 
 export function drawTile(x, y, color, depth = 0) {
   // the four corners, worked out here: a tile is drawn about a thousand times a frame
-  const ax = x * TILE, ay = y * DEPTH, bx = (x + 1) * TILE, cy = (y + 1) * DEPTH;
+  const ax = isoX(x), ay = isoY(y), bx = isoX(x + 1), cy = isoY(y + 1);
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(ax, ay);
