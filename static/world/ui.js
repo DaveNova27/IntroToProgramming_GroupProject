@@ -832,7 +832,7 @@ function wirePanel() {
     const p = product(form.dataset.priceForm);
     const text = e.target.value.trim().replace(",", ".");
     const value = Number(text);
-    if (text === "" || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
+    if (!/^(?:\d+\.?\d*|\.\d+)$/.test(text) || !Number.isFinite(value) || value <= 0 || state.finished) return cancelPricePreview(form);
     const unsaved = Math.round(value * 100) !== p.price;
     schedulePricePreview(form, p.id, text, (b) => {
       form.querySelector("[data-demand]").innerHTML =

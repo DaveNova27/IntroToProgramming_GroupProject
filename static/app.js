@@ -14,6 +14,9 @@ const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 // $, esc, fmt, fmtSigned and toast come from common.js
 // a product the run no longer owns (an edited run) still has a line in the history: show its id
 const nameOf = (id) => state.products.find((x) => x.id === id)?.name ?? id;
+const accentOf = (id) => ACCENT[id] ?? "#8a8f98";
+// a price the server accepts: plain digits with a point or comma (the same rule as the server's)
+const plainAmount = (text) => /^(?:\d+[.,]?\d*|[.,]\d+)$/.test(text);
 const fmtAxis = (cents) => `${cents < 0 ? "-" : ""}€${(Math.abs(cents) / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 
 async function send(path, body) {
@@ -247,7 +250,7 @@ function previewPrice(card) {
   const p = state.products.find((x) => x.id === card.dataset.product);
   const text = card.querySelector('[name="price"]').value.trim().replace(",", ".");
   const value = Number(text);
-  if (text === "" || !Number.isFinite(value) || value <= 0) return cancelPricePreview(card);
+  if (!plainAmount(text) || !Number.isFinite(value) || value <= 0) return cancelPricePreview(card);
   const cents = Math.round(value * 100);
   setCurveMarker(card, pricePercentOf(cents, p.ref_price));
   if (state.finished) return;
@@ -563,7 +566,7 @@ function renderCharts(animate = false) {
     tooltip: (i) => {
       const day = days[i];
       const rows = day.lines.map((line) => {
-        return `<div class="row"><span><i style="--accent:${ACCENT[line.product]}"></i>${esc(nameOf(line.product))}</span><span>${fmt(line.gross_profit)}</span></div>`;
+        return `<div class="row"><span><i style="--accent:${accentOf(line.product)}"></i>${esc(nameOf(line.product))}</span><span>${fmt(line.gross_profit)}</span></div>`;
       }).join("");
       return `<strong>Day ${day.day}</strong>${rows}
         <div class="row" style="margin-top:4px;font-weight:600"><span>Total</span><span>${fmt(day.gross_profit)}</span></div>`;
@@ -585,7 +588,7 @@ function renderResult() {
   const money = (c) => `<span class="${c < 0 ? "neg" : ""}">${fmt(c)}</span>`;
   const rows = last.lines.map((line) => {
     return `<tr>
-      <td><span class="swatch" style="--accent:${ACCENT[line.product]}"></span>${esc(nameOf(line.product))}</td>
+      <td><span class="swatch" style="--accent:${accentOf(line.product)}"></span>${esc(nameOf(line.product))}</td>
       <td>${fmt(line.price)}</td><td>${line.demand}</td><td>${line.sold}</td>
       <td>${fmt(line.revenue)}</td><td>${fmt(line.cogs)}</td><td>${money(line.gross_profit)}</td>
     </tr>`;

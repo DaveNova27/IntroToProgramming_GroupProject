@@ -11,11 +11,15 @@ Nothing new for the player; less to read and a few small fixes.
    message: no screen sends it any more), `novaIsOpen`, `rectCollider`, `circleCollider`,
    `drawColumnLine`, the unused field `shift_day_ticks`, the old label "Play day" and the
    reference to a `map.js` that no longer exists.
-2. **Price text** (B6): `euros_to_cents` accepts only plain digits with a point or a comma. `1e2`,
-   `1_0`, a sign and digits of other scripts were accepted before; they are now refused with the
-   usual message. Valid amounts and the two-decimal rule are as before.
-3. **Missing product** (B8): the history and the day summary show the product id when the run no
-   longer owns the product (an edited run), instead of stopping to draw.
+2. **Price text** (B6): `euros_to_cents` accepts only plain digits with a point or a comma and an
+   optional sign. `1e2`, `1_0` and digits of other scripts were accepted before; they are now
+   refused with the usual message (the screens' live preview uses the same rule). A negative amount
+   converts and the price rule refuses it with its own words. Valid amounts and the two-decimal rule
+   are as before.
+3. **Missing product** (B8): the history, the result table and the day summary show the product id
+   (and a grey swatch) when the run no longer owns the product (an edited run), instead of stopping
+   to draw. The profit chart still draws only the products the run owns; browser check only, no test
+   (there is no DOM library).
 4. **Old specs** (D1): `employees`, `investments`, `multi-business` and `net-worth` say at the top
    that they belong to the dropped first plan.
 
