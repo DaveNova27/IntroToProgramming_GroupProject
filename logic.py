@@ -457,14 +457,14 @@ def buy_upgrade(state, shop, item):
     return _open_staffed_shift(new) if offer["kind"] == "staff" else new
 
 
-def _add_employee(new, shop, place):
-    """Put a new level 1 employee on a place. The job comes from the shop's data."""
+def _add_employee(new, shop, place, level=1, working=True):
+    """Put a new employee (level 1 and working unless told) on a place. The job comes from the shop's data."""
     employee_id = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0)) + 1
     new["employee_seq"] = employee_id
     new["employees"].append({
         "id": employee_id, "name": EMPLOYEE_NAMES[(employee_id - 1) % len(EMPLOYEE_NAMES)],
         "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
-        "level": 1, "working": True,
+        "level": level, "working": working,
     })
 
 
@@ -811,13 +811,15 @@ def _check_player(player):
 def _check_employees(new, entries):
     """The employees of a patch, checked against the shops of `new` (already patched): a list of
     {"shop", "place", optional "level" (default 1) and "working" (default true)}. Every employee
-    sits on a bought place of an unlocked shop, one per place. They get new ids (never used
-    before) and their name and job from the rules. Returns the list; changes nothing."""
+    sits on a bought place of an unlocked shop, one per place. Someone who already sits on that place
+    stays the same person (same id and name) with the new level and working; a new one gets a new id
+    (never used before) like a hire. Returns (the list, the new employee_seq); changes nothing."""
     if not isinstance(entries, list):
         raise RejectedAction("'employees' must be a list.")
     allowed = {"shop", "place", "level", "working"}
-    seen, built = set(), []
-    seq = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0))
+    there = {(e["shop"], e["place"]): e for e in new["employees"]}
+    built = {"employees": [], "employee_seq": max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0))}
+    seen = set()
     for entry in entries:
         if not isinstance(entry, dict) or not {"shop", "place"} <= set(entry) <= allowed:
             raise RejectedAction("An employee needs shop and place (and may have level and working).")
@@ -834,13 +836,11 @@ def _check_employees(new, entries):
         working = entry.get("working", True)
         if not isinstance(working, bool):
             raise RejectedAction("'working' must be true or false.")
-        seq += 1
-        built.append({
-            "id": seq, "name": EMPLOYEE_NAMES[(seq - 1) % len(EMPLOYEE_NAMES)],
-            "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
-            "level": level, "working": working,
-        })
-    return built, seq
+        if (shop, place) in there:  # the same person stays
+            built["employees"].append({**there[(shop, place)], "level": level, "working": working})
+        else:
+            _add_employee(built, shop, place, level, working)
+    return built["employees"], built["employee_seq"]
 
 
 def editor_set_state(state, patch):
@@ -848,7 +848,8 @@ def editor_set_state(state, patch):
     changes nothing. Keys not in the patch stay as they are.
 
     The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges.
-    "employees" replaces all employees (see _check_employees). Setting an
+    "employees" replaces all employees: whoever is not in the list is dismissed (see
+    _check_employees). Setting an
     earlier day cuts the history and the badges to the days before it. Refused while a day
     is open."""
     keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges"}

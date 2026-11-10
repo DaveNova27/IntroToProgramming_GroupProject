@@ -29,12 +29,35 @@ def test_the_patch_sets_employees_with_level_and_working():
     assert any(line["sold"] for line in played["history"][-1]["lines"])
 
 
-def test_a_new_patch_replaces_the_employees_and_ids_are_not_used_twice():
+def test_the_same_place_keeps_the_same_person_and_a_dismissed_id_is_not_reused():
     state = rich_state()
     first = logic.editor_set_state(state, {"employees": [{"shop": "cafe", "place": 1}]})
-    second = logic.editor_set_state(first, {"employees": [{"shop": "cafe", "place": 1}]})
-    assert [e["id"] for e in second["employees"]] == [2]
-    assert logic.editor_set_state(second, {"employees": []})["employees"] == []
+    again = logic.editor_set_state(first, {"employees": [{"shop": "cafe", "place": 1, "level": 3, "working": False}]})
+    assert [(e["id"], e["name"], e["level"], e["working"]) for e in again["employees"]] == [
+        (1, first["employees"][0]["name"], 3, False)]  # the same person, changed
+    both = logic.editor_set_state(again, {"employees": [{"shop": "cafe", "place": 1}, {"shop": "cafe", "place": 2}]})
+    assert [e["id"] for e in both["employees"]] == [1, 2]
+    gone = logic.editor_set_state(both, {"employees": []})  # everybody dismissed
+    assert gone["employees"] == []
+    back = logic.editor_set_state(gone, {"employees": [{"shop": "cafe", "place": 1}]})
+    assert [e["id"] for e in back["employees"]] == [3]  # a dismissed id is never used again
+
+
+def test_a_partial_list_dismisses_the_rest():
+    state = rich_state()
+    full = logic.editor_set_state(state, {"employees": [
+        {"shop": "cafe", "place": 1}, {"shop": "beach_cafe", "place": 1}]})
+    partial = logic.editor_set_state(full, {"employees": [{"shop": "cafe", "place": 1}]})
+    assert [e["shop"] for e in partial["employees"]] == ["cafe"]
+
+
+def test_patched_employees_survive_save_and_load(tmp_path):
+    import db
+    state = logic.editor_set_state(rich_state(), {"employees": [
+        {"shop": "cafe", "place": 1, "level": 2}, {"shop": "cafe", "place": 2, "working": False}]})
+    db.save(state, tmp_path / "run.db")
+    loaded = db.load(tmp_path / "run.db")
+    assert loaded["employees"] == state["employees"] and loaded["employee_seq"] == state["employee_seq"] == 2
 
 
 @pytest.mark.parametrize("employees", [
