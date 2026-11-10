@@ -236,11 +236,7 @@ def _check_product(state, product):
 def _counter_units(state, shop):
     """Units of a shop that stand on its counter in a running shift (they came from the storeroom
     and go back to it at the end of the shift, so they count against its space)."""
-    shift = state.get("shift")
-    if not shift:
-        return 0
-    sub = shift if shift.get("shop") == shop else shift.get("extra", {}).get(shop)
-    return sum(sub["counter"].values()) if sub else 0
+    return sum(sum(part["counter"].values()) for part in _shift_parts(state) if part["shop"] == shop)
 
 
 def _check_storeroom_space(state, product, quantity):
@@ -334,21 +330,34 @@ def offer_name(shop, item):
     return f"Employee place {offer['place']}"
 
 
+def _runs(state, shop):
+    """Does anybody sell in this shop: the player (a shop of SHIFT_SHOPS) or a working employee."""
+    return state["shops"][shop]["unlocked"] and (
+        shop in SHIFT_SHOPS or any(e["shop"] == shop and e["working"] for e in state["employees"]))
+
+
 def dead_end(state):
-    """True when nothing can be bought or sold any more: no stock anywhere (storeroom and
-    counters) and not enough cash for one unit of the cheapest product the player has."""
+    """True when nothing can be bought or sold any more: no stock that somebody can sell (storeroom
+    and counters of the shops that run) and not enough cash for one unit of the cheapest product the
+    player has. Wages due at the end of the day are not counted."""
     owned = owned_products(state)
     if not owned:
         return False
-    in_shops = sum(state["stock"][pid] for pid in owned) + sum(
+    sellable = sum(state["stock"][pid] for sid in SHOPS if _runs(state, sid)
+                   for pid in state["shops"][sid]["products"]) + sum(
         _counter_units(state, sid) for sid in SHOPS if state["shops"][sid]["unlocked"])
-    return in_shops == 0 and state["cash"] < min(CATALOGUE[pid]["cost"] for pid in owned)
+    return sellable == 0 and state["cash"] < min(CATALOGUE[pid]["cost"] for pid in owned)
 
 
 def purchase_warning(state, shop, item=None):
     """A warning for a purchase (a window offer, or the unlock of the shop when item is None) that
     would leave the player in a dead end, else None. Only a warning: the purchase stays allowed,
     and a purchase that is refused anyway (cash, order) has none."""
+    price = SHOPS[shop]["unlock_price"] if item is None else SHOPS[shop]["window"].get(item, {}).get("price")
+    owned = owned_products(state)
+    # cash enough for a unit of the cheapest product afterwards: no dead end, no copy of the state
+    if price is None or (owned and state["cash"] - price >= min(CATALOGUE[pid]["cost"] for pid in owned)):
+        return None
     try:
         after = unlock_shop(state, shop) if item is None else buy_upgrade(state, shop, item)
     except RejectedAction:
@@ -362,13 +371,16 @@ def purchase_warning(state, shop, item=None):
 def shop_hint(state, shop):
     """What the player should know about a shop that sells nothing on its own: the player can play
     a shift only in SHIFT_SHOPS, so every other shop sells only through its employees. None when
-    the shop is fine (or locked and played by the player)."""
+    the shop is fine (or is played by the player)."""
     _check_shop(shop)
     if shop in SHIFT_SHOPS:
         return None
     entry = state["shops"][shop]
     if entry["unlocked"] and any(e["shop"] == shop and e["working"] for e in state["employees"]):
         return None
+    if entry["unlocked"] and entry["staff_places"] > 0:
+        return ("Nobody works in this shop: the place is free, or the employee stopped for lack of "
+                "money for the wage. It earns nothing until somebody works.")
     return ("This shop sells only through employees: you cannot play a shift here yet. "
             "Buy an employee place first, or it earns nothing.")
 

@@ -68,6 +68,11 @@ A shop without an employee place sells nothing, and only the Cafe can be played 
 (`SHIFT_SHOPS`). `logic.shop_hint` gives such a shop a `hint` ("sells only through employees ..."),
 shown in the Shops panel. No rule changes; the real fix is `shop-walk`.
 
+The dead end counts only stock somebody can sell (the Cafe, or a shop with a working employee) and
+leaves out the wages due at the end of the day. The hint tells a shop without a place from a shop
+whose employee stopped. A saved price above 3 times the reference price (a save from before the new
+prices) starts again at the reference price when it is loaded.
+
 ### 5. The storeroom limit (B4)
 
 The storeroom limit of a shop counts the units on the counter of a running shift too
@@ -86,7 +91,7 @@ the tick, the look, new products, a second employee per place, `shop-walk`.
    unchanged by a refused or warned action; nothing is refused for the warning).
 3. Old tests that name numbers this spec changes on purpose change **only** with the owner's
    confirmation in the session (`AGENTS.md`). None had to change (see "Decide").
-4. The Shops panel and the dashboard show the warning and the hint (checked in the browser).
+4. The Shops panel shows the warning and the hint (checked in the browser; the dashboard has no shop window).
 5. `uv run pytest` passes.
 
 Rules: money stays integer cents, a rejected action changes nothing, no randomness outside the

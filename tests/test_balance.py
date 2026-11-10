@@ -1,4 +1,6 @@
-"""Checks from specs/balance-pass.md: the season is balanced, the dead end warns, the hint and the
+"""Checks from specs/balance-pass.md. The season guard bands are wide on purpose and will move when
+popularity, events or the staff numbers change the sales: whoever changes them confirms it with the
+owner (AGENTS.md). The season is balanced, the dead end warns, the hint and the
 storeroom limit. The simulation plays whole seasons with the real rules on fixed seeds."""
 
 import collections
@@ -178,7 +180,7 @@ def test_no_warning_with_stock_or_cash_left():
     assert all(o["warning"] is None for o in logic.shop_offers(state, "cafe"))
     state["stock"]["coffee"] = 5
     state["cash"] = 6_000
-    assert logic.shop_offers(state, "cafe")[-2]["warning"] is None
+    assert {o["id"]: o for o in logic.shop_offers(state, "cafe")}["staff_1"]["warning"] is None
 
 
 def test_the_unlock_of_a_shop_warns_when_it_leaves_nothing():
@@ -231,3 +233,36 @@ def test_units_on_the_counter_count_against_the_storeroom():
         logic.buy(state, "coffee", 1)  # 80 + 20 on the counter + 1 > 100
     after, _ = logic.skip_shift(state)
     assert after["stock"]["coffee"] == 100  # the counter goes back: 100 in all, the limit holds
+
+
+def test_stock_nobody_can_sell_does_not_save_the_player_from_the_dead_end():
+    state = logic.new_state(1)
+    state["cash"] = 100_000
+    state = logic.unlock_shop(state, "beach_cafe")
+    state = logic.buy(state, "beer", 50)  # the Beach Cafe has no employee: the beer cannot be sold
+    state["cash"], state["stock"]["coffee"] = 0, 0
+    assert logic.dead_end(state)
+    state = logic.buy_upgrade({**state, "cash": 10_000}, "beach_cafe", "staff_1")
+    state["cash"] = 0
+    assert not logic.dead_end(state)  # now an employee sells the beer
+
+
+def test_the_hint_tells_a_stopped_employee_from_a_missing_place():
+    state = logic.new_state(1)
+    state["cash"] = 100_000
+    state = logic.buy_upgrade(logic.unlock_shop(state, "beach_cafe"), "beach_cafe", "staff_1")
+    state["employees"][0]["working"] = False  # no money for the wage
+    assert "Nobody works" in logic.shop_hint(state, "beach_cafe")
+    assert "Buy an employee place" in logic.shop_hint(logic.new_state(1), "beach_cafe")
+
+
+def test_a_save_with_an_old_absurd_price_starts_at_the_reference_price(tmp_path):
+    import db
+    path = tmp_path / "old.db"
+    state = logic.new_state(1)
+    state["prices"]["surfboard"] = 9_000  # the reference price before this spec
+    state["prices"]["coffee"] = 250
+    db.save(state, path)
+    loaded = db.load(path)
+    assert loaded["prices"]["surfboard"] == logic.CATALOGUE["surfboard"]["ref_price"]
+    assert loaded["prices"]["coffee"] == 250

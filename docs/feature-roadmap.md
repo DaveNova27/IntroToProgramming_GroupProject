@@ -8,7 +8,7 @@ settable state, overridable day context, no randomness without the seed.
 
 What changed since v3: the price logic (`pricing`), the day cycle at the Dorm, the straight map
 view, badges and the audit fixes (frames, calm panels, hidden weather) are built and merged. The
-open work is now the balance (`balance-pass`), walking through the shift, popularity, events, the
+open work is now walking through the shift, popularity, events, the
 looks (`shop-art`, `nova-design`, `weather-visuals`, `map-layout`), guests, outfits, the demo and the
 polish. The audit is in `docs/audit-report.md`. A day flow with a storage computer and a truck
 is proposed in section 4.2 (`warehouse`).
@@ -62,6 +62,7 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | `smooth-frames` | #77 | No blur filter for shadows, a slow frame advances the world by its real time (6 to 12 frames per second before, about 50 after) |
 | `hidden-weather` | #78 | Before the day opens no shown number depends on the real weather |
 | `calm-panels` | #80 | The side panels redraw only when changed, requests wait for each other |
+| `balance-pass` | #82 | Cheaper Surf Shop and Merchandise products (a good season ends at about +5,000 EUR, not +25,000), a dead-end warning, a hint for shops only employees can run, the storeroom limit counts the counter, a guard test that plays seasons |
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
@@ -147,12 +148,11 @@ one branch, one issue, one pull request.
 
 | Spec | Issue | Track | Effort | Depends on | What |
 |---|---|---|---|---|---|
-| `balance-pass` | #76 | L | M | pricing (done) | Rebalance the shop numbers (the Surf Shop earns about 25000 euro a season, the whole Cafe about 1500), a warning against the dead end (cash 0 and no stock), the trap (a shop without an employee place sells nothing), the storeroom limit (counter units not counted), the simulation as a guard test. See `docs/audit-report.md` (G1, B2, B3, B4). |
 | `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
 | `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
-| `popularity` | #13 | L | M | pricing (done), `balance-pass` (#76: both change the tables in `logic.py`) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
+| `popularity` | #13 | L | M | pricing, balance-pass (both done) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
 | `events-and-disruptions` | #14 | L | M | day-context | Campus events (exam period, party, career fair), trends, outages, strikes as entries in the day context. Felix' 7 day types are the event table. |
 | `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
@@ -195,14 +195,14 @@ change in the spec. The old truck of the three.js map is only a reference for th
 
 | Issue | State |
 |---|---|
-| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather` |
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout`, #76 `balance-pass` |
+| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
 | To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `render-cache`, `lean-responses`, `editor-staff`, `cleanup-dead-code`, `deploy-ready`) |
 
 ## 6. Suggested next steps (proposal)
 
-1. `balance-pass` (#76): the shops earn very different amounts (audit G1), and the dead end and the trap are open. Decided by David (owner of the spec) in the session of 2026-11-09, written in `specs/balance-pass.md`: warn before a purchase that leaves nothing to buy (no refusal; the audit's other option, a refusal, is dropped), no loan yet (a loan is the feature `F8` of the audit, a spec of its own), the day length is solved by the demo and a speed step, not by the numbers.
+1. `balance-pass` (#76) is built (#82). The decisions behind it (David, owner of the spec, session of 2026-11-09, written in `specs/balance-pass.md`): warn before a purchase that leaves nothing to buy (no refusal), no loan yet (a loan is the feature `F8` of the audit), the day length is solved by the demo and a speed step, not by the numbers.
 2. In parallel, small and independent: `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
 3. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
 4. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
