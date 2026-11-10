@@ -339,7 +339,9 @@ def _runs(state, shop):
 def dead_end(state):
     """True when nothing can be bought or sold any more: no stock that somebody can sell (storeroom
     and counters of the shops that run) and not enough cash for one unit of the cheapest product the
-    player has. Wages due at the end of the day are not counted."""
+    player has. Wages are paid at the end of the day, after the sales, and the player can buy stock
+    in the morning: they do not make a dead end (an employee may stop for lack of money, the player
+    still earns by serving the Cafe)."""
     owned = owned_products(state)
     if not owned:
         return False

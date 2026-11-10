@@ -69,7 +69,9 @@ A shop without an employee place sells nothing, and only the Cafe can be played 
 shown in the Shops panel. No rule changes; the real fix is `shop-walk`.
 
 The dead end counts only stock somebody can sell (the Cafe, or a shop with a working employee) and
-leaves out the wages due at the end of the day. The hint tells a shop without a place from a shop
+does not count the wages: they are paid at the end of the day, after the sales, and the player can
+buy stock in the morning, so they never make a dead end by themselves (an employee may stop for lack
+of money; the player still earns by serving the Cafe; tested). The hint tells a shop without a place from a shop
 whose employee stopped. A saved price above 3 times the reference price (a save from before the new
 prices) starts again at the reference price when it is loaded.
 

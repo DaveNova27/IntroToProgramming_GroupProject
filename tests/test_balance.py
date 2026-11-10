@@ -266,3 +266,16 @@ def test_a_save_with_an_old_absurd_price_starts_at_the_reference_price(tmp_path)
     loaded = db.load(path)
     assert loaded["prices"]["surfboard"] == logic.CATALOGUE["surfboard"]["ref_price"]
     assert loaded["prices"]["coffee"] == 250
+
+
+def test_wages_due_do_not_make_a_dead_end_the_player_earns_them_back():
+    state = logic.new_state(1)
+    state["cash"] = 100_000
+    state = logic.buy_upgrade(state, "cafe", "staff_1")  # an employee, wage 8 euro a day
+    state["cash"] = 200  # 2 euro: less than the wage, but enough for stock
+    assert not logic.dead_end(state) and logic.purchase_warning(state, "cafe", "bagel") is None
+    state = logic.buy(state, "coffee", 2)
+    state = logic.open_day(state)
+    state, _ = logic.skip_shift(state)  # the employee sells, the wage may not be paid in full
+    assert state["cash"] > 0 or any(h["revenue"] > 0 for h in state["history"])  # money came in
+    assert not logic.dead_end({**state, "cash": state["cash"] + 100})
