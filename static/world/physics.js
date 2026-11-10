@@ -4,14 +4,6 @@
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
-export function rectCollider(id,x,y,width,height,options={}){
-  return {id,shape:"rect",x,y,width,height,...options};
-}
-
-export function circleCollider(id,x,y,radius,options={}){
-  return {id,shape:"circle",x,y,radius,...options};
-}
-
 export function pointBlocked(point,colliders,radius=.28){
   for(const collider of colliders){
     if(collider.disabled)continue;

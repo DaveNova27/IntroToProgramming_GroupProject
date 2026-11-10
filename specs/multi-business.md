@@ -1,3 +1,5 @@
+> **Dropped.** This spec comes from the first draft (PR #1) and belongs to the dropped plan. It is kept as history only and describes nothing in the game today. See `docs/feature-roadmap.md` for the plan that replaced it.
+
 # Group feature: Own more than one business (Campus Tycoon)
 
 **Product:** Campus Tycoon, a growing tycoon business on campus. **User:** the player
