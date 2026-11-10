@@ -7,8 +7,9 @@ design reference (core loop, weather and event factors, demo mode, glossary). Re
 settable state, overridable day context, no randomness without the seed.
 
 What changed since v3: the price logic (`pricing`), the day cycle at the Dorm, the straight map
-view, badges and the audit fixes (frames, calm panels, hidden weather) are built and merged. The
-open work is now walking through the shift, popularity, events, the
+view, badges, the audit fixes (frames, calm panels, hidden weather, balance, cleanup, render cache,
+public mode), the editor's staff patch and the campus events (#87 to #91) are built and merged. The
+open work is now walking through the shift, popularity, outages and strikes (`disruptions`), the
 looks (`shop-art`, `nova-design`, `weather-visuals`, `map-layout`), guests, outfits, the demo and the
 polish. The audit is in `docs/audit-report.md`. A day flow with a storage computer and a truck
 is proposed in section 4.2 (`warehouse`).
@@ -71,6 +72,9 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
+The "PR" column above holds pull request numbers; the issue status (section 5) holds issue
+numbers. They are different counters: for example issue #83 `editor-staff` was built in PR #87.
+
 Tests: everything in `tests/` and `checks/` passes in CI (`uv run pytest`).
 
 ### What we took from Felix
@@ -120,7 +124,8 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 
 Known weak spot (from the README): a played day is paced by the browser, one tick request a
 second counted by the server, so a script can play a day in an instant. Only the player's own
-run is affected. Revisit it before any deployment.
+run is affected. Revisit it before any deployment. `deploy-ready` (#89) left it out on purpose
+(`specs/deploy-ready.md`), so it is still open.
 
 ### 3b. Security: what to watch per spec
 
@@ -128,6 +133,7 @@ run is affected. Revisit it before any deployment.
 |---|---|
 | `shop-unlock`, `shop-process`, `shop-skip` | Built. The server checks cash, shop id and level, storeroom, counter space and queue. Locked shops and a sale after the day ended are refused. Keep the tests for the locked case. |
 | `staff` | Built. Wages in integer cents, cash never negative, hiring limit from the level, ids validated. Employees run on the server. |
+| `deploy-ready` | Built. With `CT_PUBLIC=1` every player has a run of their own (signed cookie), the demo switch and the editor are off, requests are limited, and every answer carries security headers. Needs HTTPS in front (proxy) and one worker. |
 | `editor-mode` | Built. Active only with `CT_EDITOR=1` and only for requests from this computer. One validated state patch. Must stay off on a public deployment. |
 | `pricing` | Prices come from the server. Weather and event factors are integers. A crafted price or demand never changes more than the rule allows. |
 | `shop-walk` | Every refill and sale is a request the server checks. No rule depends on the position the browser sends. |
@@ -191,7 +197,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 ### 4.3 Cleanup (small)
 
 - `specs/employees.md`, `investments.md`, `multi-business.md` and `net-worth.md` come from the
-  first draft (PR #1) and belong to the dropped plan; delete or mark them as replaced.
+  first draft (PR #1) and belong to the dropped plan; they are marked as dropped (#88).
 - The cleanup of the audit (dead code, this roadmap and the README, old specs, price text, product name fallback) was built as one spec: `cleanup-dead-code` (#88). The two items above belonged to it.
 - `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
@@ -243,8 +249,9 @@ Built today, in this order:
 6. The evening report shows the forecast for tomorrow and a tip per shop.
 7. The player decides: stock, prices, unlocking, levels, staff. The next day starts.
 
-Built on top: demand from price, weather and events (`pricing`, `events-and-disruptions`). Planned: popularity (`popularity`): DEMAND = base from price x weather x event x trend x popularity
-x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
+Built on top: demand from price, weather and events (`pricing`, `events-and-disruptions`; an
+event can last several days). Planned: popularity and outfits. The whole formula is
+DEMAND = base from price x weather x event x popularity x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
 shelves and too high prices; it affects the next day. The day starts and ends at the Dorm
 (`day-cycle`, built).
 
@@ -263,14 +270,18 @@ follow them once `pricing` is built.
 | Hot | 60 | 120 | 80 | 180 |
 | Stormy | 100 | 20 | 100 | 20 |
 
-Event factors are built (`events-and-disruptions`, #91); the numbers in use are `EVENTS` in `logic.py`. This table is the starting proposal and no longer the rule, 1.0 is normal:
+Event factors are built (`events-and-disruptions`, #91). The numbers in use are `EVENTS` in
+`logic.py`; this table shows them (percent, 100 is normal). "Visitors" is the number of visitors on
+top of the shop columns, the shop columns are the demand per shop. A day has an event with a chance of
+`EVENT_START_PERCENT`, from `FIRST_EVENT_DAY` on, and an event lasts several days.
 
-| Event | Cafe | Surf Shop | Merchandise | Beach Cafe |
-|---|---|---|---|---|
-| No event | 1.0 | 1.0 | 1.0 | 1.0 |
-| Exam period | 1.5 | 0.6 | 0.9 | 0.7 |
-| Party | 0.8 | 1.0 | 1.1 | 1.5 |
-| Career fair | 1.3 | 0.7 | 1.4 | 0.9 |
+| Event | Days | Visitors | Cafe | Surf Shop | Merchandise | Beach Cafe |
+|---|---|---|---|---|---|---|
+| No event | | 100 | 100 | 100 | 100 | 100 |
+| Exam period | 2 | 70 | 150 | 60 | 90 | 70 |
+| Party | 1 | 110 | 80 | 100 | 110 | 150 |
+| Career fair | 1 | 120 | 130 | 70 | 140 | 90 |
+| Surf festival | 3 | 150 | 90 | 170 | 130 | 160 |
 
 The factors are multiplied. Example: hot weather on a party day gives the Beach Cafe
 1.8 x 1.5 = 2.7, so the player should order much more beer and coke zero. A tip says more
@@ -309,7 +320,7 @@ Example sequence (a suggestion, the team chooses after the game is complete):
 
 | Term | Meaning |
 |---|---|
-| Day context | The result of one day's rolled external influences: weather, later events, trends, disruptions. |
+| Day context | The result of one day's rolled external influences: weather and the campus event of the day (`make_day_context`); later disruptions. |
 | Outlook | The forecast and the evening report with tips for the next day. |
 | Open day | The day clock (300 ticks) that starts when the player opens the day. |
 | Shift | The one work period of a day (90 ticks) in a shop. Only it earns money. |

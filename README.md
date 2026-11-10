@@ -120,7 +120,7 @@ The plan, with what is built and what is open, is in
 [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v5, state of 2026-11-10).
 Still open: `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
 `weather-visuals`, `outfits`, `guests`,
-`demo-scenarios` and `final-polish`; proposed: `warehouse`. The audit (`docs/audit-report.md`) lists
+`demo-scenarios` and `final-polish`; proposed: `warehouse` and `disruptions` (outages and strikes). The audit (`docs/audit-report.md`) lists
 findings, measurements and feature ideas. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
 AI, credit: https://github.com/felix-anthes-png/nova-beach-ventures). Progress is
