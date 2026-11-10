@@ -62,6 +62,7 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | `smooth-frames` | #77 | No blur filter for shadows, a slow frame advances the world by its real time (6 to 12 frames per second before, about 50 after) |
 | `hidden-weather` | #78 | Before the day opens no shown number depends on the real weather |
 | `calm-panels` | #80 | The side panels redraw only when changed, requests wait for each other |
+| `editor-staff` | #87 | The editor patch sets the employees (shop, place, level, working): the whole run is settable for the demo |
 | `balance-pass` | #82 | Cheaper Surf Shop and Merchandise products (a good season ends at about +5,000 EUR, not +25,000), a dead-end warning, a hint for shops only employees can run, the storeroom limit counts the counter, a guard test that plays seasons |
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
@@ -198,7 +199,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 | Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
 | Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
-| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `render-cache`, `lean-responses`, `editor-staff`, `cleanup-dead-code`, `deploy-ready`) |
+| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`) |
 
 ## 6. Suggested next steps (proposal)
 

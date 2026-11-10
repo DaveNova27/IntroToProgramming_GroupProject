@@ -526,6 +526,12 @@ function renderEditorPanel(body) {
         <button class="btn wide" type="submit" ${busy}>Set levels</button>
       </form>
       <div class="editor-row"><button class="btn ghost" type="button" data-editor-fill ${busy}>Fill storerooms</button></div></section>
+    <section class="editor-block"><h3>Staff</h3>
+      <div class="editor-row">
+        <button class="btn ghost" type="button" data-editor-staff="fill" ${busy}>Fill empty places</button>
+        <button class="btn ghost" type="button" data-editor-staff="top" ${busy}>All on top level</button>
+        <button class="btn ghost" type="button" data-editor-staff="none" ${busy}>Dismiss all</button></div>
+      <p class="note">Fill keeps the employees you have and puts a level 1 employee on every free bought place. Top level and Dismiss all change everybody.</p></section>
     <section class="editor-block"><h3>Seed</h3>
       <form class="editor-row" data-editor="seed">
         <input name="seed" inputmode="numeric" aria-label="Seed" placeholder="0 to ${info.max_seed}">
@@ -603,6 +609,18 @@ function wireEditor() {
     }
   });
   panel.addEventListener("click", (e) => {
+    const staffBtn = e.target.closest("[data-editor-staff]");
+    if (staffBtn) {
+      // the server checks places and levels; an employee who is there stays the same person
+      const mode = staffBtn.dataset.editorStaff;
+      const mine = state.staff.employees;
+      const employees = mode === "none" ? [] : state.staff.places.filter((p) => p.bought).map((p) => {
+        const who = mine.find((x) => x.id === p.employee);
+        if (mode === "top") return { shop: p.shop, place: p.place, level: state.staff.max_level, working: who ? who.working : true };
+        return who ? { shop: p.shop, place: p.place, level: who.level, working: who.working } : { shop: p.shop, place: p.place };
+      });
+      return editorAction("/api/editor/state", { patch: { employees } });
+    }
     if (!e.target.closest("[data-editor-fill]")) return;
     // an even share of each storeroom per product; the server checks the limits
     const stock = {};
