@@ -1,6 +1,6 @@
-# Campus Tycoon: Feature Roadmap (v5)
+# Campus Tycoon: Feature Roadmap (v6)
 
-Status: roadmap v5, state of 2026-11-10 (after PR #91). It replaces v4. What the team decided
+Status: roadmap v6, state of 2026-11-10 (after PR #92). It replaces v5. What the team decided
 stays marked "decided". Part A is the plan and the current state. Part B keeps the game
 design reference (core loop, weather and event factors, demo mode, glossary). Read
 `AGENTS.md` first for the working rules. The three roadmap rules stay (see B3): complete
@@ -13,6 +13,11 @@ open work is now walking through the shift, popularity, outages and strikes (`di
 looks (`shop-art`, `nova-design`, `weather-visuals`, `map-layout`), guests, outfits, the demo and the
 polish. The audit is in `docs/audit-report.md`. A day flow with a storage computer and a truck
 is proposed in section 4.2 (`warehouse`).
+
+What changed since v5: the requirements of the course and the time left are in section 1a (the
+submission is due 2026-11-23, 23:59, and the app must run live at a public URL), the new spec
+`deploy` (#93) is the first open spec, the demo mode has to run on the public URL, and the open
+decisions 7.11 to 7.17 come from the comparison with the course text.
 
 # Part A: Plan and state
 
@@ -86,6 +91,40 @@ Still to port, if needed: store silhouettes (`shop-art`), `environmentalProfile`
 and destination scoring (`guests`), `createShowcaseRun` (`demo-scenarios`). Taken: `scenarioGoals` (the model of `badges`, built). Not taken: 25 district businesses, DJ events, maintenance and cleaning,
 management overlays, guest needs, progression levels, showcase editor.
 
+## 1a. The course requirements and the time left
+
+Source: the team project page of the course wiki
+(https://2477-introduction-programming.gitlab.io/wiki/team-project/) and its guides, read on 2026-11-10.
+
+| What the course asks | Our state |
+|---|---|
+| Submit the link to the public GitHub repository on Moodle by **2026-11-23, 23:59** (one member); commits after the deadline do not count | The repository is public. |
+| The deployed code is on `main` | Not deployed yet: `deploy` (#93) |
+| README: the deployed URL, names and student numbers of all members, the commands to run the app and the tests | Run and test commands: yes. URL: TODO. Felix' student number: TODO |
+| Live demo at the deployed URL in week 11 or 12; slides or recorded videos are no replacement | The demo mode must run on the public URL (see 3b, `demo-scenarios`) |
+| Repository walkthrough: any member can be asked about any part of the project | Every member must be able to explain the whole project, also the world code taken from Felix |
+
+Grading in short: it works (20 %: all workflows run on the deployed app, also with invalid input),
+interface (20 %: direct workflows, clear results and errors), scope (20 %: several substantial
+features in one product), tests (10 %: accepted and rejected actions and edge cases, all green on
+`main`), security (10 %: access control, input validation, minimal pinned dependencies, no secrets
+in the repository), walkthrough (20 %: how it is built, why, its limits and how it could change).
+
+### Proposed plan for the time left (to be agreed by the team)
+
+- Now: choose a host and deploy a first version (`deploy`, #93), even if the game is unfinished. It shows what only worked on one laptop.
+- Until about 2026-11-17: finish what the demo needs and cut the rest of section 4.1. Which specs the demo needs, and who decides, is open (7.17). The date of the team's presentation slot is open too (7.16); move the dates below if it falls early in the week of 2026-11-23.
+- 2026-11-18 to 2026-11-22: no new features. Bug fixes, `final-polish`, smoke test of the deployed app, rehearsal of the demo, preparation of the walkthrough (where the data is stored, what the tests cover and what they miss, what happens when something fails).
+- 2026-11-23: submit the link in the morning, not at 23:59.
+
+### Where the course text and our decisions differ (to talk about)
+
+1. Review. The course guide "Working as a team" calls a review a second person reading the change, and the way members learn the parts they did not build; merging without one is a pitfall. We replaced it by an AI review (section 2). Because any member can be asked about anything, consider one human read per pull request as well (7.12).
+2. Shared structures. The guide asks for one owner per shared structure (data format, `app.py`, `AGENTS.md`). Not set yet (7.13).
+3. Demo mode. The live demo runs on the public URL, so the demo cannot be "local only" (3b).
+4. Storage. Runs are SQLite files; many free hosts erase the disk on every restart (guide "Storing data"). To decide in `deploy` (7.11).
+5. Stack. A Python backend with a plain JavaScript page is in the stack guide's list. JavaScript frameworks need an approval and we use none; ask the teaching staff once whether the canvas front end is fine (7.14).
+
 ## 2. Decisions the team gave so far
 
 | Topic | Decision |
@@ -100,7 +139,7 @@ management overlays, guest needs, progression levels, showcase editor.
 | One shift per day | Decided: a shift always lasts the same time, and only the shift earns money. Built (`shop-process`, `shop-skip`). |
 | Day length | Built as placeholders: an opened day is 300 ticks (one tick a second), a shift 90 ticks. |
 | Guests | Own feature, decided later. |
-| Review | An AI reviews every pull request; merging needs the passing `Tests` check. |
+| Review | An AI reviews every pull request; merging needs the passing `Tests` check. The course guide suggests a human review as well (section 1a, 7.12). |
 | Test changes | The owner of a PR may confirm a test change for their own PR, only when the old test names data the spec changes on purpose (see `AGENTS.md`). |
 | Security | Every spec follows section 3a and the per spec list in 3b. |
 | AI use | Required by the course. Felix' code and art are AI made and may be used. Credit is in the README. |
@@ -118,7 +157,7 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 4. No unescaped data in `innerHTML`. Use `textContent` or `esc()`.
 5. No secrets in the repo. Pin dependencies. Nothing from outside the app: no CDN, no web fonts.
 6. Error answers contain only our own rule messages, never paths or stack traces.
-7. Anything that sets the state directly (editor mode, demo mode) works only locally with an explicit config switch. Never on a public deployment.
+7. Anything that sets the state directly (the editor mode, a free state patch) works only locally with an explicit config switch. Never on a public deployment. The demo mode is different: it has to run on the public URL, so it only loads a prepared scenario by id from a fixed list on the server, never a state sent by the browser (see 3b).
 8. If the app is deployed: HTTPS, a production server, a session per player, rate limit, security headers (CSP, X-Content-Type-Options, X-Frame-Options).
 9. Tests for the security part of each spec: a crafted bad request is refused and the saved state stays identical.
 
@@ -147,7 +186,7 @@ run is affected. Revisit it before any deployment. `deploy-ready` (#89) left it 
 | `badges` | Awarded only by the server, after an accepted action or at the end of a day (`specs/badges.md`). No endpoint lets the browser grant a badge. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
 | `guests` | Number of guests is capped. Guest data comes only from the server. |
-| `demo-scenarios` | Loading a scenario needs the demo switch and works only on localhost. Validate the whole state shape. Never public. |
+| `demo-scenarios` | The live demo runs on the public URL (course rule), so it cannot be local only. A scenario is loaded by id from a fixed list on the server, into the player's own run; the browser never sends a state. Validate the id. The editor mode and the free state patch stay off in public mode. |
 | `final-polish` | Last pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
 
 ## 4. Specs
@@ -159,6 +198,7 @@ one branch, one issue, one pull request.
 
 | Spec | Issue | Track | Effort | Depends on | What |
 |---|---|---|---|---|---|
+| `deploy` | #93 | L | M | deploy-ready (done) | Put the app online at a public URL and keep it online: host, start command, pinned `gunicorn`, secrets in the host settings, storage decision, deploy from `main`, smoke test on the deployed URL, README with the URL. Needed by the course (section 1a). |
 | `shop-walk` | #40 | L and V | L | shop-process, nova-zones (both done), shop-art | The shift is played by walking: storeroom spot, carry, counter, serve. Each step stays a server request; no rule reads the position. Replaces the Play day panel. Can start with the Cafe. Today only the Cafe can be played, `SHIFT_SHOPS = ("cafe",)`; the other shops run on staff only. |
 | `staff` follow-up | #20 | L | S | shop-process | Issue still open: keep trying staff in play. Known: numbers are placeholders, with the current demand a level 1 seller already serves everyone (fixed by `pricing`), `trade_day` has no staff, only the Cafe has employee figures (`WORK_SPOTS`). Proposal, not decided: close it when `pricing` and the figures for the other shops are in. |
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
@@ -207,16 +247,17 @@ change in the spec. The old truck of the three.js map is only a reference for th
 |---|---|
 | Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
+| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
 | To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)
 
-1. `balance-pass` (#76) is built (#82). The decisions behind it (David, owner of the spec, session of 2026-11-09, written in `specs/balance-pass.md`): warn before a purchase that leaves nothing to buy (no refusal), no loan yet (a loan is the feature `F8` of the audit), the day length is solved by the demo and a speed step, not by the numbers.
-2. In parallel, small and independent: `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
-3. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
-4. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
-5. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
+1. `deploy` (#93) first: the course needs a running app at a public URL, and a first deployment shows what only worked on one laptop (section 1a).
+2. `balance-pass` (#76) is built (#82). The decisions behind it (David, owner of the spec, session of 2026-11-09, written in `specs/balance-pass.md`): warn before a purchase that leaves nothing to buy (no refusal), no loan yet (a loan is the feature `F8` of the audit), the day length is solved by the demo and a speed step, not by the numbers.
+3. In parallel, small and independent: `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
+4. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
+5. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
+6. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
 
 Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a spec without an assignee is free. Each spec gets its `specs/<name>.md` in its own PR.
 
@@ -232,6 +273,13 @@ Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a
 8. Guests: sales computed per day on the server, or live guests on the map?
 9. Ideas from the team, not yet a spec: Merchandise customers wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on the campus where paper and ink have to be refilled.
 10. Licence and credit for Felix' project: confirm and keep the README credit.
+11. Host and storage for `deploy`: which host (free plan, no card, no sleeping if possible), and what happens to the runs when the disk is erased (accept it, or a persistent disk or database)?
+12. Review: keep the AI review only, or also one human read per pull request, because any member can be asked about any part in the walkthrough? (`AGENTS.md` changes through a pull request.)
+13. Owners of the shared structures (the data format in `db.py` and `logic.py`, `app.py`, `world.py`, `AGENTS.md`): one name each.
+14. Ask the teaching staff whether the plain JavaScript canvas front end on a Flask backend is fine for the stack.
+15. Date after which no new feature is merged (proposal: 2026-11-17).
+16. In which week and on which day does the team present (week 11 or 12 of the course)? Ask the teaching staff or look it up on Moodle, then fix the dates of the plan in section 1a.
+17. Which of the open specs does the demo need, and which are cut? Proposal for the team to correct: keep `deploy`, `popularity`, `weather-visuals`, `demo-scenarios` and `final-polish`; `shop-walk` and `shop-art` only if they are finished by the freeze; cut `guests`, `warehouse`, `outfits` and `nova-design`. The team decides this in one call (proposal: by 2026-11-12).
 
 ---
 
@@ -302,7 +350,9 @@ Built like a tutorial, about 5 minutes, and built last, once the game is complet
 skipped: each scenario loads a prepared start state and shows an explanation text. After
 the goal of a scenario is reached, the next scenario loads. At the end the player can keep
 playing freely. The editor mode (`editor-mode`) already sets cash, weather, day, shops and
-stock; the demo adds scenarios on top.
+stock; the demo adds scenarios on top. The live demo of the course runs at the deployed public URL,
+so scenarios are loaded by id from a fixed list on the server into the player's own run; the
+editor and the free state patch stay off there.
 
 Scenario data (pure data in a new `scenarios.py`): start state, fixed weather or event for
 these days, explanation text, goal condition. Functions: `load_scenario(id)` and
