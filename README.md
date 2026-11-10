@@ -87,6 +87,11 @@ animate that answer.
 | `outlook.md` | `outlook` | Before *Open day* only a forecast of the day's weather is shown (picture and temperature range); the real weather appears once the day is opened, next to the forecast for tomorrow. Wrong about 20 % of the time (a neighbouring weather), drawn from the seed with its own roll so the real weather stays the same; always right with the demo override. The day summary on the campus page is an evening report: the forecast for the next day and a tip per open shop (more, fewer or the usual customers, from the weather table; the tips take effect with `pricing`, #38). The real weather is hidden in the display only: the API still sends it (see the spec's note). |
 | `pricing.md` | `pricing` | Customers from two segments (students, visitors) with price curves, a mix per shop and the day's factors (weather first, then the events of `events-and-disruptions`; trend, popularity and outfit plug in later); the screen shows the same number everywhere and explains it ("Why this number?", live price preview). Replaces the old one-line demand rule. |
 | `events-and-disruptions.md` | `events-and-disruptions` | Campus events (exam period, party, career fair, a three-day surf festival) rolled from the seed with their own generator, first two days quiet, nothing saved; they move the customers of each shop through `FACTORS` and stack with the weather. The demo switch and the editor can fix an event; a fixed weather without an event means no event. Outages and strikes are not built (their own later spec). |
+| `day-cycle.md` | `day-cycle` | The day ends at the Dorm. When a day closes it gets dark and a hint offers *Go home*: the player walks to the bed by itself (a move key or a click stops it), or *Skip the walk* goes there at once, lies down, and the day summary with the evening report shows there. *Sleep* goes black, shows the night (Zzz, lamp off), then a sunrise to 09:00; the player stands up beside the bed and a good-morning card lists the forecast, stock and what to do. Ending a day early asks first when nobody works or the own shift still runs. The bed panel says *Open day* in the morning and *End the day* while a day runs. No new endpoint and no new rule; the evening is kept only in the browser. |
+| `badges.md` | `badges` | 20 badges (first sale, good day, a team of three, profit streaks of 3, 7 and 14 days, every shop unlocked, season winner, ...), each a bronze, silver or gold medal (`BADGES` in `logic.py`). Given only by the server, the moment they are reached: state badges right after the action (e.g. the first sale), day badges (profit of the day, streaks, weather) when the day closes. On the campus a card at the top left shows a new badge and leaves by itself while the game keeps running; the evening report lists the day's medals, the end of the season and the dashboard show all of them. Badges give no reward; all thresholds are placeholders. |
+| `smooth-frames.md` | `smooth-frames` | The campus runs at the screen's rate: no blur filter for the shadows, a slow frame advances the world by its real time. Browser check, not part of the tests. |
+| `calm-panels.md` | `calm-panels` | The side panels of the campus stay calm while a day runs: redrawn only when their content changed (typed values and focus stay), shift requests wait for each other instead of being dropped, two outdated texts fixed. |
+| `balance-pass.md` | `balance-pass` | The season is balanced: Surf Shop and Merchandise products cost and sell for less (a good season ends at about +5,000 EUR, not +25,000), a warning before a purchase that leaves nothing to buy, a hint for shops only employees can run, the storeroom limit counts the counter. A guard test plays whole seasons. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -94,10 +99,11 @@ The tag `v1.0` is the dashboard-only version before the map.
 
 The first specs above are the solo-project history, the rest is the group project.
 The plan, with what is built and what is open, is in
-[`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v3, state of 2026-11-09).
-Still open: `shop-walk`, `shop-art`, `nova-design`, `popularity`,
-`weather-visuals`, `badges`, `outfits`, `guests`,
-`demo-scenarios` and `final-polish`; proposed: `day-cycle` and `warehouse`. The map is the 2.5D
+[`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v4, state of 2026-11-09).
+Still open: `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
+`weather-visuals`, `outfits`, `guests`,
+`demo-scenarios` and `final-polish`; proposed: `warehouse`. The audit (`docs/audit-report.md`) lists
+findings, measurements and feature ideas. The map is the 2.5D
 world taken from a teammate's project (Nova Beach Ventures, code and art made with
 AI, credit: https://github.com/felix-anthes-png/nova-beach-ventures). Progress is
 tracked in the GitHub Issues (label `spec`).

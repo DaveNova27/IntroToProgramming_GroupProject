@@ -71,5 +71,5 @@ function drawDesk(loc, near) {
 
 export function drawLocation(id) {
   const loc = world.locations[id];
-  drawDesk(loc, inReach(loc));
+  drawDesk(loc, inReach(loc) && !scene.sleeping); // no ring while the player sleeps in the bed
 }

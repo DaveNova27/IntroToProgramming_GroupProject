@@ -27,12 +27,12 @@ CATALOGUE = {
     "coffee": {"name": "Coffee", "cost": 80, "ref_price": 200},
     "cake": {"name": "Cake", "cost": 150, "ref_price": 400},
     "bagel": {"name": "Bagel", "cost": 100, "ref_price": 300},
-    "surfboard": {"name": "Surfboard", "cost": 4_000, "ref_price": 9_000},
-    "wetsuit": {"name": "Wetsuit", "cost": 2_500, "ref_price": 6_000},
-    "surf_lesson": {"name": "Surf lesson", "cost": 800, "ref_price": 2_500},
-    "hoodie": {"name": "Hoodie", "cost": 1_800, "ref_price": 3_500},
-    "tshirt": {"name": "T-shirt", "cost": 600, "ref_price": 1_500},
-    "cap": {"name": "Cap", "cost": 400, "ref_price": 1_200},
+    "surfboard": {"name": "Surfboard rental", "cost": 650, "ref_price": 1_450},
+    "wetsuit": {"name": "Wetsuit rental", "cost": 400, "ref_price": 950},
+    "surf_lesson": {"name": "Surf lesson", "cost": 130, "ref_price": 400},
+    "hoodie": {"name": "Hoodie", "cost": 650, "ref_price": 1_250},
+    "tshirt": {"name": "T-shirt", "cost": 220, "ref_price": 540},
+    "cap": {"name": "Cap", "cost": 150, "ref_price": 430},
     "beer": {"name": "Beer", "cost": 150, "ref_price": 400},
     "coke_zero": {"name": "Coke Zero", "cost": 80, "ref_price": 250},
     "sandwich": {"name": "Sandwich", "cost": 200, "ref_price": 400},
@@ -193,6 +193,7 @@ def new_state(seed=DEFAULT_SEED):
         "employees": [],
         "employee_seq": 0,  # the last employee id given out: ids are never used twice
         "history": [],
+        "badges": [],  # earned badges, {"id", "day"}, in the order earned (specs/badges.md)
         "player": world.start_player(),
     }
 
@@ -251,10 +252,16 @@ def _check_product(state, product):
         raise RejectedAction(f"You do not have {CATALOGUE[product]['name']} yet.")
 
 
+def _counter_units(state, shop):
+    """Units of a shop that stand on its counter in a running shift (they came from the storeroom
+    and go back to it at the end of the shift, so they count against its space)."""
+    return sum(sum(part["counter"].values()) for part in _shift_parts(state) if part["shop"] == shop)
+
+
 def _check_storeroom_space(state, product, quantity):
     """The storeroom of the product's shop holds at most SHOPS[shop]["storage"] units."""
     shop = shop_of_product(product)
-    held = sum(state["stock"][pid] for pid in shop_product_ids(shop))
+    held = sum(state["stock"][pid] for pid in shop_product_ids(shop)) + _counter_units(state, shop)
     room = SHOPS[shop]["storage"] - held
     if quantity > room:
         raise RejectedAction(
@@ -342,6 +349,63 @@ def offer_name(shop, item):
     return f"Employee place {offer['place']}"
 
 
+def _runs(state, shop):
+    """Does anybody sell in this shop: the player (a shop of SHIFT_SHOPS) or a working employee."""
+    return state["shops"][shop]["unlocked"] and (
+        shop in SHIFT_SHOPS or any(e["shop"] == shop and e["working"] for e in state["employees"]))
+
+
+def dead_end(state):
+    """True when nothing can be bought or sold any more: no stock that somebody can sell (storeroom
+    and counters of the shops that run) and not enough cash for one unit of the cheapest product the
+    player has. Wages are paid at the end of the day, after the sales, and the player can buy stock
+    in the morning: they do not make a dead end (an employee may stop for lack of money, the player
+    still earns by serving the Cafe)."""
+    owned = owned_products(state)
+    if not owned:
+        return False
+    sellable = sum(state["stock"][pid] for sid in SHOPS if _runs(state, sid)
+                   for pid in state["shops"][sid]["products"]) + sum(
+        _counter_units(state, sid) for sid in SHOPS if state["shops"][sid]["unlocked"])
+    return sellable == 0 and state["cash"] < min(CATALOGUE[pid]["cost"] for pid in owned)
+
+
+def purchase_warning(state, shop, item=None):
+    """A warning for a purchase (a window offer, or the unlock of the shop when item is None) that
+    would leave the player in a dead end, else None. Only a warning: the purchase stays allowed,
+    and a purchase that is refused anyway (cash, order) has none."""
+    price = SHOPS[shop]["unlock_price"] if item is None else SHOPS[shop]["window"].get(item, {}).get("price")
+    owned = owned_products(state)
+    # cash enough for a unit of the cheapest product afterwards: no dead end, no copy of the state
+    if price is None or (owned and state["cash"] - price >= min(CATALOGUE[pid]["cost"] for pid in owned)):
+        return None
+    try:
+        after = unlock_shop(state, shop) if item is None else buy_upgrade(state, shop, item)
+    except RejectedAction:
+        return None
+    if not dead_end(after):
+        return None
+    return (f"After this you have {fmt(after['cash'])} and nothing in stock, so you could not buy "
+            "any stock. Keep some cash for stock.")
+
+
+def shop_hint(state, shop):
+    """What the player should know about a shop that sells nothing on its own: the player can play
+    a shift only in SHIFT_SHOPS, so every other shop sells only through its employees. None when
+    the shop is fine (or is played by the player)."""
+    _check_shop(shop)
+    if shop in SHIFT_SHOPS:
+        return None
+    entry = state["shops"][shop]
+    if entry["unlocked"] and any(e["shop"] == shop and e["working"] for e in state["employees"]):
+        return None
+    if entry["unlocked"] and entry["staff_places"] > 0:
+        return ("Nobody works in this shop: the place is free, or the employee stopped for lack of "
+                "money for the wage. It earns nothing until somebody works.")
+    return ("This shop sells only through employees: you cannot play a shift here yet. "
+            "Buy an employee place first, or it earns nothing.")
+
+
 def shop_offers(state, shop):
     """What a shop's window offers right now. The rules answer, so no screen has to guess:
     `bought`, `available` (employee place 2 waits for place 1) and `affordable` (cash)."""
@@ -363,6 +427,7 @@ def shop_offers(state, shop):
             "bought": bought,
             "available": available,
             "affordable": offer["price"] <= state["cash"],
+            "warning": None if bought or not available else purchase_warning(state, shop, item_id),
         })
     return offers
 
@@ -538,8 +603,10 @@ def trade_day(state):
         "cogs": sum(line["cogs"] for line in lines),
         "gross_profit": sum(line["gross_profit"] for line in lines),
         "cash_after": new["cash"],
+        "played": False,  # nobody stood in a shop: the day was traded as a whole
     }
     new["history"].append(result)
+    award_badges(new, result)
     new["day"] += 1  # CT R5: exactly one day per trade action
     return new, result
 
@@ -669,6 +736,24 @@ def outlook_tips(state, forecast=None):
     return tips
 
 
+def known_state(state):
+    """The state as the player may reason about it: before the day is opened the weather is
+    only the forecast, so a number shown from this state cannot reveal the real weather.
+
+    For showing only (the screens' customers, the overview, the preview); the rules that book
+    a day always use the real state. An open day or a finished run returns the state itself."""
+    forecast = None if day_is_open(state) else outlook(state)
+    if forecast is None:
+        return state
+    # a shallow copy is enough: the readers of the shown numbers copy before they change anything
+    return {**state, "day_override": {"weather": forecast["weather"]}}
+
+
+def day_is_open(state):
+    """True while the day is open (the clock runs). The one place that says so."""
+    return state.get("shift") is not None
+
+
 def set_day_override(state, weather, event=None):
     """Fix the weather and/or the event (a demo switch) or clear both with None.
 
@@ -793,9 +878,10 @@ def editor_set_state(state, patch):
     """Set any part of the run from a patch. Everything is checked first; a refused patch
     changes nothing. Keys not in the patch stay as they are.
 
-    The keys: day, cash, seed, day_override, stock, prices, shops, player. Setting an earlier
-    day cuts the history to the days before it. Refused while a day is open."""
-    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player"}
+    The keys: day, cash, seed, day_override, stock, prices, shops, player, badges. Setting an
+    earlier day cuts the history and the badges to the days before it. Refused while a day
+    is open."""
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player", "badges"}
     if not isinstance(patch, dict) or not patch:
         raise RejectedAction("The patch must be a dictionary with at least one field.")
     unknown = sorted(str(k) for k in patch if k not in keys)
@@ -806,6 +892,7 @@ def editor_set_state(state, patch):
     if "day" in patch:
         new["day"] = _whole(patch["day"], 1, LAST_DAY + 1, "The day")
         new["history"] = [r for r in new["history"] if r["day"] < new["day"]]
+        new["badges"] = [b for b in new.get("badges", []) if b["day"] < new["day"]]
     if "cash" in patch:
         new["cash"] = _whole(patch["cash"], 0, MAX_CASH, "The cash")
     if "seed" in patch:
@@ -846,6 +933,8 @@ def editor_set_state(state, patch):
                             and e["place"] <= new["shops"][e["shop"]]["staff_places"]]
     if "player" in patch:
         new["player"] = _check_player(patch["player"])
+    if "badges" in patch:
+        new["badges"] = _check_badges(patch["badges"], new["day"])
     # the storeroom limit is per shop: check it for the stock as a whole
     touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
                if pid in shop_product_ids(sid)}
@@ -1410,7 +1499,10 @@ def _close_shift(new):
         "cash_after": new["cash"],
     }
     result["shops"] = sorted(ran)  # always: the shops that ran (shop is only the player's)
+    # the player worked the shift: a shop was chosen and staff did not take the place over
+    result["played"] = shift["shop"] is not None and not shift.get("staffed", False)
     new["history"].append(result)
+    award_badges(new, result)
     new["day"] += 1
     new["shift"] = None
     return new, result
@@ -1469,3 +1561,183 @@ def stock_overview(state):
 def overall_gain(state):
     """CT R4: final cash + stock at cost - initial 100 euro."""
     return state["cash"] + stock_value(state) - STARTING_CASH
+
+
+# ---- badges (specs/badges.md, issue #15) --------------------------------------------------
+# Awards for what the player reached. Only award_badges() gives one, at the end of a day, on
+# the server; no request can add a badge. A badge changes no rule and gives no money.
+# All thresholds are placeholders to balance once pricing (#38) is in.
+GOOD_DAY_NET = 5_000      # cents = 50 euro profit in one day
+RECORD_DAY_NET = 15_000   # cents = 150 euro
+DOUBLED_CASH = 20_000     # cents = 200 euro, twice the start
+WEALTHY_CASH = 100_000    # cents = 1,000 euro
+WINNER_CASH = 200_000     # cents = 2,000 euro when the season ends
+TEAM_SIZE = 3
+BIG_TEAM_SIZE = 6
+SHORT_STREAK = 3          # days in a row with a profit
+LONG_STREAK = 7
+LONGEST_STREAK = 14
+WORK_STREAK = 5           # days in a row the player played the shift
+
+
+def day_net(result):
+    """The profit of a booked day: gross profit minus wages (a traded day has no wages)."""
+    return result.get("net", result["gross_profit"])
+
+
+def day_sold(result):
+    """Units sold on a booked day."""
+    return sum(line["sold"] for line in result["lines"])
+
+
+def day_lost(result):
+    """Customers who left without buying. A traded day has no queue: whoever wanted more
+    than the stock gave counts."""
+    if "lost" in result:
+        return result["lost"]
+    return sum(max(line["demand"] - line["sold"], 0) for line in result["lines"])
+
+
+def _streak(state, days, test):
+    """True when the last `days` booked days are days in a row up to the latest one and all
+    pass `test`."""
+    last = state["history"][-days:]
+    if len(last) < days:
+        return False
+    in_a_row = [r["day"] for r in last] == list(range(last[-1]["day"] - days + 1, last[-1]["day"] + 1))
+    return in_a_row and all(test(r) for r in last)
+
+
+def _shift_parts(state):
+    """The open day's shift and the staffed shops running beside it (none without an open day)."""
+    shift = state.get("shift")
+    if not shift:
+        return []
+    return [shift, *shift.get("extra", {}).values()]
+
+
+def _sold_so_far(state):
+    """Units sold in this run: the booked days and the day that is open now."""
+    booked = sum(day_sold(r) for r in state["history"])
+    return booked + sum(sum(part.get("sold", {}).values()) for part in _shift_parts(state))
+
+
+def _played_so_far(state):
+    """The player has worked a shift: on a booked day, or the shift running now."""
+    shift = state.get("shift")
+    playing = bool(shift and shift.get("shop") is not None and not shift.get("staffed", False))
+    return playing or any(r.get("played", False) for r in state["history"])
+
+
+def _stormy(state, result):
+    weather = make_day_context(state["seed"], result["day"], state["day_override"])["weather"]
+    return weather == "storm"
+
+
+# Each badge: id, name, icon, medal (bronze for the start, silver for the middle, gold for the
+# late game; the profit streaks climb with their length), the condition for the screen, when it
+# is checked, and its check.
+# "now" badges depend on the state only: they are checked after every accepted action, so a
+# first sale is awarded at the sale. "day" badges need a booked day: they are checked when a day
+# closes (the result is then the last entry of the history and is passed as the second argument).
+BADGES = (
+    ("first-sale", "First sale", "☕", "bronze", "Sell something.", "now",
+     lambda s, r: _sold_so_far(s) > 0),
+    ("own-shift", "Behind the counter", "🧑‍🍳", "bronze", "Play a shift yourself.", "now",
+     lambda s, r: _played_so_far(s)),
+    ("first-hire", "The boss", "👤", "bronze", "Hire your first employee.", "now",
+     lambda s, r: len(s["employees"]) >= 1),
+    ("good-day", "Good day", "💰", "bronze", f"Make {fmt(GOOD_DAY_NET)} profit in one day.", "day",
+     lambda s, r: day_net(r) >= GOOD_DAY_NET),
+    ("no-one-left", "Nobody leaves empty-handed", "😊", "silver",
+     "Sell something on a day no customer leaves without buying.", "day",
+     lambda s, r: day_sold(r) > 0 and day_lost(r) == 0),
+    ("expansion", "Expansion", "🏪", "silver", "Unlock a second shop.", "now",
+     lambda s, r: sum(shop["unlocked"] for shop in s["shops"].values()) >= 2),
+    ("doubled", "Doubled", "📈", "silver", f"Have {fmt(DOUBLED_CASH)} in cash.", "now",
+     lambda s, r: s["cash"] >= DOUBLED_CASH),
+    ("team", "A whole team", "👥", "silver", f"Have {TEAM_SIZE} employees at once.", "now",
+     lambda s, r: len(s["employees"]) >= TEAM_SIZE),
+    ("upgrade", "Upgrade", "🔧", "silver", "Buy an upgrade in a shop's window.", "now",
+     lambda s, r: any(shop["level"] > 1 for shop in s["shops"].values())),
+    ("pro", "Pro", "⭐", "silver", f"Train an employee to level {EMPLOYEE_MAX_LEVEL}.", "now",
+     lambda s, r: any(e["level"] >= EMPLOYEE_MAX_LEVEL for e in s["employees"])),
+    ("streak-3", "On track", "🔥", "bronze", f"Make a profit {SHORT_STREAK} days in a row.", "day",
+     lambda s, r: _streak(s, SHORT_STREAK, lambda d: day_net(d) > 0)),
+    ("streak-7", "On a roll", "🔥", "silver", f"Make a profit {LONG_STREAK} days in a row.", "day",
+     lambda s, r: _streak(s, LONG_STREAK, lambda d: day_net(d) > 0)),
+    ("hard-worker", "Hard worker", "💪", "silver", f"Play the shift yourself {WORK_STREAK} days in a row.", "day",
+     lambda s, r: _streak(s, WORK_STREAK, lambda d: d.get("played", False))),
+    ("streak-14", "Unstoppable", "🔥", "gold", f"Make a profit {LONGEST_STREAK} days in a row.", "day",
+     lambda s, r: _streak(s, LONGEST_STREAK, lambda d: day_net(d) > 0)),
+    ("empire", "Empire", "🌍", "gold", "Unlock every shop.", "now",
+     lambda s, r: all(shop["unlocked"] for shop in s["shops"].values())),
+    ("big-team", "Big team", "🏢", "gold", f"Have {BIG_TEAM_SIZE} employees at once.", "now",
+     lambda s, r: len(s["employees"]) >= BIG_TEAM_SIZE),
+    ("record-day", "Record day", "🚀", "gold", f"Make {fmt(RECORD_DAY_NET)} profit in one day.", "day",
+     lambda s, r: day_net(r) >= RECORD_DAY_NET),
+    ("storm-proof", "Storm-proof", "⛈️", "gold", "Make a profit on a stormy day.", "day",
+     lambda s, r: day_net(r) > 0 and _stormy(s, r)),
+    ("wealthy", "Wealthy", "💎", "gold", f"Have {fmt(WEALTHY_CASH)} in cash.", "now",
+     lambda s, r: s["cash"] >= WEALTHY_CASH),
+    ("season-winner", "Season winner", "👑", "gold",
+     f"End day {LAST_DAY} with at least {fmt(WINNER_CASH)} in cash.", "day",
+     lambda s, r: r["day"] >= LAST_DAY and s["cash"] >= WINNER_CASH),
+)
+BADGE_IDS = tuple(b[0] for b in BADGES)
+BADGE_TIERS = ("bronze", "silver", "gold")
+BADGE_TIER = {b[0]: b[3] for b in BADGES}  # the medal of each badge, by id
+
+
+def award_badges(new, result=None):
+    """Give every badge whose condition is true now and that was not earned yet. Changes `new`
+    in place (called on the copy a rule works on) and returns the ids it gave.
+
+    Without a result (after any accepted action) only the "now" badges are checked, stamped
+    with the open day. With the result of a day that just closed, the "day" badges are checked
+    too, and result["badges"] lists every badge earned on that day, also those that were given
+    during it (the evening report shows them all). No randomness, nothing from the browser."""
+    new.setdefault("badges", [])
+    earned = {b["id"] for b in new["badges"]}
+    day = result["day"] if result is not None else new["day"]
+    given = []
+    if day > LAST_DAY:  # the season is over: nothing more to earn
+        return given
+    for badge_id, _name, _icon, _tier, _text, when, check in BADGES:
+        if badge_id in earned or (when == "day" and result is None):
+            continue
+        if check(new, result):
+            new["badges"].append({"id": badge_id, "day": day})
+            given.append(badge_id)
+    if result is not None:
+        result["badges"] = [b["id"] for b in new["badges"] if b["day"] == result["day"]]
+    return given
+
+
+def badges_view(state):
+    """Every badge in BADGES order for the screen: day is None while not earned."""
+    days = {b["id"]: b["day"] for b in state.get("badges", [])}
+    return [{"id": badge_id, "name": name, "icon": icon, "text": text, "tier": tier,
+             "day": days.get(badge_id)}
+            for badge_id, name, icon, tier, text, _when, _check in BADGES]
+
+
+def _check_badges(value, day):
+    """An editor list of earned badges: known ids, each once, earned on a day before `day`."""
+    if not isinstance(value, list):
+        raise RejectedAction("'badges' must be a list of {\"id\", \"day\"}.")
+    seen = set()
+    out = []
+    for entry in value:
+        if not isinstance(entry, dict) or set(entry) != {"id", "day"}:
+            raise RejectedAction("Each badge must be {\"id\", \"day\"}.")
+        if not isinstance(entry["id"], str) or entry["id"] not in BADGE_IDS:
+            raise RejectedAction(f"Unknown badge '{entry['id']}'.")
+        if entry["id"] in seen:
+            raise RejectedAction(f"The badge '{entry['id']}' is in the list twice.")
+        seen.add(entry["id"])
+        out.append({"id": entry["id"], "day": _whole(entry["day"], 1, max(day - 1, 1),
+                                                      "The day of a badge")})
+    if out and day <= 1:
+        raise RejectedAction("On day 1 no badge can be earned yet.")
+    return out

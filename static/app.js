@@ -394,7 +394,7 @@ function renderOpenPanel() {
       <div class="total"><dt>Gross profit</dt><dd>${fmt(f.gross_profit)}</dd></div>
       <div><dt>Cash after the day</dt><dd>${fmt(f.cash_after)}</dd></div>
     </dl>
-    ${sold === 0 ? '<p class="notice"><span aria-hidden="true">⚠</span><span>Nothing will sell: your shelves are empty or every price is above twice the reference.</span></p>' : ""}
+    ${sold === 0 ? '<p class="notice"><span aria-hidden="true">⚠</span><span>Nothing will sell: your shelves are empty or every price is too high for any customer.</span></p>' : ""}
     <p class="notice"><span aria-hidden="true">ℹ</span><span>Without staff nothing sells by itself. Open day ${state.day} on the campus and serve the customers yourself.</span></p>`;
 }
 
@@ -602,7 +602,28 @@ function renderResult() {
         <td>${fmt(last.revenue)}</td><td>${fmt(last.cogs)}</td><td>${money(last.gross_profit)}</td></tr></tfoot>
     </table>${last.wages || (last.wages_unpaid || []).length ? `
     <p class="note">Wages paid ${fmt(last.wages)} · result after wages ${money(last.net)}${
-      last.wages_unpaid.length ? ` · ${last.wages_unpaid.length} employee(s) stopped working: no money for the wage` : ""}</p>` : ""}`;
+      last.wages_unpaid.length ? ` · ${last.wages_unpaid.length} employee(s) stopped working: no money for the wage` : ""}</p>` : ""}${
+    (last.badges || []).map((id) => `<p class="note new-badge">New badge: ${esc(badgeName(id))}</p>`).join("")}`;
+}
+
+// ---- badges (specs/badges.md) --------------------------------------------------
+// The server decides who earned what; the page only shows the list it was sent.
+
+function badgeName(id) {
+  const badge = (state.badges || []).find((b) => b.id === id);
+  return badge ? `${badge.icon} ${badge.name}` : id;
+}
+
+function renderBadges() {
+  const badges = state.badges || [];
+  const earned = badges.filter((b) => b.day !== null).length;
+  $("#badges-sub").textContent = `${earned} / ${badges.length} earned`;
+  $("#badge-grid").innerHTML = badges.map((b) => `
+    <li class="badge-item ${b.day !== null ? "earned" : "locked"}">
+      ${medalHtml(b)}
+      <span class="badge-text"><b>${esc(b.name)}</b>
+        <small>${b.day !== null ? `Earned on day ${esc(b.day)}` : esc(b.text)}</small></span>
+    </li>`).join("");
 }
 
 // ---- final result, history, new run ------------------------------------------
@@ -618,7 +639,11 @@ function renderFinalBanner() {
       <p class="headline">Overall result ${fmtSigned(state.overall_gain)}</p>
       <p class="breakdown">Final cash ${fmt(state.cash)} + stock at cost ${fmt(state.stock_value)} − ${fmt(state.starting_cash)} start · gross profit ${fmt(profit)}</p>
     </div>
-    <button class="btn" type="button" data-new-run>Start a new run</button>`;
+    <button class="btn" type="button" data-new-run>Start a new run</button>
+    <div class="final-badges">
+      <p class="eyebrow">Your badges · ${(state.badges || []).filter((b) => b.day !== null).length} / ${(state.badges || []).length}</p>
+      ${medalGridHtml(state.badges)}
+    </div>`;
 }
 
 function renderHistory() {
@@ -691,6 +716,7 @@ function render(kept) {
   renderOpenPanel();
   renderCharts(!calm.matches && (firstLoad || dayAdded));
   renderResult();
+  renderBadges();
   renderHistory();
 
   if (dayAdded && !calm.matches) {

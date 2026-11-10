@@ -322,17 +322,26 @@ def test_editor_state_patches_take_the_new_shape_and_refuse_the_rest(api):
     assert saved(api)["day_override"] is None
 
 
-def test_an_event_changes_the_number_the_screen_gets(api):
+def coffee_of(state):
+    return next(p for p in state["products"] if p["id"] == "coffee")
+
+
+def test_an_event_changes_the_number_the_screen_gets_once_the_day_is_open(api):
+    assert api.post("/api/day/open", json={}).status_code == 200
     api.post("/api/editor/weather", json={"weather": "rain", "event": "none"})
     plain = api.get("/api/state").get_json()
     api.post("/api/editor/weather", json={"weather": "rain", "event": "exam_period"})
     exam = api.get("/api/state").get_json()
+    assert coffee_of(plain)["customers"] == 13 and coffee_of(exam)["customers"] == 19
+    assert any(step["name"] == "Event: Exam period" for step in coffee_of(exam)["breakdown"]["steps"])
 
-    def coffee(state):
-        return next(p for p in state["products"] if p["id"] == "coffee")
 
-    assert coffee(plain)["customers"] == 13 and coffee(exam)["customers"] == 19
-    assert any(step["name"] == "Event: Exam period" for step in coffee(exam)["breakdown"]["steps"])
+def test_before_the_day_is_open_the_numbers_do_not_show_the_event(api):
+    api.post("/api/editor/weather", json={"weather": "rain", "event": "exam_period"})
+    closed = api.get("/api/state").get_json()
+    assert closed["event"] is None
+    assert coffee_of(closed)["customers"] == 13  # the forecast's weather, no event
+    assert not any(step["name"].startswith("Event") for step in coffee_of(closed)["breakdown"]["steps"])
 
 
 # --- the markup and the script that send and show it (read as files, like the other page tests) ----

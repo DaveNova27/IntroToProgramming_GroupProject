@@ -91,9 +91,10 @@ prices from day to day. The stacking with the weather is what makes it interesti
 5. **Several days without state.** Whether an event is on is calculated from the seed and the day, never
    saved. The editor can set any day and gets the right event for it.
 6. **Tips and forecast.** The forecast of tomorrow (`outlook`) and the tips of the evening report stay
-   weather only here. Forecasting events is a later spec, see "Out of scope". Known gap: like the real
-   weather, the event shows through the customer numbers in `GET /api/state` before the day is opened (they
-   use today's real context). That is the same gap `outlook` documents for the weather.
+   weather only here. Forecasting events is a later spec, see "Out of scope". Before the day is opened
+   the screens' numbers come from `known_state` (`balance-pass`): it names only the forecast's weather,
+   so by decision 2 it names no event, and the event cannot be read from the customer numbers or the
+   explanation. The booking rules (`trade_day`, `start_shift`) use the real state.
 7. **Old tests.** Checked while building (full suite, 784 passed, 1 failed): exactly one old test needs a
    change, and no test with a customer number does. The first two days are quiet and the tests that fix
    the weather get no event.

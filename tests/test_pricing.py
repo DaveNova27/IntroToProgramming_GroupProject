@@ -202,10 +202,13 @@ def test_the_shift_the_day_the_overview_and_the_screen_agree(shop, monkeypatch):
     lines = {l["product"]: l["demand"] for l in logic.trade_day(state)[1]["lines"]}
     assert {pid: lines[pid] for pid in expected} == expected
 
-    overview = {l["product"]: l["sells_today"] for l in logic.stock_overview(state)["lines"]}
+    # hidden-weather: before the day is opened the screen shows the forecast's numbers, so the
+    # overview and the screen are compared on the opened day, where the real weather counts
+    opened = logic.open_day(state)
+    overview = {l["product"]: l["sells_today"] for l in logic.stock_overview(opened)["lines"]}
     assert {pid: overview[pid] for pid in expected} == {pid: min(n, 30) for pid, n in expected.items()}
 
-    shown = {p["id"]: p["customers"] for p in app.view(state)["products"]}
+    shown = {p["id"]: p["customers"] for p in app.view(opened)["products"]}
     assert {pid: shown[pid] for pid in expected} == expected
 
 
@@ -298,7 +301,8 @@ def test_the_endpoint_answers_and_saves_nothing(run_on_disk):
     response = client.post("/api/price_preview", json={"product": "coffee", "price": "2,50"})
     assert response.status_code == 200
     preview = response.get_json()["preview"]
-    assert preview == json.loads(json.dumps(logic.customer_breakdown(before, "coffee", 250)))
+    # hidden-weather: before the day is opened the preview uses the forecast, not the real weather
+    assert preview == json.loads(json.dumps(logic.customer_breakdown(logic.known_state(before), "coffee", 250)))
     assert db.load(run_on_disk) == before
 
 

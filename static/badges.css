@@ -1,0 +1,169 @@
+/* Badges (specs/badges.md): the medal, the card at the top left when a badge is earned.
+   Shared by the dashboard (index.html) and the campus page (map.html). */
+
+/* ---- the medal: a round coin in bronze, silver or gold on a ribbon, the badge's icon inside ---- */
+.medal {
+  --size: 64px;
+  --m-light: #f7d2a8;
+  --m-mid: #c98345;
+  --m-dark: #8a4f22;
+  --ribbon: #2f9e9e;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--size);
+  height: calc(var(--size) * 1.18);
+  flex: none;
+}
+.medal.silver { --m-light: #ffffff; --m-mid: #c5ccd3; --m-dark: #7d8893; --ribbon: #2a78d6; }
+.medal.gold { --m-light: #fff1b0; --m-mid: #f2bf2e; --m-dark: #a8770a; --ribbon: #d03b3b; }
+/* the two tails of the ribbon, behind the coin */
+.medal::before,
+.medal::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: calc(var(--size) * 0.26);
+  height: calc(var(--size) * 0.5);
+  background: var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+.medal::before { left: calc(var(--size) * 0.22); transform: rotate(14deg); }
+.medal::after { right: calc(var(--size) * 0.22); transform: rotate(-14deg); }
+.medal .coin {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, var(--m-light), var(--m-mid) 58%, var(--m-dark));
+  box-shadow:
+    inset 0 0 0 calc(var(--size) * 0.06) rgba(255, 255, 255, 0.35),
+    inset 0 0 0 calc(var(--size) * 0.1) var(--m-dark),
+    0 calc(var(--size) * 0.05) 0 rgba(0, 0, 0, 0.18);
+  font-size: calc(var(--size) * 0.46);
+  line-height: 1;
+}
+/* not earned yet: a grey coin without ribbon colour */
+.medal.locked { --m-light: #eceae4; --m-mid: #c9c6bd; --m-dark: #9c998f; --ribbon: #b9b6ad; }
+.medal.locked .coin > span { filter: grayscale(1); opacity: 0.5; }
+
+/* ---- the card at the top left when a badge is earned (campus page) ----
+   It does not stop the game: no dimming, nothing to click, it leaves by itself. The page sets
+   its top so it sits below the stock card (wide screens) or the place label (phones). */
+.badge-toast-area {
+  position: absolute;
+  z-index: 12; /* above the panels and the evening card, below the toasts */
+  top: 68px;
+  left: 10px;
+  width: min(272px, calc(100% - 20px));
+  pointer-events: none;
+}
+.badge-toast-area[hidden] { display: none; }
+.badge-toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 30px 12px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(9, 39, 48, 0.94);
+  color: #f3f7f4;
+  box-shadow: 3px 3px rgba(3, 20, 26, 0.25);
+  pointer-events: auto;
+  animation: badge-toast-in 0.32s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.badge-toast.leaving { opacity: 0; transform: translateX(-12px); transition: opacity 0.26s ease-in, transform 0.26s ease-in; }
+.badge-toast-medal { position: relative; display: grid; place-items: center; }
+.badge-toast-medal .medal { --size: 48px; animation: badge-medal-in 0.5s 0.08s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.badge-toast-text { min-width: 0; }
+.badge-toast-text p { margin: 0; }
+.badge-toast-text .eyebrow { color: #bce65f; font: 700 8px Menlo, Consolas, "Liberation Mono", monospace; letter-spacing: 0.16em; text-transform: uppercase; }
+.badge-toast-text .name { margin-top: 3px; font-size: 15px; font-weight: 800; line-height: 1.2; }
+.badge-toast-text .meta { margin-top: 2px; color: #9db6ba; font-size: 11px; font-weight: 600; }
+.badge-toast-text .what { margin-top: 4px; color: #d7e3e1; font-size: 12px; line-height: 1.35; }
+.badge-toast .close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #9db6ba;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.badge-toast .close:hover { background: rgba(255, 255, 255, 0.1); color: #f3f7f4; }
+.badge-toast .close:focus-visible { outline: 2px solid #2a78d6; outline-offset: 1px; }
+/* how long the card stays: a thin line that runs out along the bottom edge */
+.badge-toast .timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 0 0 6px 6px;
+  background: #bce65f;
+  transform-origin: left;
+  animation: badge-timer var(--show, 4.5s) linear forwards;
+}
+/* the toasts make room while a card is shown (set by the page: badge-beside or badge-below) */
+body.badge-beside .toasts {
+  left: calc((var(--badge-right) + 100%) / 2);
+  max-width: calc(100% - var(--badge-right) - 24px);
+}
+body.badge-below .toasts { top: calc(var(--badge-bottom) + 8px); }
+
+/* a short burst of sparks around the medal (place and colour from the piece's number) */
+.sparks { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; }
+.sparks i {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--c);
+  opacity: 0;
+  animation: badge-spark 0.9s var(--delay) cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+
+@keyframes badge-toast-in { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes badge-medal-in { from { transform: scale(0.4) rotate(-20deg); } }
+@keyframes badge-timer { to { transform: scaleX(0); } }
+@keyframes badge-spark {
+  0% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.6) rotate(var(--r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparks { display: none; }
+  .badge-toast, .badge-toast-medal .medal { animation: none; }
+  .badge-toast.leaving { transition: none; }
+}
+
+/* ---- all medals of a run (end of the season) ---- */
+.medal-grid {
+  list-style: none;
+  margin: 10px 0 4px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px 8px;
+  text-align: center;
+}
+.medal-grid li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; line-height: 1.25; }
+.medal-grid .medal { --size: 54px; }
+.medal-grid b { font-size: 13px; }
+.medal-grid small { opacity: 0.7; }

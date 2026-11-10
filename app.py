@@ -45,6 +45,8 @@ def shops_view(state):
             "unlocked": mine["unlocked"],
             "unlock_price": shop["unlock_price"],
             "affordable": shop["unlock_price"] <= state["cash"],
+            "unlock_warning": None if mine["unlocked"] else logic.purchase_warning(state, sid),
+            "hint": logic.shop_hint(state, sid),
             "level": mine["level"],
             "products": mine["products"],
             "staff_places": mine["staff_places"],
@@ -206,7 +208,10 @@ def view(state):
     finished = logic.is_finished(state)
     editor_on = has_request_context() and editor_switch_on()
     owned = logic.owned_products(state)
-    products = [product_view(state, pid, finished) for pid in logic.CATALOGUE if pid in owned]
+    # the numbers of customers come from what the player may know: before the day is opened
+    # that is the forecast, never the real weather (hidden-weather)
+    known = logic.known_state(state)
+    products = [product_view(known, pid, finished) for pid in logic.CATALOGUE if pid in owned]
     return {
         "day": state["day"],
         "last_day": logic.LAST_DAY,
@@ -214,13 +219,13 @@ def view(state):
         "starting_cash": logic.STARTING_CASH,
         "cash": state["cash"],
         "stock_value": logic.stock_value(state),
-        "stock_overview": logic.stock_overview(state),
+        "stock_overview": logic.stock_overview(known),
         "overall_gain": logic.overall_gain(state),
         "products": products,
         "shops": shops_view(state),
         # trade_day returns a new state and leaves the saved one alone,
         # so it doubles as a preview of "what happens if I open now".
-        "forecast": None if finished or state["shift"] else logic.trade_day(state)[1],
+        "forecast": None if finished or logic.day_is_open(state) else logic.trade_day(known)[1],
         "weather": weather_view(state),
         "event": event_view(state),
         "outlook": outlook_view(state),
@@ -231,6 +236,7 @@ def view(state):
         "shift_shops": list(logic.SHIFT_SHOPS),
         "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
+        "badges": logic.badges_view(state),
         "player": state["player"],
         "base_customers": logic.BASE_CUSTOMERS,
         "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
@@ -264,6 +270,9 @@ def apply(action):
         except logic.RejectedAction as reason:
             # nothing is saved; the dashboard gets the unchanged run back
             return jsonify({"error": str(reason), "state": view(state)}), 400
+        # a badge is reached the moment its condition is true, e.g. at the first sale
+        # (specs/badges.md); only the server gives it, never from the request
+        logic.award_badges(new_state)
         db.save(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 
@@ -340,7 +349,7 @@ def price_preview():
         state = load_run()
         try:
             price = logic.euros_to_cents(body.get("price", ""))
-            return jsonify({"preview": logic.price_preview(state, body.get("product"), price)})
+            return jsonify({"preview": logic.price_preview(logic.known_state(state), body.get("product"), price)})
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason)}), 400
 
@@ -476,6 +485,7 @@ def editor_action(rule):
             new_state, message = rule(state)
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
+        logic.award_badges(new_state)  # e.g. cash set to 1,000 euro gives "Wealthy" at once
         db.save_new_run(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 

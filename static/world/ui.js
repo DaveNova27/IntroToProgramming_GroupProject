@@ -2,7 +2,9 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
-import { DAY_END, MORNING, reducedMotion, scene, server } from "./scene.js";
+import { inReach } from "./locations.js";
+import { createSerial } from "./serial.js";
+import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
 
@@ -17,6 +19,13 @@ let panelMode = null;
 let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
 let orderProduct = "coffee";
 let placePlayer = () => {};
+let goHome = () => false;
+let jumpHome = () => false;
+let wakeAt = () => {};
+// The day cycle (spec day-cycle): after a day closed it is evening until the player has slept.
+// Kept only here, in the browser: it decides no rule, and after a reload it is simply morning.
+let evening = false;
+let fading = false;
 
 // What happened plays one after another, wherever the action came from.
 let chain = Promise.resolve();
@@ -97,6 +106,112 @@ function dayEnded() {
   runClock(scene.clock, DAY_END, 900);
 }
 
+// The day closed (clock ran out, skipped, or ended at the bed): no summary on the map; it waits in
+// the Dorm. Standing at the bed already (End the day), the player goes straight to bed.
+function startEvening() {
+  dayEnded();
+  evening = true; // an open panel stays open (a typed order is not lost); the hint shows beside it
+  renderAll();
+  const bed = world.locations?.bed;
+  if (bed && inReach(bed)) goToBed();
+}
+
+function walkHome() {
+  if (!evening || scene.sleeping) return;
+  closePanel();
+  if (!goHome()) toast("No way home from here. Walk to the Dorm yourself.", "error");
+}
+
+// Skip the walk: black for a moment, then the player lies in the bed (the report opens there).
+async function skipWalk() {
+  if (!evening || scene.sleeping || fading) return;
+  closePanel();
+  fading = true;
+  renderEvening();
+  $("#night-fade").classList.add("on");
+  try {
+    await pause(450);
+    if (!jumpHome()) toast("The Dorm could not be found. Walk there yourself.", "error");
+  } finally {
+    fading = false;
+    $("#night-fade").classList.remove("on");
+    renderEvening();
+  }
+}
+
+function renderEvening() {
+  const hint = $("#evening-hint");
+  const hidden = !evening || scene.sleeping || fading || !$("#overlay").hidden || scene.preview;
+  if (hint.hidden !== hidden) hint.hidden = hidden;
+  const last = state.history[state.history.length - 1];
+  const text = last ? `Day ${last.day} is over. Time to go home.` : "Time to go home.";
+  const el = $("#evening-text");
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// At the bed in the evening: lie down, then the day summary and the evening report.
+function goToBed() {
+  closePanel();
+  scene.sleeping = true;
+  scene.walking = false;
+  renderEvening();
+  showDaySummary(state.history[state.history.length - 1]);
+}
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
+
+// Sleep: the screen goes black, then the dark night with the player asleep, then the sun rises
+// (the clock runs from DAWN, 05:00, to the morning), and the player stands up beside the bed.
+async function sleep() {
+  hideOverlay();
+  evening = false;
+  fading = true;
+  $("#night-fade").classList.add("on");
+  try {
+    await pause(800);
+    clockRun++; // stops a clock still running to the evening
+    scene.clock = DAWN; // the dark night before the morning
+    renderAll();
+    const fade = $("#night-fade");
+    fade.classList.add("night"); // from black to a deep night, the player asleep (Zzz)
+    fade.classList.remove("on");
+    await pause(1900);
+    fade.classList.add("sunrise"); // the dark lifts as slowly as the sun rises
+    fade.classList.remove("night");
+    await runClock(DAWN, MORNING, 3600); // the sunrise
+    scene.sleeping = false;
+    const wake = world.dorm?.wake;
+    if (wake) wakeAt(wake);
+  } finally {
+    clockRun++;
+    scene.clock = MORNING;
+    scene.sleeping = false;
+    fading = false;
+    $("#night-fade").classList.remove("on", "night", "sunrise");
+    renderAll();
+  }
+  if (state.finished) showFinal();
+  else showMorning();
+}
+
+// The morning card: the day, the forecast with the tips, the stock and what to do. Everything in
+// it comes from the server's state; the card decides nothing.
+function showMorning() {
+  const stock = state.products.map((p) => `${EMOJI[p.id] ?? ""} ${esc(p.name)} ${esc(p.stock)}`).join(" · ");
+  const crews = state.staff?.employees?.length ?? 0;
+  showOverlay(`
+    <p class="eyebrow">Good morning · Day ${esc(state.day)} of ${esc(state.last_day)}</p>
+    <p class="big">☀ ${esc(state.day)}</p>
+    <p class="note">Cash ${fmt(state.cash)} · in stock: ${stock}</p>
+    ${eveningReport()}
+    <ol class="todo">
+      <li>Buy stock with the forecast in mind (<b>Stock</b>).</li>
+      <li>Check your prices (<b>Prices</b>).</li>
+      <li>Open the day, then start your shift (<b>Shift</b>)${crews ? "" : ": without a shift or staff nothing is sold"}.</li>
+    </ol>
+    <div class="actions"><button class="btn" type="button" data-dismiss>Let's go</button></div>`);
+}
+
 export function updateClock() {
   const minutes = Math.floor(scene.clock);
   const text = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -145,23 +260,29 @@ function renderToolbar() {
   $("#btn-editor").disabled = animating;
   $("#open-label").textContent = dayRunning
     ? `Day ${dayRunning} is open…`
+    : evening ? "Go home"
     : state.finished ? "Run complete"
     : dayButtonLabel();
+  if (evening) $("#btn-open").disabled = animating || scene.sleeping || fading;
   $("#btn-fast").hidden = !animating;
   const empty = state.products.every((p) => p.stock === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
 }
 
 function renderAll() {
+  if (state.shift) evening = false; // a day is open again (also when opened elsewhere)
   server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
   server.shift = state.shift;
   const open = state.shops.find((sh) => sh.id === state.shift?.shop);
   server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
   renderToolbar();
+  renderEvening();
   if (panelMode) renderPanel();
   syncShiftTimer();
   followDay();
+  noticeBadges();
+  placeBadge();
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -169,6 +290,7 @@ function renderAll() {
 function openPanel(mode) {
   if (animating || (state.finished && mode !== "editor")) return;
   panelMode = mode;
+  panelHtml = "";
   editorKey = "";
   $("#panel").hidden = false;
   tellDashboard({ type: "panel-open" }); // both use the right side of the screen
@@ -193,8 +315,8 @@ function renderDormPanel(body) {
   const o = state.outlook;
   const weather = state.weather ? `${esc(state.weather.name)}, ${esc(state.weather.temperature)} °C`
     : o ? `Forecast: ${esc(o.name)}, ${esc(o.temp_low)}–${esc(o.temp_high)} °C` : "—";
-  const label = state.finished ? "The run is complete" : dayButtonLabel();
-  body.innerHTML = `
+  const label = state.finished ? "The run is complete" : state.shift ? "End the day" : dayButtonLabel();
+  setPanelHtml(body, `
     <p class="note">A quiet room with a view of the sea. The day starts and ends here.</p>
     <dl class="dorm-facts">
       <div><dt>Day</dt><dd>${state.finished ? "Done" : `${esc(state.day)} / ${esc(state.last_day)}`}</dd></div>
@@ -202,7 +324,54 @@ function renderDormPanel(body) {
       <div><dt>Weather</dt><dd>${weather}</dd></div>
       ${state.event ? `<div><dt>Event</dt><dd>${esc(eventText(state.event))}</dd></div>` : ""}
     </dl>
-    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`;
+    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`);
+}
+
+// A panel is redrawn only when its content changed (it is asked again every second while a day
+// runs). When it did change, what the player typed and the focus stay (spec calm-panels).
+let panelHtml = "";
+
+function fieldKey(el) {
+  const form = el.closest("form, [data-price-form]");
+  return `${form ? form.id || form.dataset.priceForm || form.dataset.editor || "form" : ""}:${el.name}`;
+}
+
+// A field counts as typed when the player changed it (the "input" event, or a step or chip on it),
+// not when the program set it: a saved price is the server's, not a typed one.
+const markTyped = (el) => { el.dataset.typed = "1"; };
+
+// a button has no name: it is found again by its first data- attribute (data-sell="coffee")
+function buttonSelector(el) {
+  const attr = [...el.attributes].find((a) => a.name.startsWith("data-") && a.name !== "data-typed");
+  return attr ? `[${attr.name}="${CSS.escape(attr.value)}"]` : null;
+}
+
+function setPanelHtml(body, html) {
+  if (html === panelHtml) return;
+  panelHtml = html;
+  const typed = new Map();
+  for (const el of body.querySelectorAll("input[name], select[name]")) {
+    if (el.dataset.typed) typed.set(fieldKey(el), el.value);
+  }
+  const focus = document.activeElement;
+  const active = body.contains(focus)
+    ? (focus.name ? { key: fieldKey(focus), start: focus.selectionStart, end: focus.selectionEnd } : { selector: buttonSelector(focus) })
+    : null;
+  body.innerHTML = html;
+  for (const el of body.querySelectorAll("input[name], select[name]")) {
+    const key = fieldKey(el);
+    if (typed.has(key)) {
+      el.value = typed.get(key);
+      markTyped(el);
+      // the redraw dropped the live preview: ask for it again
+      if (el.name === "price") el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (active?.key === key) {
+      el.focus();
+      try { el.setSelectionRange(active.start, active.end); } catch { /* a field without a cursor */ }
+    }
+  }
+  if (active?.selector) body.querySelector(active.selector)?.focus();
 }
 
 function renderPanel() {
@@ -211,7 +380,7 @@ function renderPanel() {
     $("#panel-title").textContent = "Order stock";
     const p = product(orderProduct);
     const max = Math.floor(state.cash / p.cost);
-    body.innerHTML = `
+    setPanelHtml(body, `
       <div class="pick" role="group" aria-label="Product">
         ${state.products.map((x) => `
           <button type="button" data-pick="${esc(x.id)}" aria-pressed="${x.id === orderProduct}" style="--accent:${COLOR[x.id]}">
@@ -234,14 +403,14 @@ function renderPanel() {
         <div class="total" id="order-total"></div>
         <p class="error" id="order-error"></p>
         <button class="btn wide" type="submit">Order</button>
-      </form>`;
+      </form>`);
     updateOrderTotal();
   } else if (panelMode === "editor") {
     $("#panel-title").textContent = "Editor";
     renderEditorPanel(body);
   } else if (panelMode === "shops") {
     $("#panel-title").textContent = "Shops";
-    body.innerHTML = `
+    setPanelHtml(body, `
       <p class="note">Unlock shops and buy upgrades with cash. Every purchase raises the shop's level by 1.</p>
       <p class="error" id="shops-error"></p>
       ${state.shops.map((s) => `
@@ -251,6 +420,7 @@ function renderPanel() {
             <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
               ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
               storeroom ${s.storage}, counter ${s.counter}</p>
+            ${s.hint ? `<p class="note hint">${esc(s.hint)}</p>` : ""}
             ${staffBlock(s)}
             ${s.offers.map((o) => `
               <div class="shop-offer">
@@ -260,20 +430,23 @@ function renderPanel() {
                   : `<button class="btn" type="button" data-upgrade-shop="${esc(s.id)}" data-upgrade-item="${esc(o.id)}"
                       ${!o.affordable || !o.available ? "disabled" : ""}
                       ${o.available ? "" : 'title="Buy the first employee place first"'}>${fmt(o.price)}</button>`}
-              </div>`).join("")}`
+              </div>
+              ${o.warning ? `<p class="note warning" role="status">⚠ ${esc(o.warning)}</p>` : ""}`).join("")}`
           : `<div class="shop-offer">
               <span class="nm">Start with ${esc(s.start_product_name)}</span>
               <button class="btn" type="button" data-unlock="${esc(s.id)}"
                 ${s.affordable ? "" : "disabled"}>Unlock ${fmt(s.unlock_price)}</button>
-            </div>`}
-        </section>`).join("")}`;
+            </div>
+            ${s.hint ? `<p class="note hint">${esc(s.hint)}</p>` : ""}
+            ${s.unlock_warning ? `<p class="note warning" role="status">⚠ ${esc(s.unlock_warning)}</p>` : ""}`}
+        </section>`).join("")}`);
   } else if (panelMode === "dorm") {
     renderDormPanel(body);
   } else if (panelMode === "shift") {
     renderShiftPanel(body);
   } else if (panelMode === "prices") {
     $("#panel-title").textContent = "Prices";
-    body.innerHTML = `
+    setPanelHtml(body, `
       <p class="note">Students and visitors react to the price in different ways, and today's weather moves them. Open "Why this number?" to see how a price becomes customers.</p>
       ${state.products.map((p) => `
         <form class="price-row" data-price-form="${esc(p.id)}">
@@ -288,7 +461,7 @@ function renderPanel() {
             <div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>
           </details>` : ""}
           <p class="error" data-error></p>
-        </form>`).join("")}`;
+        </form>`).join("")}`);
   }
 }
 
@@ -383,7 +556,11 @@ async function editorAction(path, body, { moved = false } = {}) {
     if (el) el.textContent = data.error;
     return toast(data.error, "error");
   }
-  if (moved) placePlayer(state.player);
+  if (moved) {
+    evening = false; // a reset or a moved day starts in the morning
+    scene.sleeping = false;
+    placePlayer(state.player);
+  }
   renderAll();
   tellDashboard({ type: "action", after: data.state });
   toast(data.message);
@@ -475,7 +652,7 @@ function staffBlock(shop) {
 
 let shiftHtml = "";
 let shiftTimer = null;
-let shiftBusy = false;
+const requests = createSerial(); // refill, sell and tick go one after the other
 
 function renderShiftPanel(body) {
   $("#panel-title").textContent = "Shift";
@@ -550,29 +727,26 @@ function syncShiftTimer() {
   }
 }
 
-async function shiftTick() {
-  if (shiftBusy || !state.shift) return;
-  shiftBusy = true;
-  try {
+// the tick is skipped while the last one still waits; a click waits for the request before it
+function shiftTick() {
+  if (!state.shift) return;
+  return requests.once("tick", async () => {
+    if (!state.shift) return;
     const data = await send("/api/shift/tick", {});
     if (!data) return;
     const before = state.day;
     state = data.state;
     renderAll();
     if (state.day !== before) {
-      dayEnded();
       tellDashboard({ type: "action", after: data.state });
-      showDaySummary(state.history[state.history.length - 1]);
+      startEvening();
     }
-  } finally {
-    shiftBusy = false;
-  }
+  }).catch((err) => console.error(err));
 }
 
-async function shiftAction(path, body) {
-  if (shiftBusy) return;
-  shiftBusy = true;
-  try {
+function shiftAction(path, body) {
+  // a click waits for the request before it; the same click again while it still waits is one click
+  return requests.once(`${path}:${JSON.stringify(body)}`, async () => {
     const data = await send(path, body);
     if (!data) return;
     state = data.state;
@@ -584,13 +758,8 @@ async function shiftAction(path, body) {
     }
     tellDashboard({ type: "action", after: data.state });
     if (path.endsWith("/start") || path.endsWith("/open")) toast(data.message);
-    if (path.endsWith("/skip")) {
-      dayEnded();
-      showDaySummary(state.history[state.history.length - 1]);
-    }
-  } finally {
-    shiftBusy = false;
-  }
+    if (path.endsWith("/skip")) startEvening();
+  }).catch((err) => console.error(err));
 }
 
 function updateOrderTotal() {
@@ -658,7 +827,7 @@ function wirePanel() {
       const typed = $("#order-form")?.quantity.value;
       orderProduct = pickBtn.dataset.pick;
       renderPanel();
-      if (typed) $("#order-form").quantity.value = typed;
+      if (typed) { $("#order-form").quantity.value = typed; markTyped($("#order-form").quantity); }
       return updateOrderTotal();
     }
     const input = $("#order-form")?.quantity;
@@ -667,13 +836,16 @@ function wirePanel() {
     if (input && step) {
       const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
       input.value = Math.max(1, current + Number(step.dataset.step));
+      markTyped(input);
       updateOrderTotal();
     } else if (input && set) {
       input.value = set.dataset.set;
+      markTyped(input);
       updateOrderTotal();
     }
   });
   panel.addEventListener("input", (e) => {
+    markTyped(e.target);
     if (e.target.name === "quantity") return updateOrderTotal();
     const form = e.target.closest("[data-price-form]");
     if (!form) return;
@@ -753,6 +925,7 @@ async function savePrice(form) {
   form.querySelector("[data-error]").textContent = "";
   const p = product(pid);
   form.price.value = (p.price / 100).toFixed(2);
+  delete form.price.dataset.typed; // the saved price is the server's, not a typed one
   form.querySelector("[data-demand]").innerHTML = customersText(p.customers);
   const why = form.querySelector(".why-body");
   if (why && p.breakdown) why.innerHTML = breakdownHtml(p.breakdown, state.segments);
@@ -779,8 +952,41 @@ async function playDay(after) {
 // Open starts the day clock. The shift is started separately in the Shift panel while the
 // day runs; while it runs this button lets the time pass without any sale.
 async function openDay() {
+  if (evening) return walkHome();
   if (animating || state.finished) return;
+  if (state.shift) {
+    const warning = endDayWarning();
+    if (warning) return askEndDay(warning);
+  }
   return shiftAction(state.shift ? "/api/shift/skip" : "/api/day/open", {});
+}
+
+// Ending a day early lets the rest pass without the player serving (skip_shift on the server).
+// Ask first when that costs sales: nobody works today, or the player's own shift still runs.
+// Only a question in the browser; the server decides the skip as before.
+function endDayWarning() {
+  const sh = state.shift;
+  if (!sh) return "";
+  if (!sh.shop && !(sh.crews?.length)) {
+    return "Nobody works today: no shift has started and no staff are on duty. If you end the day now, nothing is sold.";
+  }
+  if (sh.shop && !sh.over && !sh.staffed) { // a staffed shift runs on without the player
+    const name = state.shops.find((shop) => shop.id === sh.shop)?.name ?? "shop";
+    return `Your shift in the ${name} is still running. If you end the day now, the customers still to come are lost.`;
+  }
+  return "";
+}
+
+function askEndDay(text) {
+  $("#end-day-text").textContent = text;
+  const dialog = $("#end-day-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+}
+
+function endDayConfirmed() {
+  if (!state.shift || animating) return;
+  return shiftAction("/api/shift/skip", {});
 }
 
 // The dashboard did something: its own screen already shows the numbers.
@@ -790,12 +996,14 @@ function syncFromDashboard(msg) {
       closePanel();
       hideOverlay();
       await playDay(msg.after);
-      await runClock(DAY_END, MORNING, 900);
+      startEvening();
     } else {
       state = msg.after;
       if (msg.kind === "new-run") {
         closePanel();
         hideOverlay();
+        evening = false;
+        scene.sleeping = false;
         scene.clock = MORNING;
         placePlayer(state.player);
       }
@@ -808,7 +1016,10 @@ function syncFromDashboard(msg) {
 export function useLocation(action) {
   if (action === "stock") openPanel("order");
   if (action === "prices") openPanel("prices");
-  if (action === "dorm") openPanel("dorm");
+  if (action === "dorm") {
+    if (evening) return goToBed();
+    openPanel("dorm");
+  }
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 
@@ -840,14 +1051,27 @@ function showDaySummary(result) {
       <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td>Total</td><td>${sold}</td><td>${fmt(result.revenue)}</td><td>${fmt(gp)}</td></tr></tfoot>
-    </table>${eveningReport()}
+    </table>${newBadges(result)}${eveningReport()}
     <div class="actions">
-      <button class="btn" type="button" data-next>${state.finished ? "See the final result" : `Start day ${state.day}`}</button>
+      <button class="btn" type="button" data-next>${state.finished ? "Sleep · see the final result" : "Sleep"}</button>
     </div>`);
 }
 
+// Every badge earned on this day (specs/badges.md), also those that popped up during it, as
+// medals. The list comes from the server (result.badges).
+function newBadges(result) {
+  const ids = result.badges || [];
+  if (!ids.length) return "";
+  const badges = ids.map((id) => (state.badges || []).find((b) => b.id === id)).filter(Boolean);
+  return `
+    <div class="evening-report day-badges">
+      <p class="eyebrow">Badges today · ${badges.length}</p>
+      ${medalGridHtml(badges)}
+    </div>`;
+}
+
 // The forecast for the next day and one tip per open shop (outlook). Shown in the day
-// summary; the tips and the forecast come from the server.
+// summary and on the morning card; the tips and the forecast come from the server.
 function eveningReport() {
   const o = state.outlook;
   if (!o || state.finished) return "";
@@ -856,15 +1080,12 @@ function eveningReport() {
   // with a fixed weather (demo override) the server sends miss_percent 0: no warning then
   const miss = o.miss_percent > 0
     ? `<p class="note">Forecasts are wrong about ${esc(o.miss_percent)} % of the time.</p>` : "";
-  // remove this line once pricing (#38) applies the weather to the customers
-  const notYet = `<p class="note">The tips follow the weather table. The weather does not change
-    the number of customers yet.</p>`;
   return `
     <div class="evening-report">
       <p class="eyebrow">Forecast for day ${esc(o.day)}</p>
       <p class="forecast"><span class="icon" aria-hidden="true">${weatherIconMarkup(o.id, 22)}</span>
         <b>${esc(o.name)}</b>, ${esc(o.temp_low)}–${esc(o.temp_high)} °C</p>
-      <ul class="tips">${tips}</ul>${miss}${notYet}
+      <ul class="tips">${tips}</ul>${miss}
     </div>`;
 }
 
@@ -874,11 +1095,157 @@ function showFinal() {
     <p class="eyebrow">Run complete · ${state.history.length} days</p>
     <p class="big ${gain > 0 ? "up" : gain < 0 ? "down" : ""}">${fmtSigned(gain)}</p>
     <p class="note">overall result = final cash ${fmt(state.cash)} + stock at cost ${fmt(state.stock_value)} − ${fmt(state.starting_cash)} start</p>
+    <div class="evening-report final-badges">
+      <p class="eyebrow">Your badges · ${earnedBadges().length} / ${(state.badges || []).length}</p>
+      ${medalGridHtml(state.badges)}
+    </div>
     <div class="actions">
       <button class="btn" type="button" data-new-run>Start a new run</button>
       <button class="btn ghost" type="button" data-dashboard>Dashboard</button>
     </div>
     <div class="actions"><button class="btn ghost" type="button" data-dismiss>Look around the campus</button></div>`);
+}
+
+// ---- badges (specs/badges.md) ---------------------------------------------------------------
+// The server gives a badge the moment it is reached. Every badge that shows up in the state and
+// was not earned before appears as a card at the top left, one after the other, and leaves by
+// itself: the game keeps running, nothing has to be clicked. The page decides nothing.
+const BADGE_SHOW_MS = 4500;
+const BADGE_LEAVE_MS = 260;
+const SPARK_COLORS = ["#f2bf2e", "#e86f55", "#2a78d6", "#1baf7a", "#d9487b", "#bce65f"];
+const SPARKS = 12;
+let seenBadges = null; // the ids earned when the state was last looked at
+const badgeQueue = [];
+let badgeTimer = null;
+let badgeShowing = false;
+let badgeOnScreen = null; // the id of the badge whose card is shown now
+
+const earnedBadges = () => (state.badges || []).filter((b) => b.day !== null);
+
+function noticeBadges() {
+  const earned = earnedBadges();
+  const ids = new Set(earned.map((b) => b.id));
+  if (seenBadges) {
+    for (const b of earned) if (!seenBadges.has(b.id) && !badgeQueue.includes(b.id)) badgeQueue.push(b.id);
+  }
+  seenBadges = ids;
+  // a badge that is gone again (a new run, an earlier day set in the editor) is not shown,
+  // and its card goes at once if it is on screen
+  for (let i = badgeQueue.length - 1; i >= 0; i--) if (!ids.has(badgeQueue[i])) badgeQueue.splice(i, 1);
+  if (badgeOnScreen && !ids.has(badgeOnScreen)) endBadges();
+  // in the small preview on the dashboard the badge waits until the campus is shown again
+  if (!scene.preview && !badgeShowing && badgeQueue.length) showNextBadge();
+}
+
+// Sparks fly out of the medal: direction and colour from the piece's number, no randomness.
+function sparksHtml() {
+  let pieces = "";
+  for (let i = 0; i < SPARKS; i++) {
+    const angle = (i / SPARKS) * Math.PI * 2;
+    const reach = 30 + (i % 3) * 7;
+    const style = [
+      `--tx:${Math.round(Math.cos(angle) * reach)}px`,
+      `--ty:${Math.round(Math.sin(angle) * reach)}px`,
+      `--r:${(i * 67) % 360}deg`,
+      `--delay:${0.1 + (i % 4) * 0.04}s`,
+      `--c:${SPARK_COLORS[i % SPARK_COLORS.length]}`,
+    ].join(";");
+    pieces += `<i style="${style}"></i>`;
+  }
+  return `<span class="sparks" aria-hidden="true">${pieces}</span>`;
+}
+
+// Below whatever stands at the top left: the stock card (wide screens) or the place label
+// (phones), never on top of it.
+function badgeTop() {
+  const bar = $(".topbar")?.getBoundingClientRect().bottom ?? 56;
+  const bottoms = [".hud-stock", ".zone-banner"]
+    .map((sel) => $(sel))
+    .filter((el) => el && el.getClientRects().length)
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.left < 60 && r.top < bar + 80)
+    .map((r) => r.bottom);
+  return Math.round(Math.max(bar, ...bottoms) + 8);
+}
+
+function showNextBadge() {
+  const badge = (state.badges || []).find((b) => b.id === badgeQueue[0]);
+  badgeQueue.shift();
+  if (!badge) return badgeQueue.length ? showNextBadge() : endBadges();
+  badgeShowing = true;
+  badgeOnScreen = badge.id;
+  const area = $("#badge-pop");
+  area.innerHTML = `
+    <div class="badge-toast">
+      <div class="badge-toast-medal">${medalHtml(badge)}${sparksHtml()}</div>
+      <div class="badge-toast-text">
+        <p class="eyebrow">Badge earned</p>
+        <p class="name">${esc(badge.name)}</p>
+        <p class="meta">${esc(TIER_NAME[badge.tier] ?? "")} · ${earnedBadges().length} / ${state.badges.length}</p>
+        <p class="what">${esc(badge.text)}</p>
+      </div>
+      <button class="close" type="button" aria-label="Close" title="Close">×</button>
+      <span class="timer" style="--show:${BADGE_SHOW_MS}ms" aria-hidden="true"></span>
+    </div>`;
+  area.hidden = false;
+  placeBadge();
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(leaveBadge, BADGE_SHOW_MS);
+}
+
+// The short messages (toasts) stand at the top centre. While a badge card is shown they move
+// into the space right of it, or below it where that space is too narrow (phones), so the two
+// never overlap. Only positions are set here (badges.css), nothing else.
+const TOAST_ROOM = 240; // px a toast needs beside the card
+
+// Where the card stands and where the toasts go. Run again whenever what is above it may have
+// changed size: every redraw (the stock card gains rows), a fold of the stock card, a resize.
+function placeBadge() {
+  if (!badgeShowing) return;
+  const area = $("#badge-pop");
+  const top = `${badgeTop()}px`;
+  if (area.style.top !== top) area.style.top = top;
+  makeRoomForBadge(area);
+}
+
+function makeRoomForBadge(area) {
+  const box = area.getBoundingClientRect();
+  const body = document.body;
+  body.style.setProperty("--badge-right", `${Math.round(box.right)}px`);
+  body.style.setProperty("--badge-bottom", `${Math.round(box.bottom)}px`);
+  const beside = window.innerWidth - box.right >= TOAST_ROOM;
+  body.classList.toggle("badge-beside", beside);
+  body.classList.toggle("badge-below", !beside);
+}
+
+// The card slides out; the next badge follows, or the corner is empty again.
+function leaveBadge() {
+  const card = $("#badge-pop .badge-toast");
+  if (card?.classList.contains("leaving")) return; // already on its way out: keep its timer
+  clearTimeout(badgeTimer);
+  if (!card) return endBadges();
+  card.classList.add("leaving");
+  badgeTimer = setTimeout(() => {
+    if (badgeQueue.length && !scene.preview) showNextBadge();
+    else endBadges();
+  }, reducedMotion ? 0 : BADGE_LEAVE_MS);
+}
+
+function endBadges() {
+  clearTimeout(badgeTimer);
+  badgeShowing = false;
+  badgeOnScreen = null;
+  document.body.classList.remove("badge-beside", "badge-below");
+  const area = $("#badge-pop");
+  area.hidden = true;
+  area.innerHTML = "";
+}
+
+function wireBadgePop() {
+  $("#badge-pop").addEventListener("click", (e) => {
+    if (e.target.closest(".close")) leaveBadge();
+  });
+  window.addEventListener("resize", placeBadge);
 }
 
 function askNewRun() {
@@ -893,6 +1260,7 @@ function askNewRun() {
 function wireOverlay() {
   $("#overlay").addEventListener("click", (e) => {
     if (e.target.closest("[data-next]")) {
+      if (scene.sleeping) return sleep();
       hideOverlay();
       runClock(scene.clock, MORNING, 500);
       if (state.finished) showFinal();
@@ -912,6 +1280,8 @@ function wireOverlay() {
     if (data.error) return toast(data.error, "error");
     closePanel();
     hideOverlay();
+    evening = false;
+    scene.sleeping = false;
     scene.clock = MORNING;
     placePlayer(state.player);
     renderAll();
@@ -926,11 +1296,12 @@ function setMode(mode) {
   scene.preview = mode === "preview";
   document.body.classList.toggle("preview", scene.preview);
   if (scene.preview) closePanel();
+  else noticeBadges(); // a badge earned while the dashboard was in front pops up now
 }
 
 // while a card or dialog is open, the figure stays where it is
 export function inputBlocked() {
-  return !$("#overlay").hidden || $("#new-run-dialog").open;
+  return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || scene.sleeping || fading;
 }
 
 // The stock card can be folded away. The toggle sits outside #hud-stock, which is redrawn on
@@ -953,15 +1324,21 @@ function wireStockToggle() {
     folded = !$("#hud-stock-card").classList.contains("collapsed");
     setStockFolded(folded);
     try { localStorage.setItem(STOCK_FOLDED_KEY, folded ? "1" : "0"); } catch { /* not remembered */ }
+    placeBadge(); // the badge card stands below the stock card
   });
 }
 
 export function initUi(firstState, actions) {
   state = firstState;
+  seenBadges = new Set(earnedBadges().map((b) => b.id)); // badges from before the page loaded do not pop up
   placePlayer = actions.placePlayer;
+  goHome = actions.goHome;
+  jumpHome = actions.jumpHome;
+  wakeAt = actions.wakeAt;
   wirePanel();
   wireEditor();
   wireOverlay();
+  wireBadgePop();
   wireStockToggle();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
@@ -972,6 +1349,11 @@ export function initUi(firstState, actions) {
   $("#btn-fast").addEventListener("click", () => { fast = true; });
   $("#btn-dashboard").addEventListener("click", () => tellDashboard({ type: "open-dashboard" }));
   $("#btn-new-run").addEventListener("click", askNewRun);
+  $("#btn-go-home").addEventListener("click", walkHome);
+  $("#btn-skip-walk").addEventListener("click", skipWalk);
+  $("#end-day-dialog").addEventListener("close", (e) => {
+    if (e.target.returnValue === "confirm") endDayConfirmed();
+  });
   window.addEventListener("message", (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
     const msg = e.data || {};

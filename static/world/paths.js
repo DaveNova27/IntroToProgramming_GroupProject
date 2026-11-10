@@ -6,11 +6,19 @@ import { pointBlocked } from "./physics.js";
 const STEP = 0.5; // tiles between two grid points
 const SAMPLE = 0.1; // tiles between two checks along a straight line
 const SQRT2 = Math.SQRT2;
+// The walker never follows a line exactly. A route that passes a solid object at exactly the width
+// of the player makes it drift a hair too close, stand still at the corner and give up (spec
+// click-walk). So a route first keeps this extra margin (tiles) everywhere: on the direct line, on the
+// grid and on the shortcuts. Only if no way is left at that margin does the old, tight one apply.
+const CORNER_MARGIN = 0.1;
+const TIGHT_MARGIN = 0.02;
 
-const grids = new WeakMap(); // one grid per list of solid objects
+const grids = new WeakMap(); // per list of solid objects: one grid for each clearance
 
 function buildGrid(bounds, colliders, radius) {
-  if (grids.has(colliders)) return grids.get(colliders);
+  const byClearance = grids.get(colliders) ?? new Map();
+  grids.set(colliders, byClearance);
+  if (byClearance.has(radius)) return byClearance.get(radius);
   const columns = Math.floor((bounds.maxX - bounds.minX) / STEP) + 1;
   const rows = Math.floor((bounds.maxY - bounds.minY) / STEP) + 1;
   const free = new Uint8Array(columns * rows);
@@ -21,7 +29,7 @@ function buildGrid(bounds, colliders, radius) {
     }
   }
   const grid = { columns, rows, free };
-  grids.set(colliders, grid);
+  byClearance.set(radius, grid);
   return grid;
 }
 
@@ -123,12 +131,10 @@ function straighten(points, colliders, radius) {
   return kept;
 }
 
-// The points to walk through from start to goal, without the start itself.
-// Returns null if there is no way. The radius is the size of the person.
-export function findPath(start, goal, bounds, colliders, radius) {
-  const clearance = radius + 0.02;
-  if (lineIsFree(start, goal, colliders, clearance)) return [goal];
-  const grid = buildGrid(bounds, colliders, clearance);
+// One try with the given extra margin; null if there is no way.
+function route(start, goal, bounds, colliders, radius, margin) {
+  if (lineIsFree(start, goal, colliders, radius + margin)) return [goal];
+  const grid = buildGrid(bounds, colliders, radius + margin);
   const first = nearestNode(grid, bounds, start);
   const last = nearestNode(grid, bounds, goal);
   if (first < 0 || last < 0) return null;
@@ -138,5 +144,23 @@ export function findPath(start, goal, bounds, colliders, radius) {
     x: bounds.minX + (node % grid.columns) * STEP,
     y: bounds.minY + Math.floor(node / grid.columns) * STEP,
   }));
-  return straighten([start, ...points, goal], colliders, radius).slice(1);
+  return straighten([start, ...points, goal], colliders, radius + margin).slice(1);
+}
+
+// Does every stretch of the route stay clear of solid objects at the real size of the person?
+function routeIsFree(start, points, colliders, radius) {
+  let from = start;
+  for (const to of points) {
+    if (!lineIsFree(from, to, colliders, radius)) return false;
+    from = to;
+  }
+  return true;
+}
+
+export function findPath(start, goal, bounds, colliders, radius) {
+  // A person standing close to a wall rejects every shortcut at the wide margin and would keep the
+  // stretch to the grid unchecked: such a route only counts when it is free at the real radius.
+  const wide = route(start, goal, bounds, colliders, radius, CORNER_MARGIN);
+  if (wide && routeIsFree(start, wide, colliders, radius)) return wide;
+  return route(start, goal, bounds, colliders, radius, TIGHT_MARGIN);
 }

@@ -189,6 +189,39 @@ p { margin: 0; }
 .interaction-hint small { display: block; color: var(--on-panel-soft); font: 600 7px var(--mono); letter-spacing: 0.14em; }
 .interaction-hint strong { display: block; font-size: 12px; }
 
+/* ---- the evening and the night (spec day-cycle) ---------------------------- */
+.evening-hint {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 122px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid rgba(255, 212, 84, 0.5);
+  border-radius: 4px;
+  color: var(--on-panel);
+  background: var(--panel);
+  font-size: 13px;
+  font-weight: 600;
+}
+.evening-hint[hidden] { display: none; }
+.evening-hint .moon { color: #ffd454; font-size: 18px; }
+.evening-hint .btn { min-height: 36px; background: #ffd454; color: var(--ink); white-space: nowrap; }
+.evening-hint .btn:hover { background: #ffe07d; }
+.evening-hint .btn.skip { background: transparent; color: var(--on-panel); box-shadow: inset 0 0 0 1px rgba(255, 212, 84, 0.5); }
+.evening-hint .btn.skip:hover { background: rgba(255, 212, 84, 0.15); }
+.card-pop .todo { margin: 12px 0 4px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.night-fade { position: absolute; inset: 0; z-index: 9; background: #03141a; opacity: 0; pointer-events: none; transition: opacity 0.7s ease; }
+.night-fade.on { opacity: 1; pointer-events: auto; }
+.night-fade.night { opacity: 0.55; pointer-events: auto; }
+.night-fade.sunrise { pointer-events: auto; transition: opacity 3.6s ease-in; }
+
 /* ---- toolbar ------------------------------------------------------------- */
 .toolbar {
   position: absolute;
@@ -272,6 +305,8 @@ p { margin: 0; }
 .error { margin-top: 8px; color: var(--bad); font-size: 13px; font-weight: 600; }
 .error:empty { display: none; }
 .note { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+.note.warning { margin-top: 4px; color: var(--bad); font-weight: 600; }
+.note.hint { margin: 6px 0; }
 
 .btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 4px; background: var(--panel-solid); color: var(--on-panel); font-weight: 700; cursor: pointer; }
 .btn:hover { background: #1c4552; }
@@ -360,6 +395,7 @@ p { margin: 0; }
   .stock-row { grid-template-columns: auto auto; }
   .stock-row + .stock-row { border-top: 0; }
   .interaction-hint { bottom: 106px; }
+  .evening-hint { bottom: 152px; flex-wrap: wrap; justify-content: center; font-size: 12px; }
   .tool { padding: 4px 8px 4px 4px; }
   .tool .txt { display: none; }
   .tool.primary #open-label { font-size: 12px; }
@@ -369,8 +405,8 @@ p { margin: 0; }
 
 /* ---- live window on the dashboard ------------------------------------------- */
 body.preview .topbar, body.preview .zone-banner, body.preview .zone-chips, body.preview .hud-stock,
-body.preview .interaction-hint, body.preview .toolbar, body.preview .panel, body.preview .overlay,
-body.preview .toasts { display: none !important; }
+body.preview .interaction-hint, body.preview .evening-hint, body.preview .toolbar, body.preview .panel, body.preview .overlay,
+body.preview .toasts, body.preview .badge-toast-area { display: none !important; }
 body.preview .loading { font-size: 13px; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -409,3 +445,8 @@ body.preview .loading { font-size: 13px; }
 .editor-row label { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
 .editor-row input, .editor-row select { min-width: 0; flex: 1; min-height: 34px; padding: 0 8px; border: 1px solid rgba(128, 128, 128, 0.5); border-radius: 4px; background: var(--cream-deep); color: var(--ink); font: 600 14px var(--mono); }
 .editor-row .btn { min-height: 34px; padding: 0 10px; font-size: 13px; }
+
+/* the medals at the end of the season (specs/badges.md) */
+.card-pop .final-badges .medal-grid { margin-top: 8px; }
+.card-pop .final-badges .note { margin-top: 4px; }
+

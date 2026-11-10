@@ -15,12 +15,13 @@ import {
   drawGroundSlab,
   drawPlane,
   drawRaisedSlab,
+  drawFootprintShadow,
   drawSoftShadow,
   drawSpaceCaption,
   drawWorldLabel,
   mixColor,
 } from "./primitives.js";
-import { ctx, isoPoint, reducedMotion, scene, world } from "./scene.js";
+import { DEPTH, TILE, ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
 
 const TEAL = "#31545b";
 const AQUA = "#64cbc8";
@@ -267,7 +268,7 @@ function drawBeachWay() {
   }
   flat(way.x + way.w / 2 - 0.05, way.y, 0.1, start - way.y, "rgba(100,203,200,.35)", 5);
   // ---- the boardwalk: grey, sun-bleached boards on beams, low to the ground
-  drawSoftShadow(way.x + way.w / 2, (start + end) / 2, way.w * 20, (end - start) * 17, 0.06);
+  drawFootprintShadow(way.x + way.w / 2, (start + end) / 2, way.w, end - start, 0.06);
   flat(way.x - 0.12, start, way.w + 0.24, end - start, "#6c5d4b", 4.9);
   const boards = Math.floor((end - start) / 0.4);
   for (let j = 0; j < boards; j++) {
@@ -361,7 +362,7 @@ export function drawBeachGround(t) {
   for (const shop of world.outdoorShops) {
     const base = shop.id === "surf-shop" ? "#b98b59" : "#c9a878";
     drawDeck(shop.x, shop.y, shop.w, shop.h, base);
-    drawSoftShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w * 22, shop.h * 18, 0.1);
+    drawFootprintShadow(shop.x + shop.w / 2, shop.y + shop.h / 2, shop.w, shop.h, 0.1);
   }
   drawKerbSteps();
   world.beach.rockShelves.forEach(drawRockShelf);
@@ -805,7 +806,7 @@ function drawLifeguardTower(t, amount) {
   const tower = world.beach.tower;
   const { x, y, w, h } = tower;
   const deck = 40;
-  drawSoftShadow(x + w / 2, y + h / 2, w * 30, h * 24, 0.14);
+  drawFootprintShadow(x + w / 2, y + h / 2, w, h, 0.14);
   // stilts and bracing
   const posts = [[0.12, 0.12], [w - 0.12, 0.12], [0.12, h - 0.12], [w - 0.12, h - 0.12]];
   for (const [dx, dy] of posts) line(isoPoint(x + dx, y + dy, 5), isoPoint(x + dx, y + dy, deck), "#e9e3d4", 3.4);
@@ -852,28 +853,30 @@ function drawLifeguardTower(t, amount) {
 function drawRescueBoat() {
   const b = world.beach.rescueBoat;
   const c = isoPoint(b.x + b.w / 2, b.y + b.h / 2, 7);
-  oval({ x: c.x + 2, y: c.y + 6 }, b.w * 40, b.h * 20, "rgba(60,45,30,.25)");
+  // half its footprint in pixels: the boat fills its collider (spec map-view)
+  const rx = (b.w * TILE) / 2;
+  const ry = (b.h * DEPTH) / 2;
+  oval({ x: c.x + 2, y: c.y + 6 }, rx, ry, "rgba(60,45,30,.25)");
   ctx.save();
   ctx.translate(c.x, c.y);
-  ctx.rotate(Math.atan2(19, 38));
   ctx.fillStyle = "#f08a3c";
   ctx.beginPath();
-  ctx.ellipse(0, 0, b.w * 40, b.h * 17, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, rx, ry * 0.85, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#3a4a52";
   ctx.beginPath();
-  ctx.ellipse(0, 0, b.w * 33, b.h * 11, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, rx * 0.82, ry * 0.55, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "rgba(255,255,255,.35)";
   ctx.beginPath();
-  ctx.ellipse(-4, -b.h * 12, b.w * 30, 2, 0, 0, Math.PI * 2);
+  ctx.ellipse(-4, -ry * 0.6, rx * 0.75, 2, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.font = "800 6px Menlo, Consolas, monospace";
   ctx.textAlign = "center";
   ctx.fillText("RESCUE", 0, 2);
   ctx.fillStyle = "#31545b";
-  ctx.fillRect(-b.w * 40 - 4, -3, 6, 9); // the motor at the stern
+  ctx.fillRect(-rx - 4, -3, 6, 9); // the motor at the stern
   ctx.restore();
 }
 
@@ -1002,7 +1005,6 @@ function drawSurfer(s, index, t) {
   for (let k = 0; k < 6; k++) dot({ x: p.x - dir * (8 + k * 5), y: p.y + 2 + (k % 3) - k * 0.4 }, 1.6, "#ffffff", 0.7 - k * 0.1);
   ctx.save();
   ctx.translate(p.x, p.y);
-  ctx.rotate(Math.atan2(19, 38) * dir * (dir > 0 ? 1 : 1));
   ctx.fillStyle = s.color;
   ctx.beginPath();
   ctx.ellipse(0, 0, 16, 3.4, 0, 0, Math.PI * 2);
@@ -1034,7 +1036,6 @@ function drawPaddler(pd, index, t) {
   oval({ x: p.x, y: p.y + 3 }, 22, 6, "rgba(255,255,255,.3)");
   ctx.save();
   ctx.translate(p.x, p.y + bob);
-  ctx.rotate(Math.atan2(19, 38));
   ctx.fillStyle = index ? "#64cbc8" : "#f5c95e";
   ctx.beginPath();
   ctx.ellipse(0, 0, 17, 3.6, 0, 0, Math.PI * 2);
@@ -1307,7 +1308,7 @@ function drawFountain(f) {
 }
 
 function drawIceCart(c, t, amount) {
-  drawSoftShadow(c.x + c.w / 2, c.y + c.h / 2, c.w * 24, c.h * 20, 0.12);
+  drawFootprintShadow(c.x + c.w / 2, c.y + c.h / 2, c.w, c.h, 0.12);
   for (const dx of [0.2, c.w - 0.2]) {
     const w = isoPoint(c.x + dx, c.y + c.h + 0.02, 7);
     ctx.strokeStyle = "#22343a";
@@ -1506,7 +1507,7 @@ function drawSwimmer(sw, t) {
 
 // two changing cabins next to the Surf Shop
 function drawSurfCabins(a, amount) {
-  drawSoftShadow(a.x + a.w / 2, a.y + a.h / 2, a.w * 26, a.h * 22, 0.12);
+  drawFootprintShadow(a.x + a.w / 2, a.y + a.h / 2, a.w, a.h, 0.12);
   drawBlock(a.x, a.y, a.w, a.h, 66, "#e9eeea", "#5d8f8c", "#8fbcb7");
   drawRaisedSlab(a.x - 0.08, a.y - 0.08, a.w + 0.16, a.h + 0.16, 70, 4, "#2e8b8f", "#1f6568", "#277a7d");
   const fy = a.y + a.h + 0.012;
@@ -1526,7 +1527,7 @@ function drawSurfCabins(a, amount) {
 
 // a shipping container turned into the cafe's kitchen, with an ice cream hatch
 function drawCafeContainer(a, amount) {
-  drawSoftShadow(a.x + a.w / 2, a.y + a.h / 2, a.w * 26, a.h * 22, 0.12);
+  drawFootprintShadow(a.x + a.w / 2, a.y + a.h / 2, a.w, a.h, 0.12);
   drawBlock(a.x, a.y, a.w, a.h, 56, "#f3ecdc", "#2c7c80", "#3aa0a4");
   const fy = a.y + a.h + 0.012;
   for (let px = a.x + 0.1; px < a.x + a.w - 0.05; px += 0.12) line(isoPoint(px, fy, 6), isoPoint(px, fy, 54), "rgba(20,70,74,.28)", 0.8);
@@ -1667,6 +1668,19 @@ function drawDormFront(t, amount) {
   const { part, door, front, east } = dormSpot();
   const y = front + 0.02;
   const doorEnd = door.x + door.width;
+  // the lamp's light on the ground stays, also while the roof is gone
+  if (amount > 0.05) glow(doorEnd - 0.3, front + 0.4, 36, 90, amount);
+  // the lamp in the room, seen while its roof is gone: on in the evening, off while the player sleeps
+  // (spec day-cycle)
+  if (amount > 0.05 && !scene.sleeping && wingIsOpen("dorm")) {
+    glow(part.x + part.w / 2, part.y + part.h / 2, 8, 150, amount * 0.9);
+  }
+  // Seen from the front, the canopy and the flower boxes stand over the first row of the room: they
+  // are part of the roof and fade with it, like the Nova's canopy (spec map-view).
+  const roof = roofOf("dorm");
+  if (roof < 0.02) return;
+  ctx.save();
+  ctx.globalAlpha = roof;
   // flower boxes
   for (const [x0, x1] of [[part.x + 0.3, door.x - 0.2], [doorEnd + 0.2, east - 0.3]]) {
     drawBlock(x0, y - 0.02, x1 - x0, 0.22, 33, "#f7f7f4", "#c9cdd0", "#e4e5e2");
@@ -1692,7 +1706,7 @@ function drawDormFront(t, amount) {
   ctx.fillText("№ 7", sign.x, sign.y + 2.2);
   const lamp = isoPoint(doorEnd - 0.3, front + 0.1, 38);
   dot(lamp, 3, amount > 0.1 ? "#ffe9a8" : "#eee2b8");
-  if (amount > 0.05) glow(doorEnd - 0.3, front + 0.4, 36, 90, amount);
+  ctx.restore();
 }
 
 // the balcony on the Dorm's east wall: a white ledge, a glass rail, pots
@@ -1723,35 +1737,17 @@ function drawDormBalcony(t) {
 function drawDeliveryLorry() {
   const x0 = -0.9, w = 1.5, east = x0 + w;
   const glass = "#cfe7e6";
-  drawSoftShadow(-0.1, 10.9, 96, 50, 0.16);
+  drawFootprintShadow(x0 + w / 2, 10.8, w, 4.3, 0.16);
   // chassis rail and cargo box
   drawBlock(x0 + 0.05, 8.75, w - 0.1, 4.2, 12, "#2a3438", "#1d2629", "#242e32");
   drawBlock(x0, 8.7, w, 3.15, 54, "#fbf9f2", "#d6d2c6", "#e8e4d8");
-  drawFacadeBandX(east + 0.01, 8.7, 3.15, 0, 11, "#2a3438", 1);
-  // ribs on the side of the box, a teal stripe, a yellow line and the name
-  for (let y = 9.05; y < 11.8; y += 0.38) line(isoPoint(east + 0.012, y, 14), isoPoint(east + 0.012, y, 53), "rgba(80,76,64,.16)", 1);
-  drawFacadeBandX(east + 0.014, 8.7, 3.15, 15, 25, "#2e8b8f", 1);
-  drawFacadeBandX(east + 0.016, 8.7, 3.15, 26.5, 29, "#f5c95e", 1);
-  line(isoPoint(east + 0.018, 8.7, 52), isoPoint(east + 0.018, 11.85, 52), "#ffffff", 1.4);
-  const label = isoPoint(east + 0.02, 10.25, 41);
-  ctx.save();
-  ctx.fillStyle = "#31545b";
-  ctx.font = "800 6px Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.fillText("MERCADO", label.x, label.y + 2);
-  ctx.restore();
-  dot(isoPoint(east + 0.02, 11.3, 41), 3.2, "#f5c95e");
-  dot(isoPoint(east + 0.02, 11.3, 41), 1.5, "#e24d3f");
+  // (the ribs, stripes and name on the east side of the box are seen edge-on from the front: not drawn)
   // south face of the box above the cab: roof spoiler edge and a vent
   drawFacadeBandY(x0 + 0.15, 11.85 + 0.012, 1.2, 44, 51, "#c9c6bd", 1);
   // cab: roof, windscreen, side window, door
   drawBlock(x0 + 0.04, 11.85, w - 0.08, 1.1, 36, "#2e8b8f", "#1f6568", "#277a7d");
   drawBlock(x0 + 0.04, 12.4, w - 0.08, 0.55, 25, "#35a1a5", "#1f6568", "#277a7d");
   drawFacadeBandY(x0 + 0.14, 12.4 + 0.014, w - 0.28, 26.5, 34.5, glass, 4);
-  drawFacadeBandX(east - 0.04 + 0.014, 11.95, 0.42, 26.5, 34.5, glass, 1);
-  drawFacadeBandX(east - 0.04 + 0.014, 12.45, 0.4, 26.5, 34.5, "#a9cfce", 1);
-  line(isoPoint(east - 0.04 + 0.02, 12.42, 12), isoPoint(east - 0.04 + 0.02, 12.42, 35), "rgba(18,60,63,.7)", 1);
-  dot(isoPoint(east - 0.04 + 0.02, 12.36, 21), 1.1, "#d9ecec");
   // grille, headlights, bumper, number plate
   drawFacadeBandY(x0 + 0.34, 12.95 + 0.014, w - 0.68, 12, 22, "#1b2a2e", 5);
   for (const hx of [x0 + 0.17, east - 0.17]) {
@@ -1768,16 +1764,13 @@ function drawDeliveryLorry() {
   line(arm, { x: arm.x + 5, y: arm.y - 1 }, "#22343a", 1.4);
   ctx.fillStyle = "#22343a";
   ctx.fillRect(arm.x + 4, arm.y - 6, 3, 7);
-  // wheels with arches and hubcaps: tandem at the back, one axle at the front
-  for (const y of [9.35, 10.1, 12.4]) {
-    const wp = isoPoint(east, y, 8);
-    oval({ x: wp.x, y: wp.y - 1 }, 8.2, 8.8, "#151e21");
-    oval(wp, 7, 7.6, "#22343a");
-    oval({ x: wp.x + 0.4, y: wp.y }, 3.8, 4.2, "#9fb3b8");
-    oval({ x: wp.x + 0.4, y: wp.y }, 1.5, 1.7, "#5f7378");
+  // the front wheels, seen from the front: the tread under each corner of the cab
+  for (const wx of [x0 + 0.12, east - 0.12]) {
+    const wp = isoPoint(wx, 12.95, 7);
+    oval(wp, 3.4, 7.6, "#151e21");
+    oval(wp, 2.2, 6.4, "#22343a");
   }
-  // reversing light on the rear corner and a fuel tank behind the cab
-  dot(isoPoint(east + 0.01, 8.8, 12), 1.5, "#e24d3f");
+  // a fuel tank behind the cab
   drawBlock(east - 0.02, 11.5, 0.14, 0.34, 9, "#8e9ca0", "#6a787c", "#7d8b8f");
 }
 
@@ -1867,106 +1860,107 @@ export function beachActors(t) {
   const add = (depth, draw) => actors.push({ depth, draw });
 
   for (const c of solid) {
-    if (c.id.startsWith("way-lamp")) add(c.x + c.y + 0.05, () => drawLamp(c.x, c.y, amount));
+    if (c.id.startsWith("way-lamp")) add(depthOf(c.x, c.y) + 0.05, () => drawLamp(c.x, c.y, amount));
   }
-  add(14.4 + 17.5 + 0.2, () => drawArch(amount));
-  add(11.9 + 30.5 + 1.3, () => drawCampusBench(11.9, 30.5, 1));
-  add(16.5 + 30.5 + 1.3, () => drawCampusBench(16.5, 30.5, 1));
+  add(depthOf(14.4, 17.7), () => drawArch(amount));
+  add(depthOf(11.9, 31.0), () => drawCampusBench(11.9, 30.5, 1));
+  add(depthOf(16.5, 31.0), () => drawCampusBench(16.5, 30.5, 1));
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
-      add(shop.x + shop.y + 0.05, () => drawSurfHut(shop, amount));
-      add(shop.x + shop.y + 1.0, () => drawSurfShop(shop, amount));
-      for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, HUT_Z));
-      add(shop.x + shop.w + shop.y + 1.3, () => drawSurfRoof(shop, amount));
-      add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 150, "SURF SHOP", AQUA));
+      add(depthOf(shop.x, shop.y) + 0.05, () => drawSurfHut(shop, amount));
+      add(depthOf(shop.x, shop.y) + 1.0, () => drawSurfShop(shop, amount));
+      for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(depthOf(c.x, c.y) + 0.05, () => drawPost(c.x, c.y, HUT_Z));
+      add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawSurfRoof(shop, amount));
+      add(depthOf(shop.x, shop.y) + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 150, "SURF SHOP", AQUA));
     } else {
-      add(shop.x + shop.y + 0.05, () => drawCafeHut(shop, amount));
-      add(shop.x + shop.y + 1.0, () => drawBeachCafe(shop, t, amount));
-      for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(c.x + c.y + 0.05, () => drawPost(c.x, c.y, HUT_Z));
-      add(shop.x + shop.w + shop.y + 1.3, () => drawThatchRoof(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.3, HUT_Z));
-      add(shop.x + shop.w + shop.y + 1.35, () => drawStringLights(t, amount));
-      add(shop.x + shop.y + 0.2, () => drawWorldLabel(shop.x + shop.w / 2 - 0.4, shop.y + 0.4, 150, "BEACH CAFE", CORAL));
+      add(depthOf(shop.x, shop.y) + 0.05, () => drawCafeHut(shop, amount));
+      add(depthOf(shop.x, shop.y) + 1.0, () => drawBeachCafe(shop, t, amount));
+      for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(depthOf(c.x, c.y) + 0.05, () => drawPost(c.x, c.y, HUT_Z));
+      add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawThatchRoof(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.3, HUT_Z));
+      add(depthOf(shop.x + shop.w, shop.y + 1.35), () => drawStringLights(t, amount));
+      add(depthOf(shop.x, shop.y) + 0.2, () => drawWorldLabel(shop.x + shop.w / 2 - 0.4, shop.y + 0.4, 150, "BEACH CAFE", CORAL));
       solid.filter((c) => c.id.startsWith("beach-table")).forEach((c, i) => {
-        add(c.x + c.y + 0.1, () => drawBeachTable(c.x, c.y, i));
-        add(c.x + c.y + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
+        add(depthOf(c.x, c.y) + 0.1, () => drawBeachTable(c.x, c.y, i));
+        add(depthOf(c.x, c.y) + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
       });
       glowAt(add, 28.2, 27.4, amount);
     }
   }
-  world.beach.loungers.forEach((l, i) => add(l.x + l.y + 1.5, () => drawLounger(l, i)));
+  world.beach.loungers.forEach((l, i) => add(depthOf(l.x, l.y) + 1.5, () => drawLounger(l, i)));
   world.beach.loungers.forEach((l, i) => {
-    if (i % 2 === 1) add(l.x + l.y + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
+    if (i % 2 === 1) add(depthOf(l.x, l.y) + 2.2, () => drawParasol(l.x + 0.4, l.y - 0.4, [CORAL, AQUA, SUN, "#bce65f"][i % 4]));
   });
   const kerb = world.beach.kerb;
   kerb.segments.forEach(([x0, x1]) => {
     for (let a = x0; a < x1 - 1e-6; a += 1.6) {
       const b = Math.min(a + 1.6, x1);
-      add(b + kerb.y + kerb.h + 0.05, () => drawKerbSegment(a, b));
+      add(depthOf(b, kerb.y + kerb.h + 0.05), () => drawKerbSegment(a, b));
     }
-    for (const x of [x0 + 0.12, x1 - 0.12]) add(x + kerb.y + 0.3, () => drawBollard(x, kerb.y + kerb.h / 2, amount));
+    for (const x of [x0 + 0.12, x1 - 0.12]) add(depthOf(x, kerb.y + 0.3), () => drawBollard(x, kerb.y + kerb.h / 2, amount));
   });
-  world.beach.bins.forEach(([x, y]) => add(x + y + 0.2, () => drawBin(x, y)));
-  world.beach.planterBoxes.forEach((b, i) => add(b[0] + b[1] + b[3], () => drawPlanterBox(b, i)));
-  add(world.beach.fountain.x + world.beach.fountain.y + 0.2, () => drawFountain(world.beach.fountain));
-  add(world.beach.iceCart.x + world.beach.iceCart.y + world.beach.iceCart.h, () => drawIceCart(world.beach.iceCart, t, amount));
+  world.beach.bins.forEach(([x, y]) => add(depthOf(x, y) + 0.2, () => drawBin(x, y)));
+  world.beach.planterBoxes.forEach((b, i) => add(depthOf(b[0], b[1] + b[3]), () => drawPlanterBox(b, i)));
+  add(depthOf(world.beach.fountain.x, world.beach.fountain.y) + 0.2, () => drawFountain(world.beach.fountain));
+  add(depthOf(world.beach.iceCart.x, world.beach.iceCart.y) + world.beach.iceCart.h, () => drawIceCart(world.beach.iceCart, t, amount));
   for (const a of world.beach.annexes) {
-    if (a.id === "surf-cabins") add(a.x + a.y + a.h + 0.1, () => drawSurfCabins(a, amount));
-    else add(a.x + a.y + a.h + 0.1, () => drawCafeContainer(a, amount));
+    if (a.id === "surf-cabins") add(depthOf(a.x, a.y) + a.h + 0.1, () => drawSurfCabins(a, amount));
+    else add(depthOf(a.x, a.y) + a.h + 0.1, () => drawCafeContainer(a, amount));
   }
-  world.beach.signs.forEach((sg) => add(sg.x + sg.y + 0.2, () => drawChalkSign(sg)));
-  add(14.9 + 27.5 + 0.1, () => drawBunting({ x: 6.0, y: 27.5 }, { x: 10.75, y: 27.5 }, 86, amount, t, [CORAL, "#ffffff", AQUA, SUN]));
-  add(25.3 + 28.5 + 0.1, () => drawBunting({ x: 25.3, y: 28.5 }, { x: 31.4, y: 28.5 }, 84, amount, t, [SUN, "#ffffff", CORAL, "#bce65f"]));
+  world.beach.signs.forEach((sg) => add(depthOf(sg.x, sg.y) + 0.2, () => drawChalkSign(sg)));
+  add(depthOf(6.0, 27.6), () => drawBunting({ x: 6.0, y: 27.5 }, { x: 10.75, y: 27.5 }, 86, amount, t, [CORAL, "#ffffff", AQUA, SUN]));
+  add(depthOf(25.3, 28.6), () => drawBunting({ x: 25.3, y: 28.5 }, { x: 31.4, y: 28.5 }, 84, amount, t, [SUN, "#ffffff", CORAL, "#bce65f"]));
   const pit = world.beach.firePit;
-  add(pit.x + pit.y + 0.4, () => drawFirePit(pit, t, amount));
-  pit.logs.forEach((l) => add(pit.x + l[0] + pit.y + l[1] + l[3], () => drawLog(pit, l)));
-  promenadeGrass().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
+  add(depthOf(pit.x, pit.y) + 0.4, () => drawFirePit(pit, t, amount));
+  pit.logs.forEach((l) => add(depthOf(pit.x + l[0], pit.y + l[1] + l[3]), () => drawLog(pit, l)));
+  promenadeGrass().forEach((g) => add(depthOf(g.x, g.y) + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
   world.beach.towels.forEach((tw, i) => {
-    if (tw.occupied) add(tw.x + tw.y + tw.h + 0.1, () => drawSunbather(tw, i));
+    if (tw.occupied) add(depthOf(tw.x, tw.y) + tw.h + 0.1, () => drawSunbather(tw, i));
   });
-  world.beach.fireside.forEach((p, i) => add(p[0] + p[1] + 0.35, () => drawFireSitter(p, i, t)));
-  world.beach.players.forEach((pl, i) => add(pl.x + pl.y, () => drawVolleyPlayer(pl, i, t)));
-  add(world.beach.volleyball.x1 + world.beach.volleyball.y + 3.2, () => drawVolleyBall(t));
+  world.beach.fireside.forEach((p, i) => add(depthOf(p[0], p[1] + 0.35), () => drawFireSitter(p, i, t)));
+  world.beach.players.forEach((pl, i) => add(depthOf(pl.x, pl.y), () => drawVolleyPlayer(pl, i, t)));
+  add(depthOf(world.beach.volleyball.x1, world.beach.volleyball.y + 3.2), () => drawVolleyBall(t));
   const dog = dogAt(t);
-  add(dog.x + dog.y, () => drawDog(t));
-  world.beach.surfers.forEach((sf, i) => add(sf.x0 + sf.y + 12, () => drawSurfer(sf, i, t)));
-  world.beach.paddlers.forEach((pd, i) => add(pd.x + pd.y, () => drawPaddler(pd, i, t)));
+  add(depthOf(dog.x, dog.y), () => drawDog(t));
+  world.beach.surfers.forEach((sf, i) => add(depthOf(sf.x0, sf.y), () => drawSurfer(sf, i, t)));
+  world.beach.paddlers.forEach((pd, i) => add(depthOf(pd.x, pd.y), () => drawPaddler(pd, i, t)));
   add(1, () => drawTidePools(t));
-  add(world.beach.lighthouse.x + world.beach.lighthouse.y, () => drawLighthouse(world.beach.lighthouse, t, amount));
+  add(depthOf(world.beach.lighthouse.x, world.beach.lighthouse.y), () => drawLighthouse(world.beach.lighthouse, t, amount));
   const dorm = dormSpot();
-  add(dorm.part.x + dorm.front + 0.9, () => drawDormFront(t, amount));
-  add(dorm.east + dorm.part.y + 0.9 + 3.3, () => drawDormBalcony(t));
-  add(10.5, drawDeliveryLorry);
-  add(1.75 + 10.9, () => drawLorryCrew(t));
-  add(41.35 + 4.5 + 0.2, () => drawHedge(4.5, 12.0));
-  add(41.35 + 15.5 + 0.2, () => drawHedge(12.0, 25.0));
-  [8.4, 10.3, 12.2].forEach((y, i) => add(42.6 + y + 1.0, () => drawGardenBed(42.6, y, i, t)));
-  add(43.4 + 20.0, () => drawHammock(t));
+  // the Dorm front sorts by the front edge of its canopy, which reaches 1.2 tiles beyond the wall
+  add(depthOf(dorm.part.x, dorm.front + 1.2), () => drawDormFront(t, amount));
+  add(depthOf(dorm.east, dorm.part.y + 0.9 + 3.3), () => drawDormBalcony(t));
+  add(depthOf(-0.9, 12.95), drawDeliveryLorry); // the front edge of the lorry
+  add(depthOf(1.75, 10.9), () => drawLorryCrew(t));
+  add(depthOf(41.35, 12.2), () => drawHedge(4.5, 12.0));
+  add(depthOf(41.35, 25.2), () => drawHedge(12.0, 25.0));
+  [8.4, 10.3, 12.2].forEach((y, i) => add(depthOf(42.6, y + 1.0), () => drawGardenBed(42.6, y, i, t)));
+  add(depthOf(43.4, 20.0), () => drawHammock(t));
   const environment = environmentalProfile(scene.clock, scene.day, t);
-  EDGE_TREES.forEach(([x, y, size]) => add(x + y + 0.3, () => drawTree(x, y, size, t, environment)));
-  world.beach.dunes.forEach((d, i) => add(d.x + d.y + 0.5, () => drawDune(d, t, i)));
-  grassClumps().forEach((g) => add(g.x + g.y + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
-  world.beach.benches.forEach(([x, y]) => add(x + y + 0.6, () => drawCampusBench(x, y, 0)));
-  world.beach.umbrellas.forEach((u) => add(u.x + u.y + 1.2, () => drawStandingUmbrella(u)));
-  add(world.beach.sandcastle.x + world.beach.sandcastle.y + 0.6, () => drawSandcastle(world.beach.sandcastle));
-  world.beach.rocks.forEach((r, i) => add(r.x + r.y + 0.3, () => drawRock(r, t, i)));
-  world.beach.flags.forEach((f) => add(f.x + f.y + 0.2, () => drawBeachFlag(f, t)));
-  add(world.beach.shower.x + world.beach.shower.y + 0.3, () => drawShower(world.beach.shower));
-  world.beach.swimmers.forEach((sw) => add(sw.x + sw.y, () => drawSwimmer(sw, t)));
+  EDGE_TREES.forEach(([x, y, size]) => add(depthOf(x, y) + 0.3, () => drawTree(x, y, size, t, environment)));
+  world.beach.dunes.forEach((d, i) => add(depthOf(d.x, d.y) + 0.5, () => drawDune(d, t, i)));
+  grassClumps().forEach((g) => add(depthOf(g.x, g.y) + 0.2, () => drawGrassClump(g.x, g.y, t, g.index)));
+  world.beach.benches.forEach(([x, y]) => add(depthOf(x, y) + 0.6, () => drawCampusBench(x, y, 0)));
+  world.beach.umbrellas.forEach((u) => add(depthOf(u.x, u.y) + 1.2, () => drawStandingUmbrella(u)));
+  add(depthOf(world.beach.sandcastle.x, world.beach.sandcastle.y) + 0.6, () => drawSandcastle(world.beach.sandcastle));
+  world.beach.rocks.forEach((r, i) => add(depthOf(r.x, r.y) + 0.3, () => drawRock(r, t, i)));
+  world.beach.flags.forEach((f) => add(depthOf(f.x, f.y) + 0.2, () => drawBeachFlag(f, t)));
+  add(depthOf(world.beach.shower.x, world.beach.shower.y) + 0.3, () => drawShower(world.beach.shower));
+  world.beach.swimmers.forEach((sw) => add(depthOf(sw.x, sw.y), () => drawSwimmer(sw, t)));
   world.beach.kites.forEach((k) => add(200, () => drawKite(k, t)));
-  add(world.beach.volleyball.x1 + world.beach.volleyball.y + 0.2, () => drawVolleyNet(t));
-  add(world.beach.tower.x + world.beach.tower.y + 1.7, () => drawLifeguardTower(t, amount));
-  add(world.beach.rescueBoat.x + world.beach.rescueBoat.y + 1.0, drawRescueBoat);
-  world.beach.buoys.forEach(([x, y], i) => add(x + y, () => drawBuoy(x, y, t, i)));
-  world.beach.boats.forEach((b, i) => add(b.x + b.y, () => drawBoat(b, t, i)));
+  add(depthOf(world.beach.volleyball.x1, world.beach.volleyball.y + 0.2), () => drawVolleyNet(t));
+  add(depthOf(world.beach.tower.x, world.beach.tower.y) + 1.7, () => drawLifeguardTower(t, amount));
+  add(depthOf(world.beach.rescueBoat.x, world.beach.rescueBoat.y) + 1.0, drawRescueBoat);
+  world.beach.buoys.forEach(([x, y], i) => add(depthOf(x, y), () => drawBuoy(x, y, t, i)));
+  world.beach.boats.forEach((b, i) => add(depthOf(b.x, b.y), () => drawBoat(b, t, i)));
   world.beach.gulls.forEach((g) => add(200, () => drawGull(g, t)));
 
   const bench = solid.find((c) => c.id === "dorm-bench");
-  add(bench.x + bench.y + 0.5, () => drawCampusBench(bench.x, bench.y, 0));
-  add(dorm.part.x + 0.2 + dorm.front + 0.25 + 0.3, drawMailbox);
+  add(depthOf(bench.x, bench.y) + 0.5, () => drawCampusBench(bench.x, bench.y, 0));
+  add(depthOf(dorm.part.x + 0.2, dorm.front + 0.55), drawMailbox);
   return actors;
 }
 
 function glowAt(add, x, y, amount) {
-  add(x + y - 0.5, () => glow(x, y, 5, 130, amount));
+  add(depthOf(x, y) - 0.5, () => glow(x, y, 5, 130, amount));
 }

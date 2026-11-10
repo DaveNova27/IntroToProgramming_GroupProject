@@ -2,7 +2,7 @@
 // Drawing code taken from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
-import { TILE_H, TILE_W, ctx, isoPoint, scene } from "./scene.js";
+import { DEPTH, TILE, ctx, isoPoint, scene } from "./scene.js";
 
 export function roundedRect(x, y, w, h, r, fill) {
   ctx.beginPath();
@@ -98,11 +98,17 @@ export const WORLD_MATERIALS = {
   ink: "#12343e",
 };
 
+// The shadow under a footprint of w × h tiles centred on (x, y), a little wider than the footprint.
+export function drawFootprintShadow(x, y, w, h, alpha = 0.16, spread = 1.1) {
+  drawSoftShadow(x, y, (w * TILE * spread) / 2, (h * DEPTH * spread) / 2, alpha);
+}
+
 export function drawSoftShadow(x, y, rx = 42, ry = 15, alpha = 0.16) {
+  // One plain ellipse. It used a canvas blur filter (2px) before, which cost 66 to 160 ms a frame
+  // on a big canvas (35 shadows); a second ellipse for a soft edge cost about 4 ms more.
   const p = isoPoint(x, y, 1);
   ctx.save();
   ctx.fillStyle = `rgba(8,32,37,${alpha})`;
-  ctx.filter = "blur(2px)";
   ctx.beginPath();
   ctx.ellipse(p.x + 4, p.y + 5, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -201,7 +207,6 @@ export function drawSpaceCaption(x, y, label, accent = "#31545b") {
   const p = isoPoint(x, y, 7);
   ctx.save();
   ctx.translate(p.x, p.y);
-  ctx.rotate(Math.atan2(TILE_H / 2, TILE_W / 2));
   ctx.textAlign = "left";
   ctx.font = "800 5px Menlo, Consolas, monospace";
   ctx.fillStyle = accent;
@@ -245,24 +250,10 @@ export function drawFacadeBandY(x, y, w, zBottom, zTop, color = "#244e58", mulli
   }
 }
 
-export function drawFacadeBandX(x, y, h, zBottom, zTop, color = "#1f4652", mullions = 4) {
-  drawPlane(
-    [isoPoint(x, y, zTop), isoPoint(x, y + h, zTop), isoPoint(x, y + h, zBottom), isoPoint(x, y, zBottom)],
-    color,
-    "rgba(255,255,255,.16)",
-  );
-  ctx.strokeStyle = "rgba(222,244,244,.35)";
-  ctx.lineWidth = 0.8;
-  for (let i = 1; i < mullions; i++) {
-    const py = y + (h * i) / mullions,
-      a = isoPoint(x, py, zBottom + 2),
-      b = isoPoint(x, py, zTop - 2);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-}
+// A band on a face that runs along y (an east or west face). The camera looks from the south
+// (spec map-view), so such a face is seen edge-on and there is nothing to draw. The callers stay, so the
+// buildings keep their full description.
+export function drawFacadeBandX() {}
 
 export function drawBlock(x, y, w, h, z, top, right, left) {
   const a = isoPoint(x, y, z),

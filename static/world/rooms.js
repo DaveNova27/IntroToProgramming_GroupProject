@@ -3,13 +3,15 @@
 // (https://github.com/felix-anthes-png/nova-beach-ventures) and was redrawn for the walk-in Nova.
 // All of it is placed from the data in world.py (world.interiors.campus). Drawing only.
 //
-// The camera looks from the south-east, so the fronts that show are the south and east faces:
+// The camera looks from the south (spec map-view), so the front that shows is the south face:
 // counters and shelves stand against the north and west walls. Everything wider than about a
-// tile is drawn in slices, so that a person standing in front of or behind it is sorted right.
+// tile is drawn in slices. The draw order goes by the front edge (y), so the slices along y (pieces
+// against a side wall) sort a person beside them right; the slices along x all share one front edge
+// and only keep their old shape (see "Known issues" in specs/map-view.md).
 
 import { drawPersonFigure } from "./people.js";
 import { drawBlock, drawFacadeBandX, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
-import { DAY_END, DAY_START, TILE_H, TILE_W, ctx, isoPoint, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
+import { DAY_END, DAY_START, DEPTH, TILE, ctx, depthOf, isoPoint, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
 
 const FLOOR_Z = 4;
 export const GALLERY_Z = 54; // the upper floor along the north wall of the atrium
@@ -67,9 +69,8 @@ function ellipseAt(p, rx, ry, fill) {
 // a ring on the floor: a circle of `radius` tiles is an ellipse on the screen
 function floorRing(x, y, radius, stroke, width, fill = null) {
   const p = isoPoint(x, y, FLOOR_Z + 0.2);
-  const rx = radius * TILE_W * 0.707;
   ctx.beginPath();
-  ctx.ellipse(p.x, p.y, rx, rx / 2, 0, 0, Math.PI * 2);
+  ctx.ellipse(p.x, p.y, radius * TILE, radius * DEPTH, 0, 0, Math.PI * 2);
   if (fill) {
     ctx.fillStyle = fill;
     ctx.fill();
@@ -279,7 +280,6 @@ export function drawInteriorWayfinding(wingId = "nova") {
     const p = isoPoint(at.x, at.y, FLOOR_Z + 1);
     ctx.save();
     ctx.translate(p.x, p.y);
-    ctx.rotate(Math.atan2(TILE_H / 2, TILE_W / 2));
     ctx.textAlign = "left";
     ctx.font = "800 6.5px Menlo, Consolas, monospace";
     ctx.fillStyle = INK;
@@ -881,38 +881,38 @@ function drawRoomPerson(activity, t, index) {
 
 // ---- everything in the rooms, ready to be sorted with the rest of the scene -------------------
 
-// a wide piece is drawn in slices; a person next to it sorts against the slice beside them
+// a wide piece is drawn in slices along x; they all sort by the same front edge
 function sliced(item, maxWidth, drawSlice) {
   const count = Math.max(1, Math.ceil(item.w / maxWidth));
   const width = item.w / count;
   return Array.from({ length: count }, (_, i) => {
     const x = item.x + i * width;
-    return { depth: x + width / 2 + item.y + item.h + 0.01, draw: () => drawSlice(x, width, i, count) };
+    return { depth: depthOf(x + width / 2, item.y + item.h + 0.01), draw: () => drawSlice(x, width, i, count) };
   });
 }
 
-// the same along y, for pieces that stand against a side wall: they sort by their front line, x
+// the same along y, for pieces that stand against a side wall: each slice sorts by its front end
 function slicedY(item, maxLength, drawSlice) {
   const count = Math.max(1, Math.ceil(item.h / maxLength));
   const length = item.h / count;
   return Array.from({ length: count }, (_, i) => {
     const y = item.y + i * length;
-    return { depth: item.x + item.w + y + length / 2 + 0.01, draw: () => drawSlice(y, length, i, count) };
+    return { depth: depthOf(item.x + item.w, y + length + 0.01), draw: () => drawSlice(y, length, i, count) };
   });
 }
 
 // something that stands on a sliced piece sorts after the slice below it
-const onTop = (x, item) => x + 0.6 + item.y + item.h + 0.03;
+const onTop = (x, item) => depthOf(x + 0.6, item.y + item.h + 0.04);
 
 // depth of a single small object: its front edge, a little beyond
-const frontDepth = (item) => item.x + item.w / 2 + item.y + item.h + 0.3;
+const frontDepth = (item) => depthOf(item.x + item.w / 2, item.y + item.h + 0.3);
 
 // stools around a table: two on each side (only on the north side if the table stands against the south wall)
 function tableStools(item, sides = "both") {
   const spots = [];
   for (const x of [item.x + 0.5, item.x + item.w - 0.5]) {
-    spots.push({ x, y: item.y - 0.35, depth: x + item.y - 0.35 });
-    if (sides === "both") spots.push({ x, y: item.y + item.h + 0.35, depth: x + item.y + item.h + 0.35 });
+    spots.push({ x, y: item.y - 0.35, depth: depthOf(x, item.y - 0.35) });
+    if (sides === "both") spots.push({ x, y: item.y + item.h + 0.35, depth: depthOf(x, item.y + item.h + 0.35) });
   }
   return spots;
 }
@@ -987,7 +987,7 @@ function employeeActors(t) {
     const index = (perShop[employee.shop] = (perShop[employee.shop] ?? -1) + 1);
     const view = employeeState(employee, t, index);
     if (!view) continue;
-    actors.push({ depth: view.x + view.y + 0.03, draw: () => drawEmployee(employee, t, index) });
+    actors.push({ depth: depthOf(view.x, view.y) + 0.03, draw: () => drawEmployee(employee, t, index) });
   }
   return actors;
 }
@@ -1065,21 +1065,22 @@ function drawDormCorkboard() {
 }
 
 function dormActors(item) {
-  if (item.id === "dorm-bed") return [{ depth: item.x + item.w / 2 + item.y + item.h + 0.01, draw: () => drawBed(item) }];
+  if (item.id === "dorm-bed") return [{ depth: depthOf(item.x + item.w / 2, item.y + item.h + 0.01), draw: () => drawBed(item) }];
   if (item.id === "dorm-wardrobe") return slicedY(item, 1.0, (y, length, i, n) => drawWardrobeSlice(item, y, length, i, n));
   if (item.id === "dorm-shelf") return sliced(item, 1.1, (x, w, i) => drawBookshelfSlice(item, x, w, i));
   if (item.id === "dorm-desk") {
     return [
       ...sliced(item, 0.95, (x, w, i, n) => drawStudyTableSlice(item, x, w, i, n)),
-      { depth: item.x + 0.8 + item.y + item.h + 0.5, draw: () => drawDormChair(item) },
+      { depth: depthOf(item.x + 0.8, item.y + item.h + 0.5), draw: () => drawDormChair(item) },
     ];
   }
   return [];
 }
 
 const dormDecor = () => [
-  { depth: 43.2, draw: drawDormPoster },
-  { depth: 46.4, draw: drawDormCorkboard },
+  // both hang on the north wall (y 8.1): after the wall, before everything in the room
+  { depth: depthOf(36.25, 8.12), draw: drawDormPoster },
+  { depth: depthOf(38.55, 8.12), draw: drawDormCorkboard },
 ];
 
 export function roomActors(t) {
@@ -1102,7 +1103,7 @@ export function roomActors(t) {
         }
         // the bar stools in front of it
         for (const px of [item.x + 0.7, item.x + 1.9, item.x + 3.9, item.x + 5.1]) {
-          actors.push({ depth: px + item.y + item.h + 0.5, draw: () => drawStool(px, item.y + item.h + 0.45, 22, CORAL) });
+          actors.push({ depth: depthOf(px, item.y + item.h + 0.5), draw: () => drawStool(px, item.y + item.h + 0.45, 22, CORAL) });
         }
       }
       if (id === "supply-counter") actors.push({ depth: onTop(item.x + 1.3, item), draw: () => drawCartons(item) });
@@ -1125,7 +1126,7 @@ export function roomActors(t) {
     } else if (id.startsWith("printer")) {
       actors.push({ depth: frontDepth(item) + 0.3, draw: () => drawPrinter(item) });
     } else if (id.startsWith("column")) {
-      actors.push({ depth: item.x + item.y + 0.2, draw: () => drawColumn(item) });
+      actors.push({ depth: depthOf(item.x, item.y) + 0.2, draw: () => drawColumn(item) });
     } else if (id === "study-shelf") {
       actors.push(...sliced(item, 1.1, (x, w, i) => drawBookshelfSlice(item, x, w, i)));
     } else if (id.startsWith("study-table") || id === "hub-meeting-table") {
@@ -1136,7 +1137,7 @@ export function roomActors(t) {
     } else if (id === "seminar-table") {
       actors.push({ depth: frontDepth(item), draw: () => drawSeminarTable(item) });
       for (const [sx, sy] of [[item.x - 0.35, item.y + item.h / 2], [item.x + item.w / 2, item.y - 0.35]]) {
-        actors.push({ depth: sx + sy, draw: () => drawStool(sx, sy, 14, LILAC) });
+        actors.push({ depth: depthOf(sx, sy), draw: () => drawStool(sx, sy, 14, LILAC) });
       }
     } else if (id === "stock-rack-west") {
       actors.push(...slicedY(item, 1.15, (y, length, i) => drawStorageRackSlice(item, y, length, i)));
@@ -1150,13 +1151,13 @@ export function roomActors(t) {
       actors.push({ depth: frontDepth(item), draw: () => drawChargingBar(item) });
     } else if (id.includes("plant")) {
       const scale = 0.9 + item.r * 0.9;
-      actors.push({ depth: item.x + item.y + 0.3, draw: () => drawIndoorPlant(item.x, item.y, scale) });
+      actors.push({ depth: depthOf(item.x, item.y) + 0.3, draw: () => drawIndoorPlant(item.x, item.y, scale) });
     }
   }
   if (wingIsOpen("dorm")) actors.push(...dormDecor());
   layout().activities.forEach((activity, index) => {
     if (!wingIsOpen(activity.wing)) return;
-    actors.push({ depth: activity.x + activity.y + 0.03, draw: () => drawRoomPerson(activity, t, index) });
+    actors.push({ depth: depthOf(activity.x, activity.y) + 0.03, draw: () => drawRoomPerson(activity, t, index) });
   });
   actors.push(...employeeActors(t));
   return actors;

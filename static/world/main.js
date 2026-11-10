@@ -23,6 +23,8 @@ import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
 
 const CLICK_REACH = 1.35; // tiles around a door or desk that count as clicking it
+const MAX_FRAME = 0.1; // seconds: the longest frame the world follows in real time
+const MAX_STEP = 0.04; // seconds: the longest step of walking and collision
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
 const keys = new Set();
@@ -32,6 +34,7 @@ let stuckFor = 0; // seconds without getting closer to the target
 let lastTime = 0;
 let wasWalking = false;
 let savedSpot = "";
+let saving = Promise.resolve(); // one save after the other, so the last spot is the one that stays
 
 // ---- position on the server ---------------------------------------------------------
 
@@ -39,12 +42,16 @@ function savePlayer() {
   const { x, y } = scene.player;
   const spot = `${scene.zoneId}:${x.toFixed(2)}:${y.toFixed(2)}`;
   if (spot === savedSpot) return;
-  fetch("/api/player", {
-    method: "POST",
-    keepalive: true,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zone: scene.zoneId, x, y }),
-  })
+  const body = JSON.stringify({ zone: scene.zoneId, x, y });
+  // Saves go out in order: a walk stopped by "Skip the walk" saves its spot, then the Dorm's spot,
+  // and an older answer can never overwrite the newer position on the server.
+  saving = saving
+    .then(() => fetch("/api/player", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body,
+    }))
     .then((res) => {
       if (res.ok) savedSpot = spot;
     })
@@ -98,6 +105,46 @@ function placePlayer({ zone, x, y }) {
   pendingUse = null;
   savedSpot = `${zone}:${x.toFixed(2)}:${y.toFixed(2)}`;
   updateRoof(0, true);
+}
+
+// "Go home" (spec day-cycle): walk to the bed by itself, the same way a click on it does. A move key
+// or a click on the map stops it. Gives false when no way was found.
+function goHome() {
+  const bed = world.locations.bed;
+  if (!bed) return false;
+  if (inReach(bed)) {
+    use("bed");
+    return true;
+  }
+  pendingUse = "bed";
+  walkTo(bed);
+  if (route.length) return true;
+  pendingUse = null;
+  return false;
+}
+
+// "Skip the walk" (spec day-cycle): straight to the bed without walking there. Only the shown position
+// changes; it is saved like any other stop. Gives false when the Dorm data is missing.
+function jumpHome() {
+  const wake = world.dorm?.wake;
+  if (!wake || !world.locations.bed) return false;
+  keys.clear();
+  wakeAt(wake);
+  use("bed");
+  return true;
+}
+
+// after sleeping: standing beside the bed, facing the room, and the spot saved like any other stop
+function wakeAt({ zone, x, y }) {
+  scene.zoneId = zone;
+  scene.player = safePoint({ x, y }, world.zones[zone]);
+  scene.facing = { x: 0, y: 1 };
+  camera.x = scene.player.x;
+  camera.y = scene.player.y;
+  route = [];
+  pendingUse = null;
+  updateRoof(0, true);
+  savePlayer();
 }
 
 function use(id) {
@@ -172,10 +219,10 @@ function wireInput() {
 function keyDirection() {
   let dx = 0;
   let dy = 0;
-  if (keys.has("w") || keys.has("arrowup")) { dx--; dy--; }
-  if (keys.has("s") || keys.has("arrowdown")) { dx++; dy++; }
-  if (keys.has("a") || keys.has("arrowleft")) { dx--; dy++; }
-  if (keys.has("d") || keys.has("arrowright")) { dx++; dy--; }
+  if (keys.has("w") || keys.has("arrowup")) dy--;
+  if (keys.has("s") || keys.has("arrowdown")) dy++;
+  if (keys.has("a") || keys.has("arrowleft")) dx--;
+  if (keys.has("d") || keys.has("arrowright")) dx++;
   return { dx, dy };
 }
 
@@ -244,7 +291,7 @@ function moveCamera(dt) {
 
 function renderHint() {
   const near = nearestLocation();
-  const hidden = !near || scene.preview;
+  const hidden = !near || scene.preview || scene.sleeping;
   const hint = $("#interaction-hint");
   if (hint.hidden !== hidden) hint.hidden = hidden;
   const name = $("#interaction-name");
@@ -252,12 +299,22 @@ function renderHint() {
 }
 
 function loop(t) {
-  const dt = Math.min((t - lastTime) / 1000 || 0, 0.04);
+  // the first frame has no earlier one: no step, so a long page load is not walked in one go
+  const dt = lastTime ? Math.min((t - lastTime) / 1000 || 0, MAX_FRAME) : 0;
   lastTime = t;
   scene.time = t;
-  walk(dt);
+  // a slow frame advances the world by its real time, in equal steps of at most MAX_STEP so the
+  // collision holds. walk() runs at least once per frame (also with dt 0), as before.
+  const steps = Math.max(1, Math.ceil(dt / MAX_STEP));
+  for (let i = 0; i < steps; i++) {
+    const zone = scene.zoneId;
+    const use = pendingUse;
+    walk(dt / steps);
+    // a door or desk used on arrival, or a new zone: the rest of the frame waits for the next frame
+    if (!scene.walking || scene.zoneId !== zone || (use && !pendingUse)) break;
+  }
   updateRoof(dt);
-  updateWalkers(dt);
+  for (let i = 0; i < steps; i++) updateWalkers(dt / steps); // waypoints are not skipped on a slow frame
   moveCamera(dt);
   renderHint();
   updateClock();
@@ -289,7 +346,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }
