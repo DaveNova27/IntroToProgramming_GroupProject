@@ -450,8 +450,18 @@ const roofDepth = (wingId) => {
 
 // ---- everything of the Nova that is sorted with the rest of the scene -----------------------
 
+// The walls and the canopy come from the building's data, which never changes while it runs; their draw
+// functions read the roofs at the moment they draw. So they are built once, not every frame.
+let built = { source: null, walls: [], canopy: [] };
+
+function fixedActors() {
+  if (built.source !== world.nova) built = { source: world.nova, walls: wallActors(), canopy: canopyActors() };
+  return built;
+}
+
 export function novaActors(t) {
-  const actors = [...wallActors(), ...canopyActors(), ...roomActors(t)];
+  const fixed = fixedActors();
+  const actors = [...fixed.walls, ...fixed.canopy, ...roomActors(t)];
   // the sign hangs under the front edge of the canopy: drawn just after it
   actors.push({ depth: depthOf(COLUMNS[3], CANOPY_Y + CANOPY_DEPTH + 0.03), draw: drawNovaSign });
   for (const wing of world.nova.wings) actors.push({ depth: roofDepth(wing.id), draw: () => drawWingRoof(wing, t) });

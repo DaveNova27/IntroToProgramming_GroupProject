@@ -91,6 +91,7 @@ animate that answer.
 | `smooth-frames.md` | `smooth-frames` | The campus runs at the screen's rate: no blur filter for the shadows, a slow frame advances the world by its real time. Browser check, not part of the tests. |
 | `calm-panels.md` | `calm-panels` | The side panels of the campus stay calm while a day runs: redrawn only when their content changed (typed values and focus stay), shift requests wait for each other instead of being dropped, two outdated texts fixed. |
 | `balance-pass.md` | `balance-pass` | The season is balanced: Surf Shop and Merchandise products cost and sell for less (a good season ends at about +5,000 EUR, not +25,000), a warning before a purchase that leaves nothing to buy, a hint for shops only employees can run, the storeroom limit counts the counter. A guard test plays whole seasons. |
+| `render-cache.md` | `render-cache` | The campus works out colours, the tile list and the Nova's walls once and skips objects far outside the view: about 10 % less JavaScript time and less memory per frame, the same picture (checked pixel by pixel in the browser). |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
