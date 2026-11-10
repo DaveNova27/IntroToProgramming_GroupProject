@@ -90,6 +90,7 @@ animate that answer.
 | `badges.md` | `badges` | 20 badges (first sale, good day, a team of three, profit streaks of 3, 7 and 14 days, every shop unlocked, season winner, ...), each a bronze, silver or gold medal (`BADGES` in `logic.py`). Given only by the server, the moment they are reached: state badges right after the action (e.g. the first sale), day badges (profit of the day, streaks, weather) when the day closes. On the campus a card at the top left shows a new badge and leaves by itself while the game keeps running; the evening report lists the day's medals, the end of the season and the dashboard show all of them. Badges give no reward; all thresholds are placeholders. |
 | `smooth-frames.md` | `smooth-frames` | The campus runs at the screen's rate: no blur filter for the shadows, a slow frame advances the world by its real time. Browser check, not part of the tests. |
 | `calm-panels.md` | `calm-panels` | The side panels of the campus stay calm while a day runs: redrawn only when their content changed (typed values and focus stay), shift requests wait for each other instead of being dropped, two outdated texts fixed. |
+| `balance-pass.md` | `balance-pass` | The season is balanced: Surf Shop and Merchandise products cost and sell for less (a good season ends at about +5,000 EUR, not +25,000), a warning before a purchase that leaves nothing to buy, a hint for shops only employees can run, the storeroom limit counts the counter. A guard test plays whole seasons. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
@@ -98,7 +99,7 @@ The tag `v1.0` is the dashboard-only version before the map.
 The first specs above are the solo-project history, the rest is the group project.
 The plan, with what is built and what is open, is in
 [`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v4, state of 2026-11-09).
-Still open: `balance-pass`, `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
+Still open: `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
 `events-and-disruptions`, `weather-visuals`, `outfits`, `guests`,
 `demo-scenarios` and `final-polish`; proposed: `warehouse`. The audit (`docs/audit-report.md`) lists
 findings, measurements and feature ideas. The map is the 2.5D

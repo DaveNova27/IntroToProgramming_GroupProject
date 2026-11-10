@@ -305,6 +305,8 @@ p { margin: 0; }
 .error { margin-top: 8px; color: var(--bad); font-size: 13px; font-weight: 600; }
 .error:empty { display: none; }
 .note { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+.note.warning { margin-top: 4px; color: var(--bad); font-weight: 600; }
+.note.hint { margin: 6px 0; }
 
 .btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 4px; background: var(--panel-solid); color: var(--on-panel); font-weight: 700; cursor: pointer; }
 .btn:hover { background: #1c4552; }

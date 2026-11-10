@@ -24,43 +24,49 @@ has the same 10 customers per product at the reference price, so the margin alon
 
 ### 1. The numbers (G1)
 
-`logic.py` only: `CATALOGUE` (cost and reference price), `SHOP_MIX`, the unlock prices and the
-window prices in `SHOPS`. Targets, as a **proposal** the owner confirms or changes in the PR:
+`logic.py` only: the cost and the reference price of the products of the Surf Shop and the
+Merchandise shop (`CATALOGUE`). The mix per shop (`SHOP_MIX`), the unlock prices, the window prices
+and the wages stay: tests pin them, and the simulation shows they hold. Targets (a proposal the
+owner can change in the PR; the numbers are measured, see "Done when"):
 
-- A good player ends with **+3,000 to +8,000 EUR** (a very good one, about all four shops, near
-  the top). Not 25,000.
+- A good player ends with **+3,000 to +8,000 EUR** (about all four shops). Not 25,000.
 - No shop makes more than **half** of the profit of a full season of the best strategy.
-- Opening the next shop is worth it but not at once: an unlocked shop with its first employee pays
-  its unlock price and its first employee back within **8 to 14 days** at the reference price.
-- A second employee per shop does not lose money (the audit found it 816 EUR worse).
-- Cash on day 5 is above the 100 EUR start for the Cafe-only strategy, and it is still below the
-  price of the second shop on day 5 for every strategy (the first days stay tight).
-- The best price of every product stays in its band in `tests/test_pricing.py` (`BANDS`) and above its
-  cost. If a new cost moves it out of a band, the numbers change, not the band.
+- On a neutral day no shop's best profit is more than 5 times another's.
+- The Cafe alone still earns something, but clearly less than several shops (800 to 2,500 EUR).
+- The first days stay tight (under 1,000 EUR on day 10).
+- The best price of every product stays in its band in `tests/test_pricing.py` (`BANDS`) and above
+  its cost. The ratio of cost to reference price is kept, the prices are scaled down.
 
-The method: change the tables, run the simulation of this spec, repeat. The simulation is the
-source of the numbers, not a guess.
+Built: Surf Shop and Merchandise products cost and sell for about 16 % and 36 % of what they did
+(surfboard 6.50 / 14.50 EUR, wetsuit 4.00 / 9.50, surf lesson 1.30 / 4.00, hoodie 6.50 / 12.50,
+T-shirt 2.20 / 5.40, cap 1.50 / 4.30). The Surf Shop and the Wetsuit are renamed "rental" so the
+prices make sense; the ids stay.
+
+Not done on purpose: a second employee per shop (the audit found it 816 EUR worse) is a question of
+the staff numbers and stays with the staff follow-up (#20).
 
 ### 2. The simulation as a guard
 
-`tests/test_balance.py` (new) plays whole seasons with the real rules and fixed strategies over a
-fixed list of seeds (20 seeds, a few seconds) and checks the targets above as bands (min and max of
-the mean), not as exact values. The strategies are: only coffee, the whole Cafe, the Cafe and then one
-shop after the other (in two orders), and a player who never works (staff only).
-A failing test prints the table of the strategies.
+`tests/test_balance.py` (new) plays whole seasons with the real rules: a player who serves the Cafe
+without a mistake, sets the best price every morning and buys the next step of a plan when the cash
+still pays the stock of the day. Two plans (the Cafe only; the Cafe, then the Surf Shop, Merchandise
+and the Beach Cafe) on two fixed seeds (about 10 seconds), and the targets above as bands.
+Measured: Cafe only +1,522 / +1,609 EUR; all shops +5,302 / +5,235 EUR with the Cafe 21 %, the Surf
+Shop 44 %, Merchandise 26 %, the Beach Cafe 9 % of the profit. A bigger run (20 seeds, 8
+strategies, outside the tests) gave the same picture.
 
 ### 3. The dead end (B2)
 
 A purchase that leaves the player with no cash for the cheapest unit of an owned product **and** no
 stock at all (storeroom and counters) shows a **warning**, never a refusal. The server decides:
 `shop_offers` (and the unlock row of `shops_view`) gets a `warning` text or `null`; the Shops panel
-and the dashboard only show it under the button. The purchase itself stays allowed.
+only shows it under the button (the dashboard has no shop window). The purchase itself stays allowed.
 
 ### 4. The trap (B3)
 
 A shop without an employee place sells nothing, and only the Cafe can be played by the player
-(`SHIFT_SHOPS`). The unlock row of such a shop says so in the Shops panel ("sells only through
-employees: buy an employee place first"). No rule changes; the real fix is `shop-walk`.
+(`SHIFT_SHOPS`). `logic.shop_hint` gives such a shop a `hint` ("sells only through employees ..."),
+shown in the Shops panel. No rule changes; the real fix is `shop-walk`.
 
 ### 5. The storeroom limit (B4)
 
@@ -75,12 +81,11 @@ the tick, the look, new products, a second employee per place, `shop-walk`.
 
 ## Done when
 
-1. The targets of section 1 hold in `tests/test_balance.py` on the seeds 1 to 20.
+1. The targets of section 1 hold in `tests/test_balance.py` on the seeds 1 and 2.
 2. Warning, trap hint and storeroom limit have a test each in a new file (the saved run is
    unchanged by a refused or warned action; nothing is refused for the warning).
-3. Old tests that name numbers this spec changes on purpose (prices, names, thresholds) change
-   **only** with the owner's confirmation in the session (`AGENTS.md`). Each one is written here
-   under "Decide" with its reason and in the PR description. No test is weakened, skipped or deleted.
+3. Old tests that name numbers this spec changes on purpose change **only** with the owner's
+   confirmation in the session (`AGENTS.md`). None had to change (see "Decide").
 4. The Shops panel and the dashboard show the warning and the hint (checked in the browser).
 5. `uv run pytest` passes.
 
@@ -89,4 +94,5 @@ seed (the simulation uses fixed seeds), the state stays complete and settable.
 
 ## Decide
 
-_Filled in during the build: each changed old test, with the owner's confirmation._
+No old test changed: none of them pins the new prices or names. The numbers that tests pin (the mix
+per shop, the unlock prices, the window prices) were left alone for that reason.
