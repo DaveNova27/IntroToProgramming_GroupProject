@@ -1,14 +1,15 @@
-# Campus Tycoon: Feature Roadmap (v4)
+# Campus Tycoon: Feature Roadmap (v5)
 
-Status: roadmap v4, state of 2026-11-09 (after PR #80). It replaces v3. What the team decided
+Status: roadmap v5, state of 2026-11-10 (after PR #91). It replaces v4. What the team decided
 stays marked "decided". Part A is the plan and the current state. Part B keeps the game
 design reference (core loop, weather and event factors, demo mode, glossary). Read
 `AGENTS.md` first for the working rules. The three roadmap rules stay (see B3): complete
 settable state, overridable day context, no randomness without the seed.
 
 What changed since v3: the price logic (`pricing`), the day cycle at the Dorm, the straight map
-view, badges and the audit fixes (frames, calm panels, hidden weather) are built and merged. The
-open work is now walking through the shift, popularity, events, the
+view, badges, the audit fixes (frames, calm panels, hidden weather, balance, cleanup, render cache,
+public mode), the editor's staff patch and the campus events (#87 to #91) are built and merged. The
+open work is now walking through the shift, popularity, outages and strikes (`disruptions`), the
 looks (`shop-art`, `nova-design`, `weather-visuals`, `map-layout`), guests, outfits, the demo and the
 polish. The audit is in `docs/audit-report.md`. A day flow with a storage computer and a truck
 is proposed in section 4.2 (`warehouse`).
@@ -64,8 +65,15 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | `calm-panels` | #80 | The side panels redraw only when changed, requests wait for each other |
 | `editor-staff` | #87 | The editor patch sets the employees (shop, place, level, working): the whole run is settable for the demo |
 | `balance-pass` | #82 | Cheaper Surf Shop and Merchandise products (a good season ends at about +5,000 EUR, not +25,000), a dead-end warning, a hint for shops only employees can run, the storeroom limit counts the counter, a guard test that plays seasons |
+| `events-and-disruptions` | #91 | Campus events (exam period, party, career fair, surf festival) from the seed move the customers through `FACTORS`; the editor and the demo switch can fix one. Outages and strikes are split off as `disruptions` (see section 5) |
+| `cleanup-dead-code` | #88 | Dead code out, a price like `1e2` refused, a missing product in the history no longer stops the screen, old specs marked as dropped |
+| `deploy-ready` | #89 | Security headers; a public mode (`CT_PUBLIC=1`) with a run per player (signed cookie), limits, no dev switches |
+| `render-cache` | #90 | The campus works out its tile list and the Nova's walls once and skips what is far outside the picture (about 10 % less JavaScript time, same picture) |
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
+
+The "PR" column above holds pull request numbers; the issue status (section 5) holds issue
+numbers. They are different counters: for example issue #83 `editor-staff` was built in PR #87.
 
 Tests: everything in `tests/` and `checks/` passes in CI (`uv run pytest`).
 
@@ -116,7 +124,8 @@ Add these to every spec's "Done when" and to the AI review. Detailed list per sp
 
 Known weak spot (from the README): a played day is paced by the browser, one tick request a
 second counted by the server, so a script can play a day in an instant. Only the player's own
-run is affected. Revisit it before any deployment.
+run is affected. Revisit it before any deployment. `deploy-ready` (#89) left it out on purpose
+(`specs/deploy-ready.md`), so it is still open.
 
 ### 3b. Security: what to watch per spec
 
@@ -124,6 +133,7 @@ run is affected. Revisit it before any deployment.
 |---|---|
 | `shop-unlock`, `shop-process`, `shop-skip` | Built. The server checks cash, shop id and level, storeroom, counter space and queue. Locked shops and a sale after the day ended are refused. Keep the tests for the locked case. |
 | `staff` | Built. Wages in integer cents, cash never negative, hiring limit from the level, ids validated. Employees run on the server. |
+| `deploy-ready` | Built. With `CT_PUBLIC=1` every player has a run of their own (signed cookie), the demo switch and the editor are off, requests are limited, and every answer carries security headers. Needs HTTPS in front (proxy) and one worker. |
 | `editor-mode` | Built. Active only with `CT_EDITOR=1` and only for requests from this computer. One validated state patch. Must stay off on a public deployment. |
 | `pricing` | Prices come from the server. Weather and event factors are integers. A crafted price or demand never changes more than the rule allows. |
 | `shop-walk` | Every refill and sale is a request the server checks. No rule depends on the position the browser sends. |
@@ -132,7 +142,7 @@ run is affected. Revisit it before any deployment.
 | `shop-art`, `nova-design` | Assets only, drawn in code. Labels through `textContent`. |
 | `popularity` | Integer, clamped to 0 to 100, computed only on the server. |
 | `outlook` | Built. The forecast is made on the server. Known: the API still sends the real weather, only the display hides it. Never expose the seed. |
-| `events-and-disruptions` | Events come from the seed. The browser cannot choose one, only the editor override can. |
+| `events-and-disruptions` | Built. Events come from the seed. The browser cannot choose one, only the editor and the demo switch can (both off in the public mode). |
 | `weather-visuals` | The browser only reads the weather it may show. No `eval`, no external scripts. |
 | `badges` | Awarded only by the server, after an accepted action or at the end of a day (`specs/badges.md`). No endpoint lets the browser grant a badge. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
@@ -154,7 +164,6 @@ one branch, one issue, one pull request.
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
 | `popularity` | #13 | L | M | pricing, balance-pass (both done) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
-| `events-and-disruptions` | #14 | L | M | day-context | Campus events (exam period, party, career fair), trends, outages, strikes as entries in the day context. Felix' 7 day types are the event table. |
 | `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
@@ -188,23 +197,23 @@ change in the spec. The old truck of the three.js map is only a reference for th
 ### 4.3 Cleanup (small)
 
 - `specs/employees.md`, `investments.md`, `multi-business.md` and `net-worth.md` come from the
-  first draft (PR #1) and belong to the dropped plan; delete or mark them as replaced.
-- The cleanup of the audit (dead code, this roadmap and the README, old specs, price text, product name fallback) is proposed as one spec: `cleanup-dead-code` (`docs/audit-report.md`, section 4). The two items above belong to it.
+  first draft (PR #1) and belong to the dropped plan; they are marked as dropped (#88).
+- The cleanup of the audit (dead code, this roadmap and the README, old specs, price text, product name fallback) was built as one spec: `cleanup-dead-code` (#88). The two items above belonged to it.
 - `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
-## 5. Issue status (2026-11-09, after PR #80)
+## 5. Issue status (2026-11-10, after PR #91)
 
 | Issue | State |
 |---|---|
-| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass` |
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #11 `nova-design`, #13 `popularity`, #14 `events-and-disruptions`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
-| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`) |
+| Open | #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
+| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)
 
 1. `balance-pass` (#76) is built (#82). The decisions behind it (David, owner of the spec, session of 2026-11-09, written in `specs/balance-pass.md`): warn before a purchase that leaves nothing to buy (no refusal), no loan yet (a loan is the feature `F8` of the audit), the day length is solved by the demo and a speed step, not by the numbers.
-2. In parallel, small and independent: `events-and-disruptions` (#14), `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
+2. In parallel, small and independent: `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
 3. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
 4. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
 5. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
@@ -240,9 +249,9 @@ Built today, in this order:
 6. The evening report shows the forecast for tomorrow and a tip per shop.
 7. The player decides: stock, prices, unlocking, levels, staff. The next day starts.
 
-Planned on top: demand from price, weather, events and popularity (`pricing`, `popularity`,
-`events-and-disruptions`): DEMAND = base from price x weather x event x trend x popularity
-x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
+Built on top: demand from price, weather and events (`pricing`, `events-and-disruptions`; an
+event can last several days). Planned: popularity and outfits. The whole formula is
+DEMAND = base from price x weather x event x popularity x outfit bonus. Popularity rises with fair prices and full shelves and falls with empty
 shelves and too high prices; it affects the next day. The day starts and ends at the Dorm
 (`day-cycle`, built).
 
@@ -261,14 +270,18 @@ follow them once `pricing` is built.
 | Hot | 60 | 120 | 80 | 180 |
 | Stormy | 100 | 20 | 100 | 20 |
 
-Event factors are not built yet (`events-and-disruptions`). Starting proposal, 1.0 is normal:
+Event factors are built (`events-and-disruptions`, #91). The numbers in use are `EVENTS` in
+`logic.py`; this table shows them (percent, 100 is normal). "Visitors" is the number of visitors on
+top of the shop columns, the shop columns are the demand per shop. A day has an event with a chance of
+`EVENT_START_PERCENT`, from `FIRST_EVENT_DAY` on, and an event lasts several days.
 
-| Event | Cafe | Surf Shop | Merchandise | Beach Cafe |
-|---|---|---|---|---|
-| No event | 1.0 | 1.0 | 1.0 | 1.0 |
-| Exam period | 1.5 | 0.6 | 0.9 | 0.7 |
-| Party | 0.8 | 1.0 | 1.1 | 1.5 |
-| Career fair | 1.3 | 0.7 | 1.4 | 0.9 |
+| Event | Days | Visitors | Cafe | Surf Shop | Merchandise | Beach Cafe |
+|---|---|---|---|---|---|---|
+| No event | | 100 | 100 | 100 | 100 | 100 |
+| Exam period | 2 | 70 | 150 | 60 | 90 | 70 |
+| Party | 1 | 110 | 80 | 100 | 110 | 150 |
+| Career fair | 1 | 120 | 130 | 70 | 140 | 90 |
+| Surf festival | 3 | 150 | 90 | 170 | 130 | 160 |
 
 The factors are multiplied. Example: hot weather on a party day gives the Beach Cafe
 1.8 x 1.5 = 2.7, so the player should order much more beer and coke zero. A tip says more
@@ -307,7 +320,7 @@ Example sequence (a suggestion, the team chooses after the game is complete):
 
 | Term | Meaning |
 |---|---|
-| Day context | The result of one day's rolled external influences: weather, later events, trends, disruptions. |
+| Day context | The result of one day's rolled external influences: weather and the campus event of the day (`make_day_context`); later disruptions. |
 | Outlook | The forecast and the evening report with tips for the next day. |
 | Open day | The day clock (300 ticks) that starts when the player opens the day. |
 | Shift | The one work period of a day (90 ticks) in a shop. Only it earns money. |
