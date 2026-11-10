@@ -2,6 +2,7 @@
 // Drawing code taken from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
+import { rowRange } from "./cull.js";
 import { drawTree, drawWindFlag, environmentalProfile } from "./environment.js";
 import {
   WORLD_MATERIALS,
@@ -27,56 +28,75 @@ import {
   canvas,
   ctx,
   isoPoint,
+  isoX,
   reducedMotion,
   scene,
   world,
 } from "./scene.js";
 
-export function drawTerrain(t) {
-  const zone = activeZone(),
-    tiles = [],
-    center = isoPoint(camera.x, camera.y),
-    viewX = canvas.clientWidth / (2 * camera.zoom) + TILE * 2,
-    viewY = canvas.clientHeight / (2 * camera.zoom) + DEPTH * 3;
+// The tiles of a zone with their colour, back to front: the same every frame, so worked out once per
+// zone (the colours came from mixColor and the sort ran every frame before).
+const tileLists = new WeakMap();
+
+function tilesOf(zone) {
+  let tiles = tileLists.get(zone);
+  if (tiles) return tiles;
+  tiles = [];
   // the ground also runs a little west of the map, so no void shows beside the beach
   for (let y = 0; y < zone.height; y++)
     for (let x = -14; x < zone.width; x++) {
-      const point = isoPoint(x, y);
-      if (Math.abs(point.x - center.x) <= viewX && Math.abs(point.y - center.y) <= viewY)
-        tiles.push({ x, y, d: depthOf(x, y) });
+      let color = zone.floor || "#79aa67",
+        depth = 4;
+      if (zone.outdoor) {
+        if (y >= 35) {
+          // shallow, light water along the shore, deeper and darker further out
+          const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b", "#397f93", "#33758b", "#2e6b83"][Math.min(y - 35, 7)];
+          color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
+          depth = 0;
+        } else if (y >= 25) color = y >= 34 ? "#d3b575" : y >= 33 ? "#d9bc7b" : x % 4 === 0 ? "#e4c986" : "#dec27e";
+        else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18) {
+          color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
+          // the paving turns warm and sandy towards the beach, so the two do not meet on a line
+          if (y >= 20) color = mixColor(color, "#e6d3a2", Math.min(0.72, (y - 19.5) * 0.15));
+        } else {
+          // lawn: soft drifting patches of two greens, not a chessboard
+          const f = 0.5 + 0.25 * Math.sin(x * 0.43 + y * 0.21) + 0.25 * Math.sin(y * 0.57 - x * 0.17 + 1.3);
+          color = mixColor("#78a267", "#82ad70", f * 0.9 + ((x * 7 + y * 13) % 5) * 0.02);
+        }
+      } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
+      tiles.push({ x, y, color, depth, shore: zone.outdoor && y === 34 });
     }
-  tiles.sort((a, b) => a.d - b.d);
-  tiles.forEach(({ x, y }) => {
-    let color = zone.floor || "#79aa67",
-      depth = 4;
-    if (zone.outdoor) {
-      if (y >= 35) {
-        // shallow, light water along the shore, deeper and darker further out
-        const deep = ["#78cbc4", "#5cb6b9", "#4aa0b0", "#448fa0", "#3f899b", "#397f93", "#33758b", "#2e6b83"][Math.min(y - 35, 7)];
-        color = x % 5 === 0 ? mixColor(deep, "#ffffff", 0.05) : deep;
-        depth = 0;
-      } else if (y >= 25) color = y >= 34 ? "#d3b575" : y >= 33 ? "#d9bc7b" : x % 4 === 0 ? "#e4c986" : "#dec27e";
-      else if ((y >= 8 && y < 18 && x >= 2 && x <= 39) || y >= 18) {
-        color = (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? "#d0d0c7" : "#ccccc3";
-        // the paving turns warm and sandy towards the beach, so the two do not meet on a line
-        if (y >= 20) color = mixColor(color, "#e6d3a2", Math.min(0.72, (y - 19.5) * 0.15));
-      } else {
-        // lawn: soft drifting patches of two greens, not a chessboard
-        const f = 0.5 + 0.25 * Math.sin(x * 0.43 + y * 0.21) + 0.25 * Math.sin(y * 0.57 - x * 0.17 + 1.3);
-        color = mixColor("#78a267", "#82ad70", f * 0.9 + ((x * 7 + y * 13) % 5) * 0.02);
-      }
-    } else color = (x + y) % 2 ? zone.floor : mixColor(zone.floor, "#ffffff", 0.07);
-    drawTile(x, y, color, depth);
-    if (zone.outdoor && y === 34) {
-      const p = isoPoint(x + 0.5, y + 0.5, 5);
+  tiles.sort((a, b) => depthOf(a.x, a.y) - depthOf(b.x, b.y));
+  // where each row starts in the sorted list, so a frame walks only the rows in view
+  const rowStart = [];
+  tiles.forEach((tile, i) => { if (rowStart[tile.y] === undefined) rowStart[tile.y] = i; });
+  rowStart[zone.height] = tiles.length;
+  tiles.rowStart = rowStart;
+  tileLists.set(zone, tiles);
+  return tiles;
+}
+
+export function drawTerrain(t) {
+  const zone = activeZone(),
+    center = isoPoint(camera.x, camera.y),
+    viewX = canvas.clientWidth / (2 * camera.zoom) + TILE * 2,
+    viewY = canvas.clientHeight / (2 * camera.zoom) + DEPTH * 3,
+    tiles = tilesOf(zone),
+    [firstRow, lastRow] = rowRange(center.y - viewY, center.y + viewY, DEPTH, zone.height);
+  for (let i = tiles.rowStart[firstRow]; i < tiles.rowStart[lastRow + 1]; i++) {
+    const tile = tiles[i];
+    if (Math.abs(isoX(tile.x) - center.x) > viewX) continue;
+    drawTile(tile.x, tile.y, tile.color, tile.depth);
+    if (tile.shore) {
+      const p = isoPoint(tile.x + 0.5, tile.y + 0.5, 5);
       ctx.strokeStyle = "rgba(255,255,255,.55)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(p.x - 24, p.y + Math.sin(t * 0.002 + x) * 2);
-      ctx.lineTo(p.x + 24, p.y + Math.sin(t * 0.002 + x + 1) * 2);
+      ctx.moveTo(p.x - 24, p.y + Math.sin(t * 0.002 + tile.x) * 2);
+      ctx.lineTo(p.x + 24, p.y + Math.sin(t * 0.002 + tile.x + 1) * 2);
       ctx.stroke();
     }
-  });
+  }
 }
 
 export function drawCampusBench(x, y, rotation = 0, color = "#b98b59") {

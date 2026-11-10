@@ -109,6 +109,7 @@ animate that answer.
 | `editor-staff.md` | `editor-staff` | The editor patch can set the employees (shop, place, level, working), so the whole run is settable for the demo mode. A Staff block in the Editor panel. |
 | `cleanup-dead-code.md` | `cleanup-dead-code` | Dead code out (the unreachable play-a-day path, unused functions), a price like `1e2` refused, a missing product in the history no longer stops the screen, old specs marked as dropped. |
 | `deploy-ready.md` | `deploy-ready` | Security headers on every answer; a public mode (`CT_PUBLIC=1`): a run per player (cookie), a rate limit, no dev switches, no paths in errors; how to run it with a production server. Local play is unchanged. |
+| `render-cache.md` | `render-cache` | The campus works out its tile list and the Nova's walls once and skips objects far outside the view (rules in `static/world/cull.js`); the picture is the same, checked pixel by pixel in the browser. Numbers are in the spec. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 

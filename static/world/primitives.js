@@ -2,7 +2,7 @@
 // Drawing code taken from Felix Antes' Nova Beach Ventures
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
-import { DEPTH, TILE, ctx, isoPoint, scene } from "./scene.js";
+import { DEPTH, TILE, ctx, isoPoint, isoX, isoY, scene } from "./scene.js";
 
 export function roundedRect(x, y, w, h, r, fill) {
   ctx.beginPath();
@@ -19,16 +19,14 @@ export function mixColor(a, b, amount) {
 }
 
 export function drawTile(x, y, color, depth = 0) {
-  const a = isoPoint(x, y),
-    b = isoPoint(x + 1, y),
-    c = isoPoint(x + 1, y + 1),
-    d = isoPoint(x, y + 1);
+  // the four corners, worked out here: a tile is drawn about a thousand times a frame
+  const ax = isoX(x), ay = isoY(y), bx = isoX(x + 1), cy = isoY(y + 1);
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.lineTo(c.x, c.y);
-  ctx.lineTo(d.x, d.y);
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, ay);
+  ctx.lineTo(bx, cy);
+  ctx.lineTo(ax, cy);
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = "rgba(20,48,45,.035)";
@@ -37,10 +35,10 @@ export function drawTile(x, y, color, depth = 0) {
   if (depth) {
     ctx.fillStyle = "rgba(45,67,54,.16)";
     ctx.beginPath();
-    ctx.moveTo(d.x, d.y);
-    ctx.lineTo(c.x, c.y);
-    ctx.lineTo(c.x, c.y + depth);
-    ctx.lineTo(d.x, d.y + depth);
+    ctx.moveTo(ax, cy);
+    ctx.lineTo(bx, cy);
+    ctx.lineTo(bx, cy + depth);
+    ctx.lineTo(ax, cy + depth);
     ctx.closePath();
     ctx.fill();
   }
