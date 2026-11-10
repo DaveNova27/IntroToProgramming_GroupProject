@@ -38,7 +38,6 @@ const LOOK = {
   dorm: { accent: "#bce65f", garden: true, label: "DORM" },
 };
 
-export const novaIsOpen = () => wingIsOpen("nova");
 
 const wingParts = (wingId) => world.nova.parts.filter((part) => part.wing === wingId);
 const covers = (p, x, y) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h;

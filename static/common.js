@@ -1,4 +1,4 @@
-// Helpers shared by the dashboard (app.js) and the campus map (map.js).
+// Helpers shared by the dashboard (app.js) and the campus page (static/world/).
 
 const EMOJI = {
   coffee: "☕", cake: "🍰", bagel: "🥯",

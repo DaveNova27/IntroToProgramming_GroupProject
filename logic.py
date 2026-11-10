@@ -10,6 +10,7 @@ leave existing data unchanged).
 
 import copy
 import random
+import re
 import secrets
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
@@ -203,8 +204,14 @@ def owned_products(state):
 
 def euros_to_cents(text):
     """Turn '4', '4.5' or '4,01' into cents. Reject more than two decimals (CT R3)."""
+    cleaned = str(text).strip().replace(",", ".")
+    # only plain digits with a point: no "1e2", "1_0", a sign or digits of other scripts
+    if not (cleaned.isascii() and re.fullmatch(r"[0-9]*\.?[0-9]*", cleaned) and any(c.isdigit() for c in cleaned)):
+        if cleaned.lower().lstrip("+-") in ("inf", "infinity", "nan", "snan"):
+            raise RejectedAction("Enter a finite euro amount.")
+        raise RejectedAction(f"'{text}' is not a valid euro amount.")
     try:
-        value = Decimal(str(text).strip().replace(",", "."))
+        value = Decimal(cleaned)
         if not value.is_finite():
             raise RejectedAction("Enter a finite euro amount.")
         rounded = value.quantize(Decimal("0.01"))
