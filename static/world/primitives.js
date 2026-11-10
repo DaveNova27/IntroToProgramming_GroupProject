@@ -138,24 +138,6 @@ export function drawConcreteSeams(x, y, w, h, z = 6, step = 1.4) {
   ctx.restore();
 }
 
-export function drawColumnLine(x, y, length, count, z = 28, axis = "x", color = "#244b54", baseZ = 3) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i < count; i++) {
-    const amount = count === 1 ? 0.5 : i / (count - 1),
-      px = x + (axis === "x" ? length * amount : 0),
-      py = y + (axis === "y" ? length * amount : 0),
-      a = isoPoint(px, py, baseZ),
-      b = isoPoint(px, py, z);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
 export function drawLinearPlanter(x, y, w, h, z = 13) {
   // it must stand on the ground, not hover over it: a contact shadow, a darker footing and soil on top
   const g = 0.3;

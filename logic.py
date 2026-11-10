@@ -10,6 +10,7 @@ leave existing data unchanged).
 
 import copy
 import random
+import re
 import secrets
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
@@ -221,12 +222,17 @@ def owned_products(state):
 
 
 def euros_to_cents(text):
-    """Turn '4', '4.5' or '4,01' into cents. Reject more than two decimals (CT R3)."""
+    """Turn '4', '4.5' or '4,01' into cents. Reject more than two decimals (CT R3).
+
+    Only plain digits with a point or comma and an optional sign: "1e2", "1_0", "Infinity" and digits
+    of other scripts are no amounts. A negative amount converts and is refused by the rule that
+    checks the price."""
+    cleaned = str(text).strip().replace(",", ".")
+    if not re.fullmatch(r"[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)", cleaned):
+        raise RejectedAction(f"'{text}' is not a valid euro amount.")
     try:
-        value = Decimal(str(text).strip().replace(",", "."))
-        if not value.is_finite():
-            raise RejectedAction("Enter a finite euro amount.")
-        rounded = value.quantize(Decimal("0.01"))
+        value = Decimal(cleaned)
+        rounded = value.quantize(Decimal("0.01"))  # also fails for a number too long for Decimal
     except InvalidOperation:
         raise RejectedAction(f"'{text}' is not a valid euro amount.")
     if value != rounded:
@@ -476,14 +482,14 @@ def buy_upgrade(state, shop, item):
     return _open_staffed_shift(new) if offer["kind"] == "staff" else new
 
 
-def _add_employee(new, shop, place):
-    """Put a new level 1 employee on a place. The job comes from the shop's data."""
+def _add_employee(new, shop, place, level=1, working=True):
+    """Put a new employee (level 1 and working unless told) on a place. The job comes from the shop's data."""
     employee_id = max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0)) + 1
     new["employee_seq"] = employee_id
     new["employees"].append({
         "id": employee_id, "name": EMPLOYEE_NAMES[(employee_id - 1) % len(EMPLOYEE_NAMES)],
         "shop": shop, "place": place, "job": SHOPS[shop]["jobs"][place - 1],
-        "level": 1, "working": True,
+        "level": level, "working": working,
     })
 
 
@@ -874,14 +880,51 @@ def _check_player(player):
     return move_player({"player": None}, player["zone"], player["x"], player["y"])["player"]
 
 
+def _check_employees(new, entries):
+    """The employees of a patch, checked against the shops of `new` (already patched): a list of
+    {"shop", "place", optional "level" (default 1) and "working" (default true)}. Every employee
+    sits on a bought place of an unlocked shop, one per place. Someone who already sits on that place
+    stays the same person (same id and name) with the new level and working; a new one gets a new id
+    (never used before) like a hire. Returns (the list, the new employee_seq); changes nothing."""
+    if not isinstance(entries, list):
+        raise RejectedAction("'employees' must be a list.")
+    allowed = {"shop", "place", "level", "working"}
+    there = {(e["shop"], e["place"]): e for e in new["employees"]}
+    built = {"employees": [], "employee_seq": max(new.get("employee_seq", 0), max((e["id"] for e in new["employees"]), default=0))}
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not {"shop", "place"} <= set(entry) <= allowed:
+            raise RejectedAction("An employee needs shop and place (and may have level and working).")
+        shop, place = entry["shop"], entry["place"]
+        _check_shop(shop)
+        _whole(place, 1, len(SHOPS[shop]["jobs"]), "The employee place")
+        shop_entry = new["shops"][shop]
+        if not shop_entry["unlocked"] or place > shop_entry["staff_places"]:
+            raise RejectedAction(f"The {SHOPS[shop]['name']} has no bought employee place {place}.")
+        if (shop, place) in seen:
+            raise RejectedAction(f"Place {place} of the {SHOPS[shop]['name']} is given twice.")
+        seen.add((shop, place))
+        level = _whole(entry.get("level", 1), 1, EMPLOYEE_MAX_LEVEL, "The employee level")
+        working = entry.get("working", True)
+        if not isinstance(working, bool):
+            raise RejectedAction("'working' must be true or false.")
+        if (shop, place) in there:  # the same person stays
+            built["employees"].append({**there[(shop, place)], "level": level, "working": working})
+        else:
+            _add_employee(built, shop, place, level, working)
+    return built["employees"], built["employee_seq"]
+
+
 def editor_set_state(state, patch):
     """Set any part of the run from a patch. Everything is checked first; a refused patch
     changes nothing. Keys not in the patch stay as they are.
 
-    The keys: day, cash, seed, day_override, stock, prices, shops, player, badges. Setting an
+    The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges.
+    "employees" replaces all employees: whoever is not in the list is dismissed (see
+    _check_employees). Setting an
     earlier day cuts the history and the badges to the days before it. Refused while a day
     is open."""
-    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "player", "badges"}
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges"}
     if not isinstance(patch, dict) or not patch:
         raise RejectedAction("The patch must be a dictionary with at least one field.")
     unknown = sorted(str(k) for k in patch if k not in keys)
@@ -931,6 +974,8 @@ def editor_set_state(state, patch):
         new["employees"] = [e for e in new["employees"]
                             if new["shops"][e["shop"]]["unlocked"]
                             and e["place"] <= new["shops"][e["shop"]]["staff_places"]]
+    if "employees" in patch:
+        new["employees"], new["employee_seq"] = _check_employees(new, patch["employees"])
     if "player" in patch:
         new["player"] = _check_player(patch["player"])
     if "badges" in patch:

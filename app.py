@@ -456,7 +456,6 @@ def view(state):
         "shift": shift_view(state),
         "staff": staff_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
-        "shift_day_ticks": logic.DAY_TICKS,
         "history": state["history"],
         "badges": logic.badges_view(state),
         "player": state["player"],
