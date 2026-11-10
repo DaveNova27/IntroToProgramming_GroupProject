@@ -92,6 +92,7 @@ animate that answer.
 | `smooth-frames.md` | `smooth-frames` | The campus runs at the screen's rate: no blur filter for the shadows, a slow frame advances the world by its real time. Browser check, not part of the tests. |
 | `calm-panels.md` | `calm-panels` | The side panels of the campus stay calm while a day runs: redrawn only when their content changed (typed values and focus stay), shift requests wait for each other instead of being dropped, two outdated texts fixed. |
 | `balance-pass.md` | `balance-pass` | The season is balanced: Surf Shop and Merchandise products cost and sell for less (a good season ends at about +5,000 EUR, not +25,000), a warning before a purchase that leaves nothing to buy, a hint for shops only employees can run, the storeroom limit counts the counter. A guard test plays whole seasons. |
+| `editor-staff.md` | `editor-staff` | The editor patch can set the employees (shop, place, level, working), so the whole run is settable for the demo mode. A Staff block in the Editor panel. |
 | `cleanup-dead-code.md` | `cleanup-dead-code` | Dead code out (the unreachable play-a-day path, unused functions), a price like `1e2` refused, a missing product in the history no longer stops the screen, old specs marked as dropped. |
 
 The tag `v1.0` is the dashboard-only version before the map.
