@@ -117,8 +117,8 @@ The tag `v1.0` is the dashboard-only version before the map.
 
 The first specs above are the solo-project history, the rest is the group project.
 The plan, with what is built and what is open, is in
-[`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v5, state of 2026-11-10).
-Still open: `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
+[`docs/feature-roadmap.md`](docs/feature-roadmap.md) (roadmap v6, state of 2026-11-10).
+Still open: `deploy` (#93, needed by the course: the app must run at a public URL), `staff` (follow-up, #20), `shop-walk`, `shop-art`, `nova-design`, `map-layout`, `popularity`,
 `weather-visuals`, `outfits`, `guests`,
 `demo-scenarios` and `final-polish`; proposed: `warehouse` and `disruptions` (outages and strikes). The audit (`docs/audit-report.md`) lists
 findings, measurements and feature ideas. The map is the 2.5D
