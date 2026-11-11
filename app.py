@@ -27,6 +27,7 @@ from werkzeug.exceptions import HTTPException
 import db
 import guests
 import logic
+import scenarios
 import world
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -507,6 +508,8 @@ def view(state):
         "base_customers": logic.BASE_CUSTOMERS,
         "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
         "price_curves": PRICE_CURVES,
+        # the demo (specs/demo-scenarios.md): the list and the running scenario's card
+        "demo": scenarios.demo_view(state),
     }
 
 
@@ -913,6 +916,45 @@ def new_run():
             "message": f"New run started: day 1, {logic.fmt(logic.STARTING_CASH)}, no stock.",
             "state": view(fresh),
         })
+
+
+# ---- demo mode (specs/demo-scenarios.md) -------------------------------------------------
+# It runs on the public URL too (the live demo of the course), so it only loads a scenario by its
+# id from the fixed list in scenarios.py into the player's own run. The browser never sends a
+# state; the editor and the free state patch stay as they are (local, CT_EDITOR=1).
+
+@app.post("/api/demo/load")
+def demo_load():
+    body = json_body()
+    with run_lock():
+        state = load_run()
+        try:
+            if set(body) - {"id", "confirm"}:
+                raise logic.RejectedAction("A demo load takes only an id and confirm.")
+            # like a new run: the page asks first, because the scenario replaces the run
+            if body.get("confirm") is not True:
+                raise logic.RejectedAction("A demo scenario replaces your run: confirm it first.")
+            new_state = scenarios.load_scenario(body.get("id"))
+        except logic.RejectedAction as reason:
+            return jsonify({"error": str(reason), "state": view(state)}), 400
+        logic.award_badges(new_state)  # like the editor: what the prepared run already meets
+        db.save_new_run(new_state, **_db_kw())  # the old run's history goes with it
+        title = scenarios.SCENARIOS[new_state["scenario"]["id"]]["title"]
+        return jsonify({"message": f"Demo: {title}.", "state": view(new_state)})
+
+
+@app.post("/api/demo/finish")
+def demo_finish():
+    body = json_body()
+
+    def action(state):
+        if body:
+            raise logic.RejectedAction("Leaving the demo takes no fields.")
+        new_state, result = scenarios.finish_demo(state)
+        booked = f" Day {result['day']} closed: gross profit {logic.fmt(result['gross_profit'])}." if result else ""
+        return new_state, f"Demo over: the run is yours.{booked} Weather and events come from the seed again."
+
+    return apply(action)
 
 
 if __name__ == "__main__":

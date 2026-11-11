@@ -208,7 +208,7 @@ one branch, one issue, one pull request.
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
 | `guests` | #22 | L and V | L | pricing, shop-walk | Visible guests that choose a shop and walk there; replaces `ai-customers` and `walkways`. Open: sales per day on the server, or live guests. Decided later. |
-| `demo-scenarios` | #23 | L | M | the features chosen for the demo, editor-mode (done) | Built last. `scenarios.py`, loader, explanation overlay, free mode at the end. |
+| `demo-scenarios` | #23 | L | M | guests (PR #95), editor-mode (done) | In review (branch `demo-scenarios`): `scenarios.py` with four scenarios, loader by id (also on the public URL), card on the campus, two ticks a second in a scenario, free play at the end. |
 | `final-polish` | #24 | V | M | demo-scenarios | Last. Animations, camera, details, last security pass (`/security-review`). |
 
 ### 4.2 New from the notes of 2026-11-09 (proposal, no issue yet)
@@ -346,7 +346,8 @@ from the start:
 
 ## B4. Demo mode (presentation)
 
-Built like a tutorial, about 5 minutes, and built last, once the game is complete. Days are
+Built (`demo-scenarios`, `specs/demo-scenarios.md`): four scenarios of about 45 seconds for a
+3-minute demo; the text below is the plan it was built from. Built like a tutorial, about 5 minutes, and built last, once the game is complete. Days are
 skipped: each scenario loads a prepared start state and shows an explanation text. After
 the goal of a scenario is reached, the next scenario loads. At the end the player can keep
 playing freely. The editor mode (`editor-mode`) already sets cash, weather, day, shops and
