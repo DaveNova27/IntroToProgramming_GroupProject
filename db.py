@@ -114,7 +114,7 @@ def load(path=DEFAULT_PATH):
             # a price far above the reference sells to nobody: a save from before a price change
             # (balance-pass) starts again at the reference price
             stock[p], prices[p] = s, (pr if pr <= 3 * ref else ref)
-    return {
+    state = {
         "seed": json.loads(meta["seed"]),
         "day_override": json.loads(meta.get("day_override", "null")),
         "day": day,
@@ -137,6 +137,11 @@ def load(path=DEFAULT_PATH):
         "badges": [{"id": i, "day": d} for i, d in badge_rows if i in logic.BADGE_IDS],
         "player": _player(player),
     }
+    # the running demo scenario: only stored when one runs (a save without it has none)
+    scenario = json.loads(meta.get("scenario", "null"))
+    if scenario is not None:
+        state["scenario"] = scenario
+    return state
 
 
 def _shops(rows, shop_products, saved_products):
@@ -238,6 +243,12 @@ def _write(conn, state):
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, json.dumps(state[key])),
         )
+    # the running demo scenario (specs/demo-scenarios.md); no key in the state means none
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('scenario', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (json.dumps(state.get("scenario")),),
+    )
     conn.execute("DELETE FROM employees")
     for e in state["employees"]:
         conn.execute(

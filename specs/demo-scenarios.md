@@ -1,6 +1,8 @@
 # Demo scenarios (`demo-scenarios`, issue #23)
 
-Written 2026-11-11 (draft, waits for David's OK). The live demo of the course runs on the public
+Written 2026-11-11; David approved it the same day ("Passt", Decide 1 to 5 as recommended) and
+chose to build on the branch of PR #95. Built the same day; what the build changed is in "Built" at
+the end. The live demo of the course runs on the public
 URL and lasts about **3 minutes** (between 2 and 4). A viewer who has never seen the game must
 understand the core in that time: you run a stand, **the guests think for themselves** (`guests`),
 weather and events move the crowd, staff and new shops make it grow. Submission is 2026-11-23,
@@ -24,7 +26,7 @@ Depends on `guests` (PR #95, `specs/guests.md`, **open when this was written**):
 | 0:00 to 0:15 | Intro | The map, the public URL; the presenter presses *Start demo* | the scenario 1 card is up |
 | 0:15 to 1:00 | 1 `serve-the-cafe` | The core loop: storeroom, counter, the queue, money | 5 units sold |
 | 1:00 to 1:45 | 2 `guests-decide` | Hot day, two staffed shops: guests walk, show thoughts, change their mind | tick 60 of the shift |
-| 1:45 to 2:30 | 3 `other-day-other-choice` | Same campus, same guests, but rain and an exam period: the crowd goes elsewhere | tick 60 of the shift |
+| 1:45 to 2:30 | 3 `other-day-other-choice` | Same shops, another day: rain and an exam period, the crowd goes to the Cafe | tick 60 of the shift |
 | 2:30 to 3:15 | 4 `grow` | Cash in hand, the Beach Cafe is locked: unlock it, then free play | Beach Cafe unlocked |
 | 3:15 to 3:30 | Outro | *Free play* clears the demo; the run goes on; questions | |
 
@@ -38,17 +40,17 @@ there).
    the counter and sell. Every sale is a request to the server: the browser decides nothing."*
 2. *"Now two shops with an employee each. Look at the guests: each one chooses, by walk, queue and
    taste. The bubble says why. Red means 'I changed my mind'. It is a hot day, so the beach wins."*
-3. *"Same guests, same shops, other day: rain and exam period. Now the Cafe is full and the Beach
-   Cafe is quiet. Weather and events are rolled from a seed, so a demo can fix them."*
+3. *"Same shops, other day: rain and exam period. Now the Cafe is full and the Beach Cafe is
+   quiet. Weather and events are rolled from a seed, so a demo can fix them."*
 4. *"Money lets the stand grow: unlock a shop, add products, hire staff. I unlock the Beach Cafe.
    From here the run is yours."*
 
 ### The overlay (text on the card, 25 words at most each)
 
-1. "Carry coffee to the counter (Fill) and sell 5 cups." Goal: *sold 5*.
-2. "Hot day. Watch the guests: bubbles show why they pick a shop. Red: they changed their mind." Goal: *watch until tick 60*.
-3. "Rain and exam period. Same guests, other choices: the crowd moves to the Cafe." Goal: *watch until tick 60*.
-4. "You have 300 euro. Open the Shops window and unlock the Beach Cafe." Goal: *Beach Cafe unlocked*.
+1. "Carry coffee to the counter with Fill, then sell to the queue. Sell 5 cups." Goal: *sold 5*.
+2. "Hot day, one employee in each shop. Watch the guests: bubbles say why they pick a shop. Red: they changed their mind." Goal: *watch until tick 60*.
+3. "Same shops, other day: rain and the exam period. Now the crowd goes to the Cafe." Goal: *watch until tick 60*.
+4. "You have 300 euro. Open the Shops window and unlock the Beach Cafe. Then the run is yours." Goal: *Beach Cafe unlocked*.
 
 ### Scenarios are data: `scenarios.py`
 
@@ -75,9 +77,10 @@ Functions (pure, no HTTP, no clock, no `random`):
 
 ### What the server and the screen get
 
-- `state["scenario"]` is `None` or `{"id": str}`. New top-level field, saved in the `meta` table as
-  JSON like `day_override`; `logic.new_state` starts with `None`; an old database without it loads as
-  `None`. It is the only new state. A new run (`/api/new-run`) clears it.
+- `state["scenario"]` is `{"id": str}` while a demo runs; **no key** means none. Saved in the `meta`
+  table as JSON like `day_override`, loaded back only when one runs. `logic.new_state` is unchanged
+  (no key), so old saves and old tests compare equal. It is the only new state. A new run
+  (`/api/new-run`) has no key, so it ends the demo.
 - `POST /api/demo/load` takes `{"id": "...", "confirm": true}`. It replaces **the player's own run**
   with the scenario (like a new run, so it needs `confirm: true` first, see Decide 5), under the
   run lock, with `db.save_new_run`. Works locally and on the public URL. It is **not** an editor
@@ -130,17 +133,18 @@ Recommendations for David, **not decided**.
    overlay blocks the map, which is the thing to show.
 4. **Where does "which scenario" live?** In `state["scenario"]` (see above), so the page and the
    server agree after a reload. Another place would be the browser, which is not trusted.
+   Built without touching `logic.new_state`: the key exists only while a demo runs (see Decide 7).
 5. **The loader replaces the run.** On the public URL a player has one run. Loading a scenario
    overwrites it, so the request needs `confirm: true` and the start card says so. A separate demo
    run per player was considered and rejected: a second database file per player, a second cookie
    or slot, and more public state, for a feature of three minutes.
-6. **Fixed seeds.** One seed per scenario in the data, so scenarios 2 and 3 have the same guests
-   (their tastes come from the seed) and differ only in the day. Randomness still only comes from
-   the seed; nothing new draws.
-7. **Tests.** No existing test changes. The one risk is the new top-level `scenario` field: a test
-   that lists the exact keys of a state would fail. If that happens the build stops and asks
-   (`AGENTS.md`); the first look found tests that compare `db.load(...) == state` only for states
-   made by `new_state` (they stay equal).
+6. **Fixed seeds.** One seed per scenario in the data, so every rehearsal is the same show. The
+   guests are drawn from seed and day (`guests.py`), so scenarios 2 and 3 (days 8 and 9) have
+   different guests; the text says "same shops", not "same guests". Randomness still only comes
+   from the seed; nothing new draws.
+7. **Tests.** No existing test changes. The one risk was the new top-level `scenario` field: tests
+   compare `db.load(...) == state` for states made by hand or by `new_state`. Built so that the key
+   is only there while a demo runs, so all of them stay equal.
 8. **Timeline.** Spec OK by 2026-11-12, `guests` merged by 2026-11-13, build 2026-11-13 to
    2026-11-15, rehearsal on the public URL 2026-11-16, freeze 2026-11-17. If `guests` is not merged
    by 2026-11-14, scenarios 2 and 3 fall back to "weather moves the crowd" without switching and the
@@ -164,9 +168,10 @@ shown by the existing display).
      shops, stock, prices, employees, player, `day_override`, seed; money is integer cents;
    - the day context of each scenario shows the fixed weather and event through
      `make_day_context`; a different id gives a different state;
-   - scenarios 2 and 3 have a working employee in both shops and the guests of the plan include at
-     least one who changed shop; with the Cafe employee removed, the Cafe receives none (the
-     `guests` rule, checked from here);
+   - scenarios 2 and 3 have a working employee in both shops; in scenario 2 at least two guests
+     change shop before tick 45 and the beach has more guests; scenario 3 turns that round (more
+     at the Cafe) and its thoughts name the exam period; with the Cafe employee removed, the Cafe
+     receives none (the `guests` rule, checked from here);
    - each scenario has a reference solution (a scripted play of the real rules: refill and sell,
      ticks, unlock) that makes `scenario_done` true within the time window of the table; a
      balance change that breaks a scenario fails the build;
@@ -211,3 +216,29 @@ Roadmap 3a and 3b `demo-scenarios`. The demo runs on the public URL, so:
   code in the data. Scenario texts are fixed, written with `textContent`, never `innerHTML`.
 - The seed never leaves the server. Error answers contain only our own rule messages: no path, no
   trace.
+
+## Built (2026-11-11)
+
+On the branch of PR #95 (guests), as David chose; the PR shows the guests diff until #95 is merged.
+
+- `scenarios.py`: `SCENARIOS` (data), `scenario_ids`, `load_scenario`, `scenario_done`, `active`,
+  `finish_demo`, `demo_view`. One demo seed (39) for all, chosen so that in scenario 2 guests change
+  shop in both directions in the first 45 ticks, with three different reasons.
+- Scenario 3 has **no guest who changes shop**, unlike the first draft of "Done when": in rain and
+  the exam period the Beach Cafe has 4 guests and the Cafe's products are at the guests' spread limit
+  (`guests.MAX_SPREAD`), so nobody can move. Changing that is a `guests` rule and out of scope. The
+  scenario shows instead what it is about: the crowd turns round (Cafe 38, Beach Cafe 4 against 13
+  and 37 in scenario 2) and the bubbles say "Exam period: off to the Cafe". The player stands in the
+  Nova (scenarios 1 and 3), so the roof is gone and the Cafe's queue is in sight.
+- Scenario 1 opens the Shift panel when it loads (its goal is selling).
+- `app.py`: `POST /api/demo/load` (only `id` and `confirm`, anything else is refused) and
+  `POST /api/demo/finish` (no fields); `view()` has a `demo` block. `db.py` stores the scenario.
+- Screen: a *Demo* button in the top bar, a start dialog (pick the first scenario: handy in a
+  rehearsal), `/?demo` opens it at once; the card sits at the bottom left so the shops stay free;
+  `static/world/demo.js`, a few lines in `ui.js` (timer pace, the reset after a new run shared with
+  *New run*).
+- Measured in headless Chromium (local, 500 ms a tick): scenario 1 reached in 13 s with a script
+  that clicks Fill and Sell, scenario 2 in 30 s. A rehearsal with a person and one run on the
+  deployed URL are still to do (the app is not deployed yet, `deploy` #93).
+- Badges earned in a scenario pop up as usual (for example "Doubled" for 200 euro in cash). Left as
+  it is: it shows the badges; pre-earning them in the data would hide them.

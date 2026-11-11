@@ -30,6 +30,7 @@
         <div class="stat stat-stock"><span>STOCK</span><strong id="stat-stock">—</strong></div>
         <div class="stat"><span>OVERALL</span><strong id="stat-gain">—</strong></div>
       </div>
+      <button id="btn-demo" class="outline-button" type="button" title="The prepared days of the live demo">Demo</button>
       <button id="btn-new-run" class="outline-button" type="button">New run</button>
     </header>
 
@@ -81,6 +82,19 @@
       <div id="panel-body"></div>
     </aside>
 
+    <!-- the demo (specs/demo-scenarios.md): the card of the running scenario; texts from the server -->
+    <aside id="demo-card" class="demo-card" hidden aria-labelledby="demo-title" aria-live="polite">
+      <p class="demo-step"><span>DEMO</span> <strong id="demo-step"></strong></p>
+      <h2 id="demo-title"></h2>
+      <p id="demo-text" class="demo-text"></p>
+      <p class="demo-goal"><span id="demo-check" class="demo-check" aria-hidden="true">○</span><span id="demo-goal"></span></p>
+      <div class="demo-actions">
+        <button id="demo-hide" class="btn ghost" type="button">Got it</button>
+        <button id="demo-next" class="btn" type="button">Skip scenario</button>
+        <button id="demo-free" class="btn ghost" type="button">End demo</button>
+      </div>
+    </aside>
+
     <!-- the night between two days: black for a moment while the player sleeps -->
     <div id="night-fade" class="night-fade" aria-hidden="true"></div>
 
@@ -111,6 +125,20 @@
       <div class="dialog-actions">
         <button class="btn ghost" value="cancel" autofocus>Keep playing</button>
         <button class="btn danger" value="confirm">End the day</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="demo-dialog" class="dialog" aria-labelledby="demo-dialog-title">
+    <form method="dialog">
+      <h2 id="demo-dialog-title">Start the demo?</h2>
+      <p id="demo-dialog-text"></p>
+      <label class="demo-pick">Start with
+        <select id="demo-pick"></select>
+      </label>
+      <div class="dialog-actions">
+        <button class="btn ghost" value="cancel" autofocus>Cancel</button>
+        <button class="btn danger" value="confirm">Start demo</button>
       </div>
     </form>
   </dialog>

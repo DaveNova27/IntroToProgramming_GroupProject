@@ -2,6 +2,7 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
+import { demoDialogOpen, renderDemo, tickMs, wireDemo } from "./demo.js";
 import { inReach } from "./locations.js";
 import { createSerial } from "./serial.js";
 import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
@@ -95,7 +96,7 @@ function followDay() {
   const sh = state.shift;
   if (!sh) return;
   const target = MORNING + (DAY_END - MORNING) * Math.min(sh.tick / sh.day_ticks, 1);
-  runClock(scene.clock, target, Math.abs(target - scene.clock) > 60 ? 0 : 1000);
+  runClock(scene.clock, target, Math.abs(target - scene.clock) > 60 ? 0 : tickMs(state));
 }
 
 // The day closed on the server: the clock goes on to the evening, not with a jump.
@@ -278,6 +279,7 @@ function renderAll() {
   followDay();
   noticeBadges();
   placeBadge();
+  renderDemo(state);
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -758,12 +760,18 @@ function renderShiftPanel(body) {
   }
 }
 
-// One request, one tick: the server counts the day, never this clock.
+// One request, one tick: the server counts the day, never this clock. A demo scenario may ask for
+// a faster pace (demo.js, tickMs); the server counts the ticks the same way.
+let shiftTimerMs = 0;
 function syncShiftTimer() {
-  if (state.shift && !shiftTimer) shiftTimer = setInterval(shiftTick, 1000);
-  if (!state.shift && shiftTimer) {
+  const ms = tickMs(state);
+  if (shiftTimer && (!state.shift || ms !== shiftTimerMs)) {
     clearInterval(shiftTimer);
     shiftTimer = null;
+  }
+  if (state.shift && !shiftTimer) {
+    shiftTimer = setInterval(shiftTick, ms);
+    shiftTimerMs = ms;
   }
 }
 
@@ -1293,15 +1301,47 @@ function wireOverlay() {
     if (!data) return;
     state = data.state;
     if (data.error) return toast(data.error, "error");
-    closePanel();
-    hideOverlay();
-    evening = false;
-    scene.sleeping = false;
-    scene.clock = MORNING;
-    placePlayer(state.player);
-    renderAll();
-    tellDashboard({ type: "action", after: data.state });
-    toast(data.message);
+    freshRun(data);
+  });
+}
+
+// A new run arrived (a new run, or a demo scenario that replaces the run): start over on the map.
+function freshRun(data) {
+  closePanel();
+  hideOverlay();
+  evening = false;
+  scene.sleeping = false;
+  scene.clock = MORNING;
+  placePlayer(state.player);
+  renderAll();
+  tellDashboard({ type: "action", kind: "new-run", after: data.state });
+  toast(data.message);
+}
+
+// The demo (specs/demo-scenarios.md): the server loads a scenario by its id into this run.
+function wireDemoActions() {
+  wireDemo({
+    getState: () => state,
+    load: (id) => enqueue(async () => {
+      const data = await send("/api/demo/load", { id, confirm: true });
+      if (!data) return;
+      state = data.state;
+      if (data.error) {
+        renderAll();
+        return toast(data.error, "error");
+      }
+      freshRun(data);
+      if (state.demo?.active?.id === "serve-the-cafe") openPanel("shift"); // the shift is the scenario
+    }),
+    finish: () => enqueue(async () => {
+      const data = await send("/api/demo/finish", {});
+      if (!data) return;
+      state = data.state;
+      renderAll();
+      if (data.error) return toast(data.error, "error");
+      tellDashboard({ type: "action", after: data.state });
+      toast(data.message);
+    }),
   });
 }
 
@@ -1316,7 +1356,8 @@ function setMode(mode) {
 
 // while a card or dialog is open, the figure stays where it is
 export function inputBlocked() {
-  return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || scene.sleeping || fading;
+  return !$("#overlay").hidden || $("#new-run-dialog").open || $("#end-day-dialog").open || demoDialogOpen()
+    || scene.sleeping || fading;
 }
 
 // The stock card can be folded away. The toggle sits outside #hud-stock, which is redrawn on
@@ -1355,6 +1396,7 @@ export function initUi(firstState, actions) {
   wireOverlay();
   wireBadgePop();
   wireStockToggle();
+  wireDemoActions();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
   $("#btn-order").addEventListener("click", () => openPanel("order"));
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));

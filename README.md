@@ -31,6 +31,11 @@ uv run pytest               # all checks from the specs
 Stop the server with **⌃ Control + C**. The run is saved in `data/campus_tycoon.db`
 (local only, not in Git) and is loaded again on the next start.
 
+**Demo for the presentation** (spec `demo-scenarios`): press *Demo* on the campus (or open
+`/?demo`), confirm, and four prepared days follow, about 45 seconds each: run the Cafe, guests
+decide, weather and events, grow. The demo replaces your run; *Free play* at the end gives it back to
+you as it is. It works locally and on the public URL; the browser only sends a scenario id.
+
 ## Putting it online
 
 Local play needs nothing. For other people (spec `deploy-ready`):
@@ -112,6 +117,7 @@ animate that answer.
 | `deploy-ready.md` | `deploy-ready` | Security headers on every answer; a public mode (`CT_PUBLIC=1`): a run per player (cookie), a rate limit, no dev switches, no paths in errors; how to run it with a production server. Local play is unchanged. |
 | `render-cache.md` | `render-cache` | The campus works out its tile list and the Nova's walls once and skips objects far outside the view (rules in `static/world/cull.js`); the picture is the same, checked pixel by pixel in the browser. Numbers are in the spec. |
 | `guests.md` | `claude/website-kriterien-review-so0nrd` | Guests that choose a shop (small version): the day's crowd becomes guests with a kind, a start place and a taste. A third look around and go to another shop that has an employee when it is closer, its queue is shorter or they like it more (at most 30 % more guests per product, the crowd stays the same). On the map they walk from the Dorm, the plaza or the beach to the line of their shop and show their thought in a bubble (red: changed their mind); the Shift panel lists today's guests per shop. A shop that runs alone gets exactly the old queue. |
+| `demo-scenarios.md` | `demo-scenarios` | The 3-minute live demo: four prepared days as data in `scenarios.py` (start state, fixed weather and event, text, goal), loaded by id into the player's own run (`POST /api/demo/load` with `confirm`, `POST /api/demo/finish`). A card on the campus shows the step, the text and the goal; the clock runs at two ticks a second while a scenario asks for it. Free play at the end. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
