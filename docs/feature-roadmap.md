@@ -1,6 +1,7 @@
 # Campus Tycoon: Feature Roadmap (v6)
 
-Status: roadmap v6, state of 2026-11-10 (after PR #92). It replaces v5. What the team decided
+Status: roadmap v6, state of 2026-11-10 (after PR #92), updated 2026-11-11 after PR #95 (`guests`)
+and PR #96 (`demo-scenarios`). It replaces v5. What the team decided
 stays marked "decided". Part A is the plan and the current state. Part B keeps the game
 design reference (core loop, weather and event factors, demo mode, glossary). Read
 `AGENTS.md` first for the working rules. The three roadmap rules stay (see B3): complete
@@ -74,6 +75,8 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | `cleanup-dead-code` | #88 | Dead code out, a price like `1e2` refused, a missing product in the history no longer stops the screen, old specs marked as dropped |
 | `deploy-ready` | #89 | Security headers; a public mode (`CT_PUBLIC=1`) with a run per player (signed cookie), limits, no dev switches |
 | `render-cache` | #90 | The campus works out its tile list and the Nova's walls once and skips what is far outside the picture (about 10 % less JavaScript time, same picture) |
+| `guests` | #95 | Small version: the day's crowd becomes guests with a kind, a start place and a taste; a third look around and go to another shop with an employee when it is closer, its queue shorter or they like it more. They walk on the map and show their thought in a bubble. The crowd keeps its size |
+| `demo-scenarios` | #96 | The 3-minute live demo: four prepared days in `scenarios.py` (run the Cafe, guests decide, weather and events, grow), loaded by id into the player's own run, also on the public URL; a card on the campus, two ticks a second in a scenario, free play at the end |
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
@@ -207,9 +210,7 @@ one branch, one issue, one pull request.
 | `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
-| `guests` | #22 | L and V | L | pricing, shop-walk | Visible guests that choose a shop and walk there; replaces `ai-customers` and `walkways`. Open: sales per day on the server, or live guests. Decided later. |
-| `demo-scenarios` | #23 | L | M | guests (PR #95), editor-mode (done) | In review (branch `demo-scenarios`): `scenarios.py` with four scenarios, loader by id (also on the public URL), card on the campus, two ticks a second in a scenario, free play at the end. |
-| `final-polish` | #24 | V | M | demo-scenarios | Last. Animations, camera, details, last security pass (`/security-review`). |
+| `final-polish` | #24 | V | M | demo-scenarios (done) | Last. Animations, camera, details, last security pass (`/security-review`). |
 
 ### 4.2 New from the notes of 2026-11-09 (proposal, no issue yet)
 
@@ -245,9 +246,9 @@ change in the spec. The old truck of the three.js map is only a reference for th
 
 | Issue | State |
 |---|---|
-| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache` |
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #22 `guests` (PR #95), #23 `demo-scenarios` (PR #96) |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
+| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
 | To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)
@@ -257,7 +258,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 3. In parallel, small and independent: `shop-art` (#18) or `nova-design` (#11), `weather-visuals` (#16), `map-layout` (#71).
 4. Then `popularity` (#13, after the balance) and `shop-walk` (#40, after `shop-art` has the shop places drawn).
 5. Agree on `warehouse` (section 4.2) and the follow-up specs of the audit (`docs/audit-report.md`, section 4).
-6. `guests` (#22) only when the team decides; then `demo-scenarios` and `final-polish`.
+6. `guests` (#22) and `demo-scenarios` (#23) are built (PR #95, #96). Next for the demo: `deploy` (#93), then a rehearsal with a stopwatch on the deployed URL (`tick_ms` in `scenarios.py` sets the pace), then `final-polish`.
 
 Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a spec without an assignee is free. Each spec gets its `specs/<name>.md` in its own PR.
 
@@ -270,7 +271,7 @@ Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a
 5. `warehouse`: one central storage for all shops or a storage per shop? How long does a truck take, and can a delivery fail (strike, shortage)? What does the storage hold at most?
 6. Who plays the Beach Cafe, Merchandise and Surf Shop shifts: only staff, or also the player (`SHIFT_SHOPS` has only the Cafe)?
 7. Nova design: use photos of the real Nova SBE Carcavelos campus as reference?
-8. Guests: sales computed per day on the server, or live guests on the map?
+8. Guests: answered by `guests` (PR #95): the day's plan is made on the server when the day opens, and the guests walk live on the map.
 9. Ideas from the team, not yet a spec: Merchandise customers wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on the campus where paper and ink have to be refilled.
 10. Licence and credit for Felix' project: confirm and keep the README credit.
 11. Host and storage for `deploy`: which host (free plan, no card, no sleeping if possible), and what happens to the runs when the disk is erased (accept it, or a persistent disk or database)?
@@ -279,7 +280,7 @@ Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a
 14. Ask the teaching staff whether the plain JavaScript canvas front end on a Flask backend is fine for the stack.
 15. Date after which no new feature is merged (proposal: 2026-11-17).
 16. In which week and on which day does the team present (week 11 or 12 of the course)? Ask the teaching staff or look it up on Moodle, then fix the dates of the plan in section 1a.
-17. Which of the open specs does the demo need, and which are cut? Proposal for the team to correct: keep `deploy`, `popularity`, `weather-visuals`, `demo-scenarios` and `final-polish`; `shop-walk` and `shop-art` only if they are finished by the freeze; cut `guests`, `warehouse`, `outfits` and `nova-design`. The team decides this in one call (proposal: by 2026-11-12).
+17. Which of the open specs does the demo need, and which are cut? Proposal for the team to correct: keep `deploy`, `popularity`, `weather-visuals`, `demo-scenarios` and `final-polish`; `shop-walk` and `shop-art` only if they are finished by the freeze; cut `warehouse`, `outfits` and `nova-design` (`guests` and `demo-scenarios` are built since 2026-11-11). The team decides this in one call (proposal: by 2026-11-12).
 
 ---
 
