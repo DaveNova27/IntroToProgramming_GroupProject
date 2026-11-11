@@ -62,6 +62,7 @@ An entry has:
 | `title`, `text`, `goal_text` | Shown in the overlay. Fixed English texts, no markup. |
 | `seed` | Fixed per scenario, so every rehearsal is the same show (same guests, same weather rolls for the temperature). Never sent to the browser. |
 | `state` | A patch for the existing `logic.editor_set_state`: `day`, `cash`, `day_override` (fixed weather and event), `shops`, `stock`, `prices`, `employees`, `player`. Because the loader goes through that function, every value is checked by the rules that already exist. |
+| `panel` | `None`, `"shift"` or `"shops"`: the panel the screen opens when the scenario loads. |
 | `opening` | `None` (day closed), `"open"` (the real `open_day`, staffed shops start their shift) or `"shift:cafe"` (open, then the real `start_shift`). The guest plan is made by the rules, never faked. |
 | `goal` | `{"kind": ..., "value": ...}` with `kind` from a fixed list: `sold_at_least` (units sold today), `tick_at_least` (the open day's clock, true also once the day is over), `shop_unlocked` (a shop id). |
 | `tick_ms` | How fast the browser runs the clock while this scenario is active (see Decide 2). 400 to 1000. |
@@ -73,7 +74,7 @@ Functions (pure, no HTTP, no clock, no `random`):
 | `scenario_ids()` | The ids in order. |
 | `load_scenario(scenario_id)` | A new complete state (fresh `logic.new_state(seed)`, the patch applied, the day opened as `opening` says, `state["scenario"] = {"id": ...}`). Refuses an id that is not a string or not in `SCENARIOS` with a `RejectedAction`, and builds from a copy, so nothing is changed on a refusal. |
 | `scenario_done(state, scenario_id)` | True when the goal holds in this state. Pure; same state, same answer. |
-| `finish_demo(state)` | The state with `scenario` cleared and `day_override` cleared: the weather and events come from the seed again. Refused when no demo is active. |
+| `finish_demo(state)` | `(state, result)`: `scenario` and `day_override` cleared, so the weather and events come from the seed again. An open day is booked first (`result`, else `None`). Refused when no demo is active. |
 
 ### What the server and the screen get
 
@@ -240,5 +241,12 @@ On the branch of PR #95 (guests), as David chose; the PR shows the guests diff u
 - Measured in headless Chromium (local, 500 ms a tick): scenario 1 reached in 13 s with a script
   that clicks Fill and Sell, scenario 2 in 30 s. A rehearsal with a person and one run on the
   deployed URL are still to do (the app is not deployed yet, `deploy` #93).
+- After the code review (`/code-review`, 10 findings, see the PR):
+  - *End demo* on an open day first lets the rest of the day pass (`skip_shift`), so the day is
+    booked under the weather it was planned with; the evening follows.
+  - Badges the prepared run already meets are given at load, like the editor does.
+  - The panel a scenario opens is data (`panel`), not an id in the browser.
+  - The card is redrawn only when it changes, and only its goal line is a live region.
+  - A saved scenario whose id no longer exists still shows a card with the way out.
 - Badges earned in a scenario pop up as usual (for example "Doubled" for 200 euro in cash). Left as
   it is: it shows the badges; pre-earning them in the data would hide them.

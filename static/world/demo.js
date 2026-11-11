@@ -5,12 +5,20 @@
 
 let folded = null; // the scenario whose text the presenter folded away ("Got it"); browser only
 let actions = { getState: () => null, load: () => {}, finish: () => {} };
+let shown = ""; // what the card shows now: it is redrawn only when that changes, not on every tick
+
+// A saved scenario that no longer exists (a later version renamed it): only the way out is offered.
+const STALE = { id: "", index: 0, count: 0, title: "Demo", text: "This demo scenario no longer exists. End it to play on.",
+  goal: "End the demo", done: false, next: null };
 
 export function renderDemo(state) {
   const card = $("#demo-card");
   const demo = state?.demo;
-  const active = demo?.active;
+  const active = demo?.active ?? (demo?.stale ? STALE : null);
   $("#btn-demo").hidden = !demo?.scenarios?.length;
+  const key = JSON.stringify([active, folded]);
+  if (key === shown) return;
+  shown = key;
   if (!active) {
     card.hidden = true;
     folded = null;
@@ -19,7 +27,7 @@ export function renderDemo(state) {
   card.hidden = false;
   card.classList.toggle("done", active.done);
   card.classList.toggle("folded", folded === active.id);
-  $("#demo-step").textContent = `${active.index} of ${active.count}`;
+  $("#demo-step").textContent = active.count ? `${active.index} of ${active.count}` : "";
   $("#demo-title").textContent = active.title;
   $("#demo-text").textContent = active.text;
   $("#demo-goal").textContent = active.goal;
@@ -35,11 +43,12 @@ export function renderDemo(state) {
   free.classList.toggle("ghost", Boolean(active.next));
 }
 
-// How long one tick of the clock takes in the browser: faster while a scenario says so (Decide 2).
-// The server counts every tick as before; this only paces the requests.
+// How long one tick of the clock takes in the browser: as the scenario says (Decide 2; the server's
+// tests keep it in scenarios.TICK_MS_RANGE). The server counts every tick as before; this only paces
+// the requests. The floor only guards against a broken answer: below it the rate limit would bite.
 export function tickMs(state) {
   const ms = state?.demo?.active?.tick_ms;
-  return Number.isInteger(ms) && ms >= 400 && ms <= 1000 ? ms : 1000;
+  return Number.isInteger(ms) && ms >= 400 ? ms : 1000;
 }
 
 function askStart() {

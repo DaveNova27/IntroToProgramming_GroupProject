@@ -26,7 +26,8 @@ def test_the_demo_has_four_scenarios_in_order():
 @pytest.mark.parametrize("sid", IDS)
 def test_every_entry_is_complete_and_valid(sid):
     entry = scenarios.SCENARIOS[sid]
-    assert set(entry) == {"title", "text", "goal_text", "seed", "state", "opening", "goal", "tick_ms"}
+    assert set(entry) == {"title", "text", "goal_text", "seed", "state", "opening", "panel", "goal", "tick_ms"}
+    assert entry["panel"] in scenarios.PANELS
     assert re.fullmatch(r"[a-z-]+", sid) and len(sid) <= scenarios.MAX_ID
     for field in ("title", "text", "goal_text"):
         assert isinstance(entry[field], str) and entry[field] and "<" not in entry[field]
@@ -217,7 +218,8 @@ def test_the_whole_demo_ends_in_free_play():
     for sid in IDS:
         state = solve(sid, 60)
         assert scenarios.scenario_done(state, sid)
-    free = scenarios.finish_demo(state)
+    free, booked = scenarios.finish_demo(state)
+    assert booked is None  # the last scenario's day is not open
     assert "scenario" not in free and free["day_override"] is None
     assert free["shops"]["beach_cafe"]["unlocked"] and free["cash"] == state["cash"]
     # the next day comes from the seed again
@@ -226,12 +228,36 @@ def test_the_whole_demo_ends_in_free_play():
         scenarios.finish_demo(free)
 
 
+def test_finish_on_an_open_day_books_it_under_the_fixed_weather_first():
+    state = scenarios.load_scenario("guests-decide")
+    for _ in range(10):
+        state, _result = logic.tick(state)
+    free, booked = scenarios.finish_demo(state)
+    assert booked is not None and booked["day"] == 8 and free["day"] == 9 and free["shift"] is None
+    assert free["history"][-1] == booked
+    # the whole day was booked with the scenario's heat: the same as letting it pass in the demo
+    in_demo, result = logic.skip_shift(state)
+    assert result == booked
+    assert logic.day_context(free) == logic.make_day_context(free["seed"], 9)
+
+
+def test_a_stale_scenario_can_still_be_left():
+    state = scenarios.load_scenario("grow")
+    state["scenario"] = {"id": "renamed-later"}
+    view = scenarios.demo_view(state)
+    assert view["active"] is None and view["stale"] is True
+    free, _booked = scenarios.finish_demo(state)
+    assert "scenario" not in free and free["day_override"] is None
+    assert scenarios.demo_view(free)["stale"] is False
+
+
 def test_demo_view_sends_texts_but_never_the_seed_or_the_patch():
     view = scenarios.demo_view(scenarios.load_scenario("guests-decide"))
     card = view["active"]
     assert card["index"] == 2 and card["count"] == 4 and card["next"] == "other-day-other-choice"
     assert card["done"] is False and card["tick_ms"] == 500
-    assert set(card) == {"id", "index", "count", "title", "text", "goal", "done", "tick_ms", "next"}
+    assert set(card) == {"id", "index", "count", "title", "text", "goal", "done", "tick_ms", "next", "panel"}
+    assert scenarios.demo_view(scenarios.load_scenario("serve-the-cafe"))["active"]["panel"] == "shift"
     assert scenarios.demo_view(scenarios.load_scenario("grow"))["active"]["next"] is None
     assert scenarios.demo_view(logic.new_state(1))["active"] is None
     assert [s["id"] for s in view["scenarios"]] == IDS
@@ -266,7 +292,10 @@ def test_load_replaces_the_run_and_the_screen_gets_the_card(run_on_disk):
     data = response.get_json()
     assert data["state"]["demo"]["active"]["id"] == "guests-decide"
     assert data["state"]["day"] == 8 and data["state"]["shift"] is not None
-    assert db.load(run_on_disk) == scenarios.load_scenario("guests-decide")
+    expected = scenarios.load_scenario("guests-decide")
+    logic.award_badges(expected)  # given at once, like the editor does
+    assert db.load(run_on_disk) == expected
+    assert {b["id"] for b in expected["badges"]} >= {"first-hire", "expansion"}
     assert "seed" not in data["state"] and "seed" not in data["state"]["demo"]["active"]
     assert "state" not in data["state"]["demo"]["active"]  # the patch stays on the server
 
@@ -318,6 +347,7 @@ def test_finish_leaves_the_demo_and_keeps_the_run(run_on_disk):
     assert scenarios.active(db.load(run_on_disk)) == "grow"
     response = client.post("/api/demo/finish", json={})
     assert response.status_code == 200 and response.get_json()["state"]["demo"]["active"] is None
+    assert "closed" not in response.get_json()["message"]  # no open day to book
     saved = db.load(run_on_disk)
     assert "scenario" not in saved and saved["day_override"] is None
     assert saved["shops"]["beach_cafe"]["unlocked"]
@@ -384,3 +414,12 @@ def test_public_demo_counts_against_the_rate_limit(public, monkeypatch):
     client.get("/")
     codes = [client.post("/api/demo/load", json={"id": "grow", "confirm": True}).status_code for _ in range(4)]
     assert codes[:3] == [200, 200, 200] and codes[3] == 429
+
+
+def test_finish_on_an_open_day_answers_with_the_booked_day(run_on_disk):
+    client = app.app.test_client()
+    client.post("/api/demo/load", json={"id": "guests-decide", "confirm": True})
+    response = client.post("/api/demo/finish", json={})
+    assert response.status_code == 200 and "Day 8 closed" in response.get_json()["message"]
+    saved = db.load(run_on_disk)
+    assert saved["day"] == 9 and saved["shift"] is None and "scenario" not in saved

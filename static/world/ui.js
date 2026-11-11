@@ -1322,25 +1322,29 @@ function freshRun(data) {
 function wireDemoActions() {
   wireDemo({
     getState: () => state,
+    // an answer without a state (too many requests, the server is busy) changes nothing here
     load: (id) => enqueue(async () => {
       const data = await send("/api/demo/load", { id, confirm: true });
       if (!data) return;
-      state = data.state;
+      if (data.state) state = data.state;
       if (data.error) {
         renderAll();
         return toast(data.error, "error");
       }
       freshRun(data);
-      if (state.demo?.active?.id === "serve-the-cafe") openPanel("shift"); // the shift is the scenario
+      const panel = state.demo?.active?.panel; // which panel the scenario needs: from the server's data
+      if (panel === "shift" || panel === "shops") openPanel(panel);
     }),
     finish: () => enqueue(async () => {
       const data = await send("/api/demo/finish", {});
       if (!data) return;
-      state = data.state;
+      const before = state.day;
+      if (data.state) state = data.state;
       renderAll();
       if (data.error) return toast(data.error, "error");
       tellDashboard({ type: "action", after: data.state });
       toast(data.message);
+      if (state.day !== before) startEvening(); // an open day was booked first: the evening follows
     }),
   });
 }

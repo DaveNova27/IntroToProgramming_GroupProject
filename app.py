@@ -937,6 +937,7 @@ def demo_load():
             new_state = scenarios.load_scenario(body.get("id"))
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
+        logic.award_badges(new_state)  # like the editor: what the prepared run already meets
         db.save_new_run(new_state, **_db_kw())  # the old run's history goes with it
         title = scenarios.SCENARIOS[new_state["scenario"]["id"]]["title"]
         return jsonify({"message": f"Demo: {title}.", "state": view(new_state)})
@@ -949,7 +950,9 @@ def demo_finish():
     def action(state):
         if body:
             raise logic.RejectedAction("Leaving the demo takes no fields.")
-        return scenarios.finish_demo(state), "Demo over: the run is yours. Weather and events come from the seed again."
+        new_state, result = scenarios.finish_demo(state)
+        booked = f" Day {result['day']} closed: gross profit {logic.fmt(result['gross_profit'])}." if result else ""
+        return new_state, f"Demo over: the run is yours.{booked} Weather and events come from the seed again."
 
     return apply(action)
 

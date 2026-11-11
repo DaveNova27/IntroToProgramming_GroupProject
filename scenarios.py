@@ -19,6 +19,7 @@ import logic
 # What a goal can ask for. Each kind is checked by _goal_reached; data never holds code.
 GOAL_KINDS = ("sold_at_least", "tick_at_least", "shop_unlocked")
 OPENINGS = (None, "open", "shift:cafe")
+PANELS = (None, "shift", "shops")  # the panel the screen opens when the scenario loads
 TICK_MS_RANGE = (400, 1000)  # below 400 ms a scenario would run into app.RATE_LIMIT (Decide 2)
 MAX_TEXT = 25  # words in the overlay text of a scenario
 MAX_ID = 40  # characters of an id
@@ -54,6 +55,7 @@ SCENARIOS = {
             "player": {"zone": "campus", "x": 17.0, "y": 7.0},
         },
         "opening": "shift:cafe",
+        "panel": "shift",  # the goal is selling: the Shift panel is where it happens
         "goal": {"kind": "sold_at_least", "value": 5},
         "tick_ms": 500,
     },
@@ -62,9 +64,10 @@ SCENARIOS = {
         "text": "Hot day, one employee in each shop. Watch the guests: bubbles say why they pick a shop. Red: they changed their mind.",
         "goal_text": "Watch until tick 60",
         "seed": DEMO_SEED,
-        "state": {**copy.deepcopy(_TWO_STAFFED_SHOPS), "day": 8,
+        "state": {**_TWO_STAFFED_SHOPS, "day": 8,
                   "day_override": {"weather": "heat", "event": "none"}},
         "opening": "open",
+        "panel": None,
         "goal": {"kind": "tick_at_least", "value": 60},
         "tick_ms": 500,
     },
@@ -74,10 +77,11 @@ SCENARIOS = {
         "goal_text": "Watch until tick 60",
         "seed": DEMO_SEED,
         # the player stands in the Nova: its roof is gone and the Cafe's long queue is in sight
-        "state": {**copy.deepcopy(_TWO_STAFFED_SHOPS), "day": 9,
+        "state": {**_TWO_STAFFED_SHOPS, "day": 9,
                   "day_override": {"weather": "rain", "event": "exam_period"},
                   "player": {"zone": "campus", "x": 17.0, "y": 7.0}},
         "opening": "open",
+        "panel": None,
         "goal": {"kind": "tick_at_least", "value": 60},
         "tick_ms": 500,
     },
@@ -96,6 +100,7 @@ SCENARIOS = {
             "player": {"zone": "campus", "x": 22.0, "y": 17.0},
         },
         "opening": None,
+        "panel": None,  # the presenter opens the Shops window: that click is part of the show
         "goal": {"kind": "shop_unlocked", "value": "beach_cafe"},
         "tick_ms": 1000,
     },
@@ -138,24 +143,13 @@ def active(state):
     return None
 
 
-def _sold_today(state):
-    """Units sold on the open day, the player's shift and the staffed shops together."""
-    shift = state.get("shift")
-    if shift is None:
-        return 0
-    parts = [shift, *shift.get("extra", {}).values()]
-    return sum(sum(part.get("sold", {}).values()) for part in parts)
-
-
 def _goal_reached(state, entry):
     goal = entry["goal"]
     day = entry["state"].get("day", 1)
     over = state["day"] > day  # the scenario's day is booked: a watched day was fully seen
     if goal["kind"] == "sold_at_least":
-        if over:
-            booked = next((r for r in state["history"] if r["day"] == day), None)
-            return booked is not None and sum(line["sold"] for line in booked["lines"]) >= goal["value"]
-        return _sold_today(state) >= goal["value"]
+        # a scenario starts with an empty history: everything sold in this run is the scenario's
+        return logic._sold_so_far(state) >= goal["value"]
     if goal["kind"] == "tick_at_least":
         shift = state.get("shift")
         return over or (shift is not None and shift["tick"] >= goal["value"])
@@ -171,13 +165,20 @@ def scenario_done(state, scenario_id):
 
 def finish_demo(state):
     """Leave the demo: the scenario and the fixed weather and event are cleared, so the next days
-    come from the seed again. The run itself goes on as it is. Refused when no demo runs."""
+    come from the seed again. The run itself goes on as it is. Refused when no demo runs.
+
+    On an open day the rest of the day passes first (logic.skip_shift: the staff go on selling, the
+    day is booked under the weather it was planned with), so no day is half one weather and half
+    another. Returns (state, the booked day's result or None)."""
     if state.get("scenario") is None:
         raise logic.RejectedAction("No demo is running.")
+    result = None
+    if logic.day_is_open(state):
+        state, result = logic.skip_shift(state)
     new = copy.deepcopy(state)
     del new["scenario"]
     new["day_override"] = None
-    return new
+    return new, result
 
 
 def demo_view(state):
@@ -185,6 +186,8 @@ def demo_view(state):
     the data above; the seed and the patch are never sent."""
     ids = scenario_ids()
     current = active(state)
+    # a saved id that no longer exists (renamed in a later version): the demo can still be left
+    stale = current is None and state.get("scenario") is not None
     card = None
     if current is not None:
         entry = SCENARIOS[current]
@@ -194,6 +197,7 @@ def demo_view(state):
             "title": entry["title"], "text": entry["text"], "goal": entry["goal_text"],
             "done": scenario_done(state, current), "tick_ms": entry["tick_ms"],
             "next": ids[index + 1] if index + 1 < len(ids) else None,
+            "panel": entry["panel"],
         }
     return {"scenarios": [{"id": sid, "title": SCENARIOS[sid]["title"]} for sid in ids],
-            "active": card}
+            "active": card, "stale": stale}

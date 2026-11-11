@@ -83,11 +83,11 @@
     </aside>
 
     <!-- the demo (specs/demo-scenarios.md): the card of the running scenario; texts from the server -->
-    <aside id="demo-card" class="demo-card" hidden aria-labelledby="demo-title" aria-live="polite">
+    <aside id="demo-card" class="demo-card" hidden aria-labelledby="demo-title">
       <p class="demo-step"><span>DEMO</span> <strong id="demo-step"></strong></p>
       <h2 id="demo-title"></h2>
       <p id="demo-text" class="demo-text"></p>
-      <p class="demo-goal"><span id="demo-check" class="demo-check" aria-hidden="true">○</span><span id="demo-goal"></span></p>
+      <p class="demo-goal" aria-live="polite"><span id="demo-check" class="demo-check" aria-hidden="true">○</span><span id="demo-goal"></span></p>
       <div class="demo-actions">
         <button id="demo-hide" class="btn ghost" type="button">Got it</button>
         <button id="demo-next" class="btn" type="button">Skip scenario</button>
