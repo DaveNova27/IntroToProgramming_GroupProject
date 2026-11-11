@@ -137,7 +137,7 @@ tracked in the GitHub Issues (label `spec`).
 - Cafe, Merchandise and the three printers in the Nova are places only: no rule works there yet.
 - A trading day (`trade_day`, the day without a player) only moves the light and then shows its result: guests walk only on an opened day.
 - Guests (`guests`): the numbers that weigh the walk, the queue and the taste are placeholders. A guest decides once, when the day opens (the plan is stored in the shift as `guest_plan`); nobody changes their mind at the counter. A shop only the player runs (the Cafe without an employee) never receives a guest who looks around; hire an employee to let it. At most 12 guests are drawn at once.
-- The passers-by are decoration: they cause no sale. While guests walk (a shift is running) only four of them stay out.
+- The passers-by are decoration: they cause no sale. While guests walk (a shift is running) 10 of the 14 keep walking (the others make room).
 - Water in the courtyard basin is not solid: people can walk through it.
 - To try changes without touching your own save, copy `app.py`, `logic.py`,
   `world.py`, `db.py` and `static/` to a temporary folder and start it there on another

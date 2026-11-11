@@ -10,7 +10,7 @@ import { nearestFreePoint } from "./physics.js";
 import { PLAYER_RADIUS, depthOf, reducedMotion, world } from "./scene.js";
 
 const COUNT = 14;
-const COUNT_WITH_GUESTS = 4; // passers-by left while the guests of a running shift walk
+const COUNT_WITH_GUESTS = 10; // passers-by left while the guests of a running shift walk (the others make room)
 const SPEED = 1.45; // tiles per second
 const SHIRTS = ["#f5c95e", "#ff8060", "#64cbc8", "#9a7bc1", "#e6a769", "#f0e9dc", "#7fb0d8"];
 const POSES = ["idle", "phone", "chat", "eat", "drink", "browse"];

@@ -81,7 +81,7 @@ move the arrival.
   a shop the first to set off. The API sends only guests who have set off (no future customers).
 - A thought bubble for 4.5 seconds after setting off, 9 seconds for a guest who changed shop (in
   red), and always next to the player. Neighbours in a line think at three heights.
-- The passers-by (`walkers.js`) step aside, 4 instead of 14, only while a shift is running
+- The passers-by (`walkers.js`) make some room: 10 of the 14 keep walking, only while a shift is running
   (`guests.active` in the API).
 - The Shift panel lists **Today's guests** per running shop: how many, from which shops they came,
   where guests who wanted this shop went instead, the most common thought. The Cafe, before the
@@ -123,7 +123,7 @@ is unchanged (1,695), because a single shop has nothing to choose. The band 3,00
    let the Cafe receive guests.
 5. **Walk time on the server.** A fixed formula on the places in `world.py`; no path finding on
    the server. The position of a guest decides no rule.
-6. **Felix.** The passers-by are his code (`walkers.js`): only four of them stay out while guests
+6. **Felix.** The passers-by are his code (`walkers.js`): ten of the fourteen keep walking while guests
    walk. He should agree.
 
 ## Out of scope
