@@ -22,7 +22,7 @@ const SWITCH_THOUGHT_MS = 9000; // longer for one who changed their mind: that i
 const NEAR_PLAYER = 2.4; // tiles: next to the player a guest always shows the thought
 const LEAVE_SPEED = 1.45; // tiles per second on the way back
 const LEAVE_MS = 30000; // a guest who has not got home by then is gone anyway
-const MAX_LEAVING = 8;
+const MAX_LEAVING = 12; // as many as can be drawn at once (MAX_VISIBLE_GUESTS on the server)
 const LINE_SPOTS = 6; // places of a line that are drawn; whoever is further back waits at the last
 const FACING_SHOP = { x: 0, y: -1 }; // every line faces north, to its counter
 
@@ -189,5 +189,5 @@ export function guestActors(t) {
   return actors;
 }
 
-// are guests about today? (the passers-by step aside while they are)
-export const guestsAbout = () => Boolean(server.guests);
+// are guests about now: a shift is running (the passers-by step aside while it does)
+export const guestsAbout = () => Boolean(server.guests?.active);

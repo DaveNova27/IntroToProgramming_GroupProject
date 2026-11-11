@@ -1259,8 +1259,9 @@ def open_day(state):
     new["shift"] = {"shop": None, "tick": 0, "counter": {}, "queue": [],
                     "planned": {}, "sold": {}, "lost": 0,
                     "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False,
-                    # the shops the guests of today choose from, fixed for the whole day
+                    # the shops guests come from today and the plan of the day, made once
                     "guest_shops": guests.guest_shops(state)}
+    new["shift"]["guest_plan"] = guests.day_plan(state)
     return _open_staffed_shift(new)
 
 
@@ -1286,8 +1287,9 @@ def start_shift(state, shop):
     new["shift"] = _new_shift(state, shop, start, open_shift["day_end"] if open_shift else DAY_TICKS)
     if open_shift and open_shift.get("extra"):  # the staffed shops of this day keep running
         new["shift"]["extra"] = copy.deepcopy(open_shift["extra"])
-    if open_shift and open_shift.get("guest_shops"):  # the guests' choice stays the day's
+    if open_shift and open_shift.get("guest_plan") is not None:  # the day's plan stays the day's
         new["shift"]["guest_shops"] = list(open_shift["guest_shops"])
+        new["shift"]["guest_plan"] = copy.deepcopy(open_shift["guest_plan"])
     return new
 
 
@@ -1300,8 +1302,7 @@ def _new_shift(state, shop, start, day_end):
     import guests  # guests.py reads the price rules of this module, so it is imported here
 
     products = state["shops"][shop]["products"]
-    shops = (state.get("shift") or {}).get("guest_shops") or [shop]
-    mine, summary = guests.for_shop(state, shop, shops)
+    mine, summary = guests.for_shop(state, shop)
     planned = {pid: 0 for pid in products}
     queue = []
     for guest in mine:

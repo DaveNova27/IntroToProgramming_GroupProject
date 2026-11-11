@@ -322,7 +322,7 @@ def guests_view(state):
              if part["shop"]]
     # every running shop gets its share of the figures; within a shop the first to set off are
     # drawn, so a figure stays drawn until it is served or gives up
-    share = max(3, guests.MAX_VISIBLE_GUESTS // max(1, len(parts)))
+    share = guests.MAX_VISIBLE_GUESTS // max(1, len(parts))  # at most 4 shops: 3 or more each
     shops, walking = [], []
     for part in parts:
         shop, summary = part["shop"], part.get("guests")
@@ -346,7 +346,11 @@ def guests_view(state):
         walking += sorted(mine, key=lambda g: (g["depart"], g["id"]))[:share]
     running = {part["shop"] for part in parts}
     return {"tick": tick, "shops": shops, "walking": walking[:guests.MAX_VISIBLE_GUESTS],
-            "waiting_shops": [sid for sid in shift.get("guest_shops", []) if sid not in running]}
+            # a shift is running: the map shows the guests (the passers-by step aside only then)
+            "active": any(not part.get("over") for part in parts),
+            # only the shops the player can start a shift in: for the others nothing is waited for
+            "waiting_shops": [sid for sid in shift.get("guest_shops", [])
+                              if sid not in running and sid in logic.SHIFT_SHOPS]}
 
 
 def staff_view(state):

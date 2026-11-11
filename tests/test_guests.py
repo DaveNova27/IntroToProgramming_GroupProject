@@ -15,12 +15,15 @@ import logic
 import world
 
 
-def two_shops(seed=7, weather="heat", beach_items=("coke_zero", "sandwich")):
-    """The Cafe and a staffed Beach Cafe with all its products, plenty of stock and cash."""
+def two_shops(seed=7, weather="heat", beach_items=("coke_zero", "sandwich"), cafe_staff=True):
+    """The Cafe and a staffed Beach Cafe with all its products, plenty of stock and cash. The Cafe
+    has an employee too (cafe_staff): only a staffed shop can receive a guest who looks around."""
     state = logic.new_state(seed)
     state["cash"] = 10_000_000
     state = logic.unlock_shop(state, "beach_cafe")
     state = logic.buy_upgrade(state, "beach_cafe", "staff_1")  # hires the first employee
+    if cafe_staff:
+        state = logic.buy_upgrade(state, "cafe", "staff_1")
     for item in beach_items:
         state = logic.buy_upgrade(state, "beach_cafe", item)
     for pid in logic.owned_products(state):
@@ -60,7 +63,7 @@ def test_guests_choose_only_from_shops_that_are_served_today():
 
 
 def test_the_choice_is_fixed_when_the_day_opens():
-    state = logic.open_day(two_shops())
+    state = logic.open_day(two_shops(cafe_staff=False))
     assert state["shift"]["guest_shops"] == ["cafe", "beach_cafe"]
     assert logic.start_shift(state, "cafe")["shift"]["guest_shops"] == ["cafe", "beach_cafe"]
 
@@ -88,7 +91,7 @@ def test_the_crowd_keeps_its_size_and_every_product_stays_in_the_spread(seed, we
 def test_the_same_state_gives_the_same_guests_and_another_seed_others():
     assert guests.plan_day(two_shops()) == guests.plan_day(two_shops())
     assert guests.plan_day(two_shops(seed=7)) != guests.plan_day(two_shops(seed=8))
-    state = logic.open_day(two_shops())
+    state = logic.open_day(two_shops(cafe_staff=False))
     assert logic.start_shift(state, "cafe") == logic.start_shift(state, "cafe")
 
 
@@ -170,7 +173,7 @@ def test_every_thought_comes_from_the_fixed_list():
 
 
 def test_every_guest_of_the_day_is_booked():
-    state = logic.open_day(two_shops())
+    state = logic.open_day(two_shops(cafe_staff=False))
     state = logic.start_shift(state, "cafe")
     parts = [state["shift"], *state["shift"]["extra"].values()]
     planned = sum(sum(part["planned"].values()) for part in parts)
@@ -195,7 +198,7 @@ def test_a_shop_staffed_later_in_the_day_plans_alone():
 
 
 def test_guests_are_not_stored_beside_the_queue_and_survive_a_restart(tmp_path):
-    state = logic.start_shift(logic.open_day(two_shops()), "cafe")
+    state = logic.start_shift(logic.open_day(two_shops(cafe_staff=False)), "cafe")
     assert set(state) == set(logic.new_state())  # no new field in the state
     path = tmp_path / "run.db"
     db.save(state, path)
@@ -203,7 +206,7 @@ def test_guests_are_not_stored_beside_the_queue_and_survive_a_restart(tmp_path):
 
 
 def test_a_rejected_action_still_changes_nothing_with_guests():
-    state = logic.start_shift(logic.open_day(two_shops()), "cafe")
+    state = logic.start_shift(logic.open_day(two_shops(cafe_staff=False)), "cafe")
     refused(lambda s: logic.start_shift(s, "cafe"), state)
     refused(lambda s: logic.sell(s, "surfboard"), state)
     refused(lambda s: logic.set_price(s, "coffee", 300), state)
@@ -218,7 +221,7 @@ def view_of(state):
 
 
 def test_the_screen_gets_guests_only_while_the_day_is_open():
-    state = two_shops()
+    state = two_shops(cafe_staff=False)
     assert view_of(state)["guests"] is None
     opened = logic.open_day(state)
     data = view_of(opened)["guests"]
@@ -226,7 +229,7 @@ def test_the_screen_gets_guests_only_while_the_day_is_open():
 
 
 def test_the_screen_shows_only_guests_on_their_way_and_never_the_seed():
-    state = logic.start_shift(logic.open_day(two_shops()), "cafe")
+    state = logic.start_shift(logic.open_day(two_shops(cafe_staff=False)), "cafe")
     for _ in range(20):
         state, _ = logic.tick(state)
         data = view_of(state)["guests"]
@@ -244,7 +247,7 @@ REAL_SAVE = db.save  # the API's save is patched to a file per test below
 
 def start_through_the_api(tmp_path, monkeypatch, name, body):
     path = tmp_path / name
-    REAL_SAVE(logic.open_day(two_shops()), path)
+    REAL_SAVE(logic.open_day(two_shops(cafe_staff=False)), path)
     monkeypatch.setattr(app, "load_run", lambda: db.load(path))
     monkeypatch.setattr(app.db, "save", lambda state: REAL_SAVE(state, path))
     assert app.app.test_client().post("/api/shift/start", json=body).status_code == 200
@@ -293,3 +296,101 @@ def test_every_walk_takes_a_few_ticks_and_fits_into_a_shift():
         for shop in logic.SHOPS:
             assert 3 <= world.guest_walk_ticks(start, shop) < logic.SHIFT_TICKS
     assert world.world_view()["guests"] == world.GUESTS
+
+
+# ---- from the code review of PR #95 ---------------------------------------------------------------
+
+
+def day_of(part):
+    return sorted(c["guest"]["id"] for c in part["queue"])
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5, 6, 7])
+def test_the_shops_of_one_day_tell_the_same_story_whatever_the_player_does(seed):
+    """The plan of the day is made once (review finding 1): who left a shop for another is exactly who
+    arrived there, also after the player bought a product in the meantime."""
+    state = logic.open_day(two_shops(seed))  # both shops staffed: both queues exist from the start
+    state = logic.buy_upgrade(state, "cafe", "cake")
+    cafe, beach = state["shift"], state["shift"]["extra"]["beach_cafe"]
+    assert beach["guests"]["left"].get("cafe", 0) == cafe["guests"]["came"].get("beach_cafe", 0)
+    assert cafe["guests"]["left"].get("beach_cafe", 0) == beach["guests"]["came"].get("cafe", 0)
+    ids = day_of(cafe) + day_of(beach)
+    assert len(ids) == len(set(ids)) == sum(len(part["queue"]) for part in (cafe, beach))
+
+
+def test_a_product_added_in_the_afternoon_plans_alone_with_new_ids():
+    """The Cafe starts a player's shift after a cake was bought: its guests are planned for the new
+    product list, with ids no other guest of the day has."""
+    state = logic.open_day(two_shops(7, cafe_staff=False))
+    before = day_of(state["shift"]["extra"]["beach_cafe"])
+    state = logic.buy_upgrade(state, "cafe", "cake")
+    state = logic.start_shift(state, "cafe")
+    assert day_of(state["shift"]["extra"]["beach_cafe"]) == before
+    assert not set(day_of(state["shift"])) & set(before)
+
+
+def test_a_shop_planned_later_gets_ids_no_other_guest_has():
+    """Review finding 2: the Beach Cafe staffed at noon does not reuse the ids of the morning."""
+    state = logic.new_state(7)
+    state["cash"] = 10_000_000
+    state = logic.start_shift(logic.open_day(state), "cafe")
+    state = logic.unlock_shop(state, "beach_cafe")
+    state = logic.buy_upgrade(state, "beach_cafe", "staff_1")  # opens its staffed shift now
+    cafe_ids = day_of(state["shift"])
+    beach_ids = day_of(state["shift"]["extra"]["beach_cafe"])
+    assert cafe_ids and beach_ids and not set(cafe_ids) & set(beach_ids)
+    ids = [g["id"] for g in view_of(state)["guests"]["walking"]]
+    assert len(ids) == len(set(ids))
+
+
+@pytest.mark.parametrize("seed", range(1, 8))
+def test_nobody_is_sent_to_a_shop_nobody_serves_and_the_day_adds_up(seed):
+    """Review finding 3: only the Beach Cafe is staffed, the player never starts a Cafe shift. Nobody
+    goes to the Cafe, so everyone who is planned is sold or lost."""
+    state = two_shops(seed, cafe_staff=False)
+    plan = guests.plan_day(state)
+    assert not any(g["wish"] != g["shop"] and g["shop"] == "cafe" for g in everyone(plan))
+    state = logic.open_day(state)
+    beach_part = state["shift"]["extra"]["beach_cafe"]
+    assert beach_part["guests"]["left"].get("cafe", 0) == 0
+    state, result = logic.skip_shift(state)
+    beach = [line for line in result["lines"] if logic.shop_of_product(line["product"]) == "beach_cafe"]
+    assert sum(line["demand"] for line in beach) == sum(
+        logic.customers_today(two_shops(seed, cafe_staff=False), p) for p in ("beer", "coke_zero", "sandwich"))
+
+
+def test_a_shop_only_the_player_runs_can_lose_guests_but_never_gains_one():
+    state = two_shops(cafe_staff=False)
+    assert guests.served_shops(state) == ["beach_cafe"]
+    moves = [(g["wish"], g["shop"]) for g in everyone(guests.plan_day(state)) if g["wish"] != g["shop"]]
+    assert all(to == "beach_cafe" for _wish, to in moves)
+    both = two_shops()
+    assert guests.served_shops(both) == ["cafe", "beach_cafe"]
+
+
+def test_the_passers_by_step_aside_only_while_a_shift_runs():
+    """Review finding 4: the open day alone, or a finished shift, is no reason to empty the map."""
+    state = logic.open_day(two_shops(cafe_staff=False))
+    assert view_of(state)["guests"]["active"]  # the staffed Beach Cafe runs
+    nobody = logic.open_day(logic.new_state(7))
+    assert view_of(nobody)["guests"]["active"] is False  # the day is open, no shift runs
+    assert view_of(nobody)["guests"]["walking"] == []
+
+
+def test_a_shop_that_never_opened_is_not_waited_for():
+    """Review finding 7: only a shop the player can start a shift in is announced as waiting."""
+    state = two_shops(cafe_staff=False)
+    state = logic.open_day(state)
+    state["shift"]["extra"].clear()  # the Beach Cafe's staffed shift did not open (too late in the day)
+    data = view_of(state)["guests"]
+    assert data["waiting_shops"] == ["cafe"]
+
+
+def test_the_figures_are_shared_between_the_running_shops():
+    state = logic.start_shift(logic.open_day(two_shops(cafe_staff=False)), "cafe")
+    for _ in range(30):
+        state, _ = logic.tick(state)
+    data = view_of(state)["guests"]
+    per_shop = collections.Counter(g["shop"] for g in data["walking"])
+    assert len(data["walking"]) <= guests.MAX_VISIBLE_GUESTS
+    assert all(n <= guests.MAX_VISIBLE_GUESTS // 2 for n in per_shop.values())

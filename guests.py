@@ -50,6 +50,14 @@ def guest_shops(state):
                  or any(e["shop"] == shop and e["working"] for e in state["employees"]))]
 
 
+def served_shops(state):
+    """The shops with a working employee: only these can receive a guest who looks around. A shop
+    that only the player can run (the Cafe) may lose guests but never gains one, because nobody
+    can promise at the start of the day that the player will start a shift there."""
+    return [shop for shop in logic.SHOPS if state["shops"][shop]["unlocked"]
+            and any(e["shop"] == shop and e["working"] for e in state["employees"])]
+
+
 def _say(text):
     return text[0].upper() + text[1:]
 
@@ -65,7 +73,7 @@ def _kind_amounts(state, shop, kind):
     return out
 
 
-def _wishes(state, shops, rng):
+def _wishes(state, shops, rng, first_id=0):
     """Every guest of the day with the product they want first, in the order of the old queue:
     shop by shop, product by product (k), customer by customer (j)."""
     guests = []
@@ -85,7 +93,7 @@ def _wishes(state, shops, rng):
                 kind = kinds[j]
                 weights = START_WEIGHTS[kind]
                 guests.append({
-                    "id": len(guests), "kind": kind,
+                    "id": first_id + len(guests), "kind": kind,
                     "start": rng.choices(list(weights), weights=list(weights.values()))[0],
                     "taste": {s: rng.randint(*TASTE) for s in shops},
                     "looks": j in lookers,
@@ -165,12 +173,12 @@ STAY_THOUGHTS = {
 }
 
 
-def _decide(state, guest, shops, arrivals, room, wants, rng, day_thoughts):
+def _decide(state, guest, shops, arrivals, room, wants, rng, day_thoughts, served):
     """One guest who looks around: stay or go to another shop. Changes guest and room."""
     own = _factors(guest, arrivals, guest["wish"])
     options = []
     for shop in shops:
-        if shop == guest["wish"]:
+        if shop == guest["wish"] or shop not in served:
             continue
         buyable = {pid: a for pid, a in wants[shop][guest["kind"]].items() if a > 0 and room[pid] > 0}
         if buyable:
@@ -190,21 +198,24 @@ def _decide(state, guest, shops, arrivals, room, wants, rng, day_thoughts):
         guest["thought"] = _say(STAY_THOUGHTS[_biggest(own, factors)].format(**names))
 
 
-def plan_day(state, shops=None):
-    """The guests of the day and where each one goes. shops: the shops guests choose from (default
-    guest_shops). Returns {shop: [guest, ...]} for every one of those shops, each guest with
+def plan_day(state, shops=None, first_id=0):
+    """The guests of the day and where each one goes. shops: the shops guests come from (default
+    guest_shops); only the served ones (served_shops) can receive a guest who looks around.
+    first_id: the id of the first guest, so a shop planned later never reuses an id of the day.
+    Returns {shop: [guest, ...]} for every one of those shops, each guest with
     id, kind, start, shop, product, offset (ticks after the shop's shift starts), wish (the shop
     they wanted first), walk (ticks from their start), thought, and k and j (their place in the
     old queue). Same state, same plan."""
     shops = guest_shops(state) if shops is None else [s for s in logic.SHOPS if s in shops]
     rng = random.Random(f"{state['seed']}:{state['day']}:guests")
-    guests = _wishes(state, shops, rng)
+    guests = _wishes(state, shops, rng, first_id)
+    served = served_shops(state)
     arrivals = {shop: [] for shop in shops}
     counts = Counter(g["product"] for g in guests)
     room = {pid: min(logic.MAX_CUSTOMERS - n, n * MAX_SPREAD // 100) for pid, n in counts.items()}
     wants = {shop: {kind: _kind_amounts(state, shop, kind) for kind in logic.SEGMENTS} for shop in shops}
     day_thoughts = _day_thoughts(state, shops)
-    choosing = len(shops) > 1
+    choosing = len(shops) > 1 and bool(served)
     # the regulars are where they always are; then those who look around decide, in the order
     # they would arrive, each one seeing the queues of everyone placed before
     for guest in guests:
@@ -212,7 +223,7 @@ def plan_day(state, shops=None):
             arrivals[guest["shop"]].append(guest["offset"])
             guest["thought"] = _wish_thought(state, guest, day_thoughts)
     for guest in sorted((g for g in guests if choosing and g["looks"]), key=lambda g: (g["offset"], g["id"])):
-        _decide(state, guest, shops, arrivals, room, wants, rng, day_thoughts)
+        _decide(state, guest, shops, arrivals, room, wants, rng, day_thoughts, served)
         arrivals[guest["shop"]].append(guest["offset"])
     plan = {shop: [] for shop in shops}
     for guest in guests:
@@ -222,25 +233,46 @@ def plan_day(state, shops=None):
     return plan
 
 
-def for_shop(state, shop, shops):
-    """The guests of one shop for its queue, and what they did, from one plan of the day.
+def _ordered(shop, mine):
+    """A shop's guests in the old queue's order: its own (product by product, customer by customer),
+    then those who came from another shop, by id."""
+    return sorted(mine, key=lambda g: (g["wish"] != shop, g["k"] if g["wish"] == shop else 0,
+                                       g["j"] if g["wish"] == shop else 0, g["id"]))
 
-    shops: the shops guests choose from today; a shop that is not one of them (it opened later
-    in the day) plans alone. Returns (guests, summary). guests: its own first in the old queue's
-    order (product by product, then customer by customer), then those who came from another
-    shop, by id. summary: how many come, from which shops they came, to which shops guests who
-    wanted this one went instead, and the most common thoughts."""
-    if shop not in shops:
-        shops = [shop]
-    plan = plan_day(state, shops)
-    mine = sorted(plan[shop], key=lambda g: (g["wish"] != shop, g["k"] if g["wish"] == shop else 0,
-                                             g["j"] if g["wish"] == shop else 0, g["id"]))
+
+def _summary(plan, shop, mine):
     left = Counter(g["shop"] for other in plan.values() for g in other
                    if g["wish"] == shop and g["shop"] != shop)
-    return mine, {
+    return {
         "total": len(mine),
         "came": dict(Counter(g["wish"] for g in mine if g["wish"] != shop)),
         "left": dict(left),
         "thoughts": [{"text": text, "count": n}
                      for text, n in Counter(g["thought"] for g in mine).most_common(3)],
     }
+
+
+def day_plan(state):
+    """The whole day's plan, worked out once when the day opens and stored in the shift, so queues
+    made later in the day (the player's shift, a shop staffed at noon) all come from the same plan:
+    {shop: {"products": [...], "guests": [...], "summary": {...}}}."""
+    plan = plan_day(state)
+    return {shop: {"products": list(state["shops"][shop]["products"]),
+                   "guests": _ordered(shop, mine), "summary": _summary(plan, shop, mine)}
+            for shop, mine in plan.items()}
+
+
+def for_shop(state, shop):
+    """The guests of one shop for its queue and what they did: (guests, summary).
+
+    From the day's plan when the shift is part of an open day and the shop still sells what it
+    sold when the plan was made. Otherwise (a shop that opens later, a product bought in the
+    meantime, a shift without an open day) the shop plans alone, with ids after those of the day."""
+    stored = (state.get("shift") or {}).get("guest_plan") or {}
+    mine = stored.get(shop)
+    if mine and mine["products"] == list(state["shops"][shop]["products"]):
+        return mine["guests"], mine["summary"]
+    first_id = 1 + max((g["id"] for part in stored.values() for g in part["guests"]), default=-1)
+    alone = plan_day(state, [shop], first_id)
+    guests = _ordered(shop, alone[shop])
+    return guests, _summary(alone, shop, guests)
