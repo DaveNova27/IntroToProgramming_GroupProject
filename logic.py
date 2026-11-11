@@ -1253,10 +1253,14 @@ def open_day(state):
         raise RejectedAction("The run is complete. The shop is closed.")
     if state.get("shift") is not None:
         raise RejectedAction("The day is already open.")
+    import guests  # see _new_shift
+
     new = copy.deepcopy(state)
     new["shift"] = {"shop": None, "tick": 0, "counter": {}, "queue": [],
                     "planned": {}, "sold": {}, "lost": 0,
-                    "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False}
+                    "day_end": OPEN_DAY_TICKS, "shift_end": None, "over": False,
+                    # the shops the guests of today choose from, fixed for the whole day
+                    "guest_shops": guests.guest_shops(state)}
     return _open_staffed_shift(new)
 
 
@@ -1282,26 +1286,37 @@ def start_shift(state, shop):
     new["shift"] = _new_shift(state, shop, start, open_shift["day_end"] if open_shift else DAY_TICKS)
     if open_shift and open_shift.get("extra"):  # the staffed shops of this day keep running
         new["shift"]["extra"] = copy.deepcopy(open_shift["extra"])
+    if open_shift and open_shift.get("guest_shops"):  # the guests' choice stays the day's
+        new["shift"]["guest_shops"] = list(open_shift["guest_shops"])
     return new
 
 
 def _new_shift(state, shop, start, day_end):
-    """A shift of one shop from tick `start`: the counter, the queue of customers (no
-    randomness) and the clock. Used for the player's shift and for the staffed shops."""
+    """A shift of one shop from tick `start`: the counter, the queue of customers and the clock.
+    Used for the player's shift and for the staffed shops.
+
+    The customers are guests who chose this shop (guests.py, from the seed): on a day where this
+    shop runs alone, exactly customers_today of each product, arriving evenly over the shift."""
+    import guests  # guests.py reads the price rules of this module, so it is imported here
+
     products = state["shops"][shop]["products"]
-    planned, queue = {}, []
-    for k, pid in enumerate(products):
-        count = customers_today(state, pid)
-        planned[pid] = count
-        for j in range(count):
-            arrives = start + min((j * SHIFT_TICKS) // count + k, SHIFT_TICKS - 1)
-            queue.append({"product": pid, "arrives": arrives,
-                          "patience_until": arrives + PATIENCE_TICKS})
+    shops = (state.get("shift") or {}).get("guest_shops") or [shop]
+    mine, summary = guests.for_shop(state, shop, shops)
+    planned = {pid: 0 for pid in products}
+    queue = []
+    for guest in mine:
+        planned[guest["product"]] += 1
+        arrives = start + guest["offset"]
+        queue.append({"product": guest["product"], "arrives": arrives,
+                      "patience_until": arrives + PATIENCE_TICKS,
+                      "guest": {"id": guest["id"], "kind": guest["kind"], "start": guest["start"],
+                                "wish": guest["wish"], "walk": guest["walk"],
+                                "thought": guest["thought"]}})
     queue.sort(key=lambda c: c["arrives"])  # stable: products keep their order per tick
     return {
         "shop": shop, "tick": start,
         "counter": {pid: 0 for pid in products},
-        "queue": queue, "planned": planned,
+        "queue": queue, "planned": planned, "guests": summary,
         "sold": {pid: 0 for pid in products}, "lost": 0,
         "day_end": day_end, "shift_end": start + SHIFT_TICKS, "over": False,
     }

@@ -284,6 +284,35 @@ WORK_SPOTS = {
 }
 
 
+# ---- the guests (spec guests) ---------------------------------------------------------------
+# Where a guest sets off from, and where the line of each shop starts (head) and how it goes on
+# (dx, dy: one place further back). speed: tiles per tick; detour: a walk is this much longer than
+# the straight line. The walk in ticks is the one number the rules read (guests.py): it makes a
+# far shop less attractive. The browser draws the walk so that it takes just as long.
+GUESTS = {
+    "starts": {
+        "dorm": {"id": "dorm", "name": "Dorm", "x": 38.0, "y": 13.9},
+        "plaza": {"id": "plaza", "name": "Arrival Plaza", "x": 7.4, "y": 15.35},
+        "beach": {"id": "beach", "name": "Beach", "x": 19.0, "y": 32.4},
+    },
+    "lines": {
+        "cafe": {"wing": "nova", "x": 16.9, "y": 4.35, "dx": 0.6, "dy": 0.0},
+        "merchandise": {"wing": "nova", "x": 29.0, "y": 2.95, "dx": 0.6, "dy": 0.0},
+        "beach_cafe": {"wing": None, "x": 28.2, "y": 29.2, "dx": 0.0, "dy": 0.6},
+        "surf_shop": {"wing": None, "x": 8.6, "y": 29.0, "dx": 0.6, "dy": 0.0},
+    },
+    "speed": 1.45,
+    "detour": 1.3,
+}
+
+
+def guest_walk_ticks(start, shop):
+    """Ticks a guest walks from a start place to the line of a shop (at least 3)."""
+    a, b = GUESTS["starts"][start], GUESTS["lines"][shop]
+    distance = ((a["x"] - b["x"]) ** 2 + (a["y"] - b["y"]) ** 2) ** 0.5
+    return max(3, round(distance * GUESTS["detour"] / GUESTS["speed"]))
+
+
 # ---- the beach way, the outdoor shops and the Dorm (spec nova-zones) ------------------
 # Fixed data, the same on every start. The browser draws it and only walks round it.
 
@@ -587,4 +616,5 @@ def world_view():
         "outdoorShops": SHOPS_OUTDOOR,
         "beachWay": BEACH_WAY,
         "beach": BEACH,
+        "guests": GUESTS,
     }

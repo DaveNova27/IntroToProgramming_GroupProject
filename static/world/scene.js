@@ -29,7 +29,9 @@ export const world = {};
 
 // The staff and the shift as the server last sent them. ui.js sets it, rooms.js only reads it
 // to draw the employees: what a figure does comes from here, never from a rule in the browser.
-export const server = { staff: null, shift: null, storeroom: 0 }; // storeroom: units of the shift shop's products
+// guests: today's guests (spec guests, guests.js draws them), guestsAt: when that answer came, so a
+// walk moves on smoothly between two ticks.
+export const server = { staff: null, shift: null, storeroom: 0, guests: null, guestsAt: 0 }; // storeroom: units of the shift shop's products
 
 export const scene = {
   time: 0, // milliseconds, from requestAnimationFrame

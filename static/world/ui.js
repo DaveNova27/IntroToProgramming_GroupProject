@@ -266,6 +266,8 @@ function renderAll() {
   if (state.shift) evening = false; // a day is open again (also when opened elsewhere)
   server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
   server.shift = state.shift;
+  server.guests = state.guests ?? null; // the guests on the map are drawn from this (guests.js)
+  server.guestsAt = performance.now();
   const open = state.shops.find((sh) => sh.id === state.shift?.shop);
   server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
@@ -664,6 +666,32 @@ let shiftHtml = "";
 let shiftTimer = null;
 const requests = createSerial(); // refill, sell and tick go one after the other
 
+// Today's guests (spec guests): per running shop how many come, where guests went instead, and
+// what they think most. All of it from the server's answer; written only when it changes.
+let guestsHtml = "";
+function renderGuests() {
+  const data = state.guests;
+  const name = (sid) => state.shops.find((s) => s.id === sid)?.name ?? sid;
+  const moves = (counts, word) => Object.entries(counts)
+    .map(([sid, n]) => `${n} ${word} ${esc(name(sid))}`).join(" · ");
+  const rows = (data?.shops ?? []).map((s) => {
+    const came = moves(s.came, "from the");
+    const left = moves(s.left, "went to the");
+    const top = s.thoughts[0];
+    return `
+      <li><b>${esc(s.name)}</b>: ${s.total} guests${came ? ` · ${came}` : ""}${left ? ` · ${left}` : ""}
+        ${top ? `<small>Most think: “${esc(top.text)}” (${top.count})</small>` : ""}</li>`;
+  });
+  for (const sid of data?.waiting_shops ?? []) {
+    rows.push(`<li><b>${esc(name(sid))}</b>: its guests come when your shift starts</li>`);
+  }
+  const html = rows.length ? `<h3 class="guests-title">Today's guests</h3><ul class="guest-list">${rows.join("")}</ul>` : "";
+  if (html !== guestsHtml) {
+    $("#shift-guests").innerHTML = html;
+    guestsHtml = html;
+  }
+}
+
 function renderShiftPanel(body) {
   $("#panel-title").textContent = "Shift";
   const sh = state.shift;
@@ -673,9 +701,11 @@ function renderShiftPanel(body) {
     return;
   }
   if (!$("#shift-clock")) {
-    body.innerHTML = `<progress id="shift-clock"></progress><div id="shift-body"></div>`;
+    body.innerHTML = `<progress id="shift-clock"></progress><div id="shift-body"></div><div id="shift-guests"></div>`;
     shiftHtml = "";
+    guestsHtml = "";
   }
+  renderGuests();
   // the bar shows the shift once it runs (its 90 seconds start with it), else the day
   const working = sh.shop && !sh.over;
   $("#shift-clock").max = working ? sh.shift_ticks : sh.day_ticks;

@@ -11,6 +11,7 @@ import {
   lightingProfile,
 } from "./environment.js";
 import { drawLocation, openPlaces } from "./locations.js";
+import { guestActors } from "./guests.js";
 import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer, playerDepth } from "./player.js";
 import { DEPTH, camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
@@ -52,6 +53,7 @@ export function drawWorld(t) {
     ...beachActors(t),
     ...novaActors(t),
     ...walkerActors(t),
+    ...guestActors(t),
     ...places.map(([id, loc]) => ({ depth: depthOf(loc.x, loc.y), draw: () => drawLocation(id) })),
     { depth: playerDepth(), draw: () => drawPlayer(t) },
   ];
