@@ -1,13 +1,16 @@
 // People walking around the campus. Only decoration, so the campus looks alive:
-// they buy nothing and no rule reads them. Real customers are the spec `guests`.
+// they buy nothing and no rule reads them. Real customers are the spec `guests` (guests.js):
+// while a shift runs and they are about, only a few passers-by stay out.
 // Everything comes from the walker's number, so it needs no random numbers.
 
+import { guestsAbout } from "./guests.js";
 import { findPath } from "./paths.js";
 import { drawPersonFigure } from "./people.js";
 import { nearestFreePoint } from "./physics.js";
 import { PLAYER_RADIUS, depthOf, reducedMotion, world } from "./scene.js";
 
 const COUNT = 14;
+const COUNT_WITH_GUESTS = 10; // passers-by left while the guests of a running shift walk (the others make room)
 const SPEED = 1.45; // tiles per second
 const SHIRTS = ["#f5c95e", "#ff8060", "#64cbc8", "#9a7bc1", "#e6a769", "#f0e9dc", "#7fb0d8"];
 const POSES = ["idle", "phone", "chat", "eat", "drink", "browse"];
@@ -82,7 +85,8 @@ export function updateWalkers(dt) {
 }
 
 export function walkerActors(t) {
-  return walkers.map((walker) => ({
+  const count = guestsAbout() ? COUNT_WITH_GUESTS : COUNT;
+  return walkers.slice(0, count).map((walker) => ({
     depth: depthOf(walker.x, walker.y),
     draw: () =>
       drawPersonFigure(walker.x, walker.y, t, walker.index + 1, {

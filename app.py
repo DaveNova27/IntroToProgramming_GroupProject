@@ -25,6 +25,7 @@ from flask import Flask, abort, g, has_request_context, jsonify, redirect, reque
 from werkzeug.exceptions import HTTPException
 
 import db
+import guests
 import logic
 import world
 
@@ -309,6 +310,49 @@ def shift_view(state):
     }
 
 
+def guests_view(state):
+    """Today's guests for the screen (specs/guests.md): only while the day is open. Per running
+    shop how many come and why, and the guests that are on their way or waiting now (at most
+    guests.MAX_VISIBLE_GUESTS, by id). Never a guest who has not set off yet, never the seed."""
+    shift = state["shift"]
+    if logic.is_finished(state) or shift is None:
+        return None
+    tick = shift["tick"]
+    parts = [part for part in [shift, *(shift.get("extra", {})[sid] for sid in sorted(shift.get("extra", {})))]
+             if part["shop"]]
+    # every running shop gets its share of the figures; within a shop the first to set off are
+    # drawn, so a figure stays drawn until it is served or gives up
+    share = guests.MAX_VISIBLE_GUESTS // max(1, len(parts))  # at most 4 shops: 3 or more each
+    shops, walking = [], []
+    for part in parts:
+        shop, summary = part["shop"], part.get("guests")
+        if summary:
+            shops.append({"shop": shop, "name": logic.SHOPS[shop]["name"], "total": summary["total"],
+                          "came": summary["came"], "left": summary["left"],
+                          "thoughts": summary["thoughts"]})
+        line, mine = 0, []
+        for customer in part["queue"]:  # served guests and those who gave up are no longer in it
+            guest = customer.get("guest")
+            if guest is None or customer["arrives"] - guest["walk"] > tick:
+                continue
+            here = customer["arrives"] <= tick
+            mine.append({
+                "id": guest["id"], "kind": guest["kind"], "shop": shop, "start": guest["start"],
+                "depart": customer["arrives"] - guest["walk"], "arrives": customer["arrives"],
+                "until": customer["patience_until"], "line": line if here else None,
+                "thought": guest["thought"], "switched": guest["wish"] != shop,
+            })
+            line += 1 if here else 0
+        walking += sorted(mine, key=lambda g: (g["depart"], g["id"]))[:share]
+    running = {part["shop"] for part in parts}
+    return {"tick": tick, "shops": shops, "walking": walking[:guests.MAX_VISIBLE_GUESTS],
+            # a shift is running: the map shows the guests (the passers-by step aside only then)
+            "active": any(not part.get("over") for part in parts),
+            # only the shops the player can start a shift in: for the others nothing is waited for
+            "waiting_shops": [sid for sid in shift.get("guest_shops", [])
+                              if sid not in running and sid in logic.SHIFT_SHOPS]}
+
+
 def staff_view(state):
     """The employees and the places of the shops where they can work, prices from the rules."""
     employees = []
@@ -454,6 +498,7 @@ def view(state):
         "editor": editor_on,
         "editor_info": editor_info(state) if editor_on else None,
         "shift": shift_view(state),
+        "guests": guests_view(state),
         "staff": staff_view(state),
         "shift_shops": list(logic.SHIFT_SHOPS),
         "history": state["history"],
