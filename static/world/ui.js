@@ -666,7 +666,10 @@ function staffBlock(shop) {
 
 let shiftHtml = "";
 let shiftTimer = null;
-const requests = createSerial(); // refill, sell and tick go one after the other
+// Refill, sell and tick go one after the other, and so does every request that replaces the run
+// (a new run, a demo scenario, the end of the demo; spec stale-tick): a tick never overtakes it.
+// Once such a request worked, requests.renew() drops the ticks and clicks queued for the old run.
+const requests = createSerial();
 
 // Today's guests (spec guests): per running shop how many come, where guests went instead, and
 // what they think most. All of it from the server's answer; written only when it changes.
@@ -778,10 +781,10 @@ function syncShiftTimer() {
 // the tick is skipped while the last one still waits; a click waits for the request before it
 function shiftTick() {
   if (!state.shift) return;
-  return requests.once("tick", async () => {
+  return requests.once("tick", async (stale) => {
     if (!state.shift) return;
     const data = await send("/api/shift/tick", {});
-    if (!data) return;
+    if (!data || stale()) return; // the dashboard replaced the run meanwhile: its state counts
     const before = state.day;
     state = data.state;
     renderAll();
@@ -794,9 +797,9 @@ function shiftTick() {
 
 function shiftAction(path, body) {
   // a click waits for the request before it; the same click again while it still waits is one click
-  return requests.once(`${path}:${JSON.stringify(body)}`, async () => {
+  return requests.once(`${path}:${JSON.stringify(body)}`, async (stale) => {
     const data = await send(path, body);
-    if (!data) return;
+    if (!data || stale()) return;
     state = data.state;
     renderAll();
     if (data.error) {
@@ -1295,18 +1298,31 @@ function wireOverlay() {
       askNewRun();
     }
   });
-  $("#new-run-dialog").addEventListener("close", async (e) => {
-    if (e.target.returnValue !== "confirm") return;
-    const data = await send("/api/new-run", { confirm: true });
-    if (!data) return;
-    state = data.state;
-    if (data.error) return toast(data.error, "error");
-    freshRun(data);
+  $("#new-run-dialog").addEventListener("close", (e) => {
+    if (e.target.returnValue === "confirm") newRun().catch((err) => console.error(err));
   });
+}
+
+// A new run, from the campus dialog or asked for by the dashboard (views.js). It is sent from the
+// queue of the ticks (spec stale-tick), so no tick of the old run reaches the server after it.
+// The answer says how it went, for the dashboard's own message.
+function newRun() {
+  return requests.run(async () => {
+    const data = await send("/api/new-run", { confirm: true }); // send() already told about a failure
+    if (!data) return { error: "The new run was not started." };
+    if (data.state) state = data.state; // an answer without a state (too many requests) changes nothing
+    if (data.error) {
+      toast(data.error, "error");
+      return { error: data.error, state: data.state };
+    }
+    freshRun(data);
+    return { message: data.message };
+  }, { keep: true }); // the player asked for it: a replacement before it does not drop it
 }
 
 // A new run arrived (a new run, or a demo scenario that replaces the run): start over on the map.
 function freshRun(data) {
+  requests.renew(); // ticks and clicks queued for the old run are not sent
   closePanel();
   hideOverlay();
   evening = false;
@@ -1323,7 +1339,8 @@ function wireDemoActions() {
   wireDemo({
     getState: () => state,
     // an answer without a state (too many requests, the server is busy) changes nothing here
-    load: (id) => enqueue(async () => {
+    // the scenario replaces the run: it waits in the queue of the ticks, none overtakes it
+    load: (id) => enqueue(() => requests.run(async () => {
       const data = await send("/api/demo/load", { id, confirm: true });
       if (!data) return;
       if (data.state) state = data.state;
@@ -1334,18 +1351,20 @@ function wireDemoActions() {
       freshRun(data);
       const panel = state.demo?.active?.panel; // which panel the scenario needs: from the server's data
       if (panel === "shift" || panel === "shops") openPanel(panel);
-    }),
-    finish: () => enqueue(async () => {
+    }, { keep: true })),
+    // the end of the demo books an open day: a tick after it would find no open day
+    finish: () => enqueue(() => requests.run(async () => {
       const data = await send("/api/demo/finish", {});
       if (!data) return;
       const before = state.day;
       if (data.state) state = data.state;
+      if (!data.error) requests.renew(); // a tick queued for the booked day is not sent
       renderAll();
       if (data.error) return toast(data.error, "error");
       tellDashboard({ type: "action", after: data.state });
       toast(data.message);
       if (state.day !== before) startEvening(); // an open day was booked first: the evening follows
-    }),
+    }, { keep: true })),
   });
 }
 
@@ -1419,6 +1438,11 @@ export function initUi(firstState, actions) {
     const msg = e.data || {};
     if (msg.type === "mode") setMode(msg.mode);
     if (msg.type === "action") syncFromDashboard(msg);
+    if (msg.type === "new-run") {
+      newRun()
+        .then((result) => tellDashboard({ type: "new-run-done", ...result }))
+        .catch((err) => console.error(err));
+    }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePanel();

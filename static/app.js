@@ -689,17 +689,19 @@ function wireNewRun() {
     if (e.target.closest("#new-run-btn, [data-new-run]") && state) askNewRun();
   });
   $("#new-run-dialog").addEventListener("close", (e) => {
-    if (e.target.returnValue === "confirm") send("/api/new-run", { confirm: true });
+    if (e.target.returnValue !== "confirm") return;
+    // the campus sends it when it runs (newRunByCampus in views.js, spec stale-tick); else this page does
+    if (!window.newRunByCampus?.()) send("/api/new-run", { confirm: true });
   });
 }
 
-// The campus map changed the run: show its new state, keeping what was typed.
-function applyExternalState(next) {
+// The campus map changed the run: show its new state, keeping what was typed (not after a new run).
+function applyExternalState(next, kind) {
   if (!state) {
     state = next;
     return render();
   }
-  const kept = captureInputs();
+  const kept = kind === "new-run" ? {} : captureInputs();
   state = next;
   render(kept);
 }
