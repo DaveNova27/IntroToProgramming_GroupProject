@@ -300,6 +300,8 @@ def shift_view(state):
         "shift_ticks": logic.SHIFT_TICKS,
         "over": bool(shift.get("over")),
         "staffed": bool(shift.get("staffed")),
+        # where the player can take a shift now (or why not): from the rules
+        "choices": [{**option, "name": logic.SHOPS[option["shop"]]["name"]} for option in logic.shift_options(state)],
         "crews": [{"shop": sid, "counter": sub["counter"], "sold": sub["sold"], "lost": sub["lost"],
                    "over": bool(sub.get("over"))} for sid, sub in sorted(shift.get("extra", {}).items())],
         "counter": shift["counter"],
