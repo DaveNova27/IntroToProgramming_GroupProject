@@ -39,7 +39,7 @@ window.addEventListener("message", (e) => {
     if (view === "map") frame.focus();
   }
   if (msg.type === "action") applyExternalState(msg.after, msg.kind);
-  if (msg.type === "new-run-done") toast(msg.error ?? msg.message, msg.error ? "error" : "ok");
+  if (msg.type === "new-run-done" && (msg.error || msg.message)) toast(msg.error || msg.message, msg.error ? "error" : "ok");
   if (msg.type === "open-dashboard") openDrawer();
   if (msg.type === "panel-open") {
     closeDrawer();
