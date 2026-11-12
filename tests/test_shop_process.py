@@ -64,7 +64,7 @@ def test_other_shops_unknown_ids_and_a_second_shift_are_refused():
     state = stocked()
     state["cash"] = 1_000_000
     state = logic.unlock_shop(state, "beach_cafe")
-    refused(lambda s: logic.start_shift(s, "beach_cafe"), state)
+    refused(lambda s: logic.start_shift(s, "surf_shop"), state)  # a locked shop (the Beach Cafe: shift-any-shop)
     for bad in ("nowhere", None, 5, ["cafe"], {"a": 1}, True):
         refused(lambda s, b=bad: logic.start_shift(s, b), state)
     running = logic.start_shift(state, "cafe")

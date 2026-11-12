@@ -52,16 +52,19 @@ guests' day plan for shops without employees (Decide 2), a way to end a shift ea
 2. **The guests' plan stays as it is** (David chose "plans alone" over sending guests to every
    unlocked shop at the start of the day). The ~20 guest tests stay as they are.
 3. **Old tests that change** (the old tests say the player cannot play there; this spec changes
-   that on purpose). The AI does not confirm test changes: they wait for David's own words in
-   the session (AGENTS.md). Proposed, each with its reason:
-   - `tests/test_balance.py::test_a_shop_the_player_cannot_play_says_so_until_it_has_an_employee`:
-     the hint for a locked shop is `None`; after the unlock it says the player can take the shift
-     ("take a shift here yourself"); with an employee it is `None`. Reason: the hint's premise
-     ("you cannot play there") is what this spec removes.
-   - `tests/test_balance.py::test_stock_nobody_can_sell_does_not_save_the_player_from_the_dead_end`:
-     beer in the unstaffed Beach Cafe is **not** a dead end any more (the player can sell it).
+   that on purpose). The AI does not confirm test changes; David confirmed these four in the
+   session on 2026-11-12 ("ja und ok"). Each with its reason:
+   - `tests/test_balance.py::test_a_shop_the_player_cannot_play_says_so_until_it_has_an_employee`,
+     now `test_a_shop_without_an_employee_says_the_player_can_take_the_shift_until_it_has_one`: a
+     locked shop has no hint, an unlocked one without an employee says "take a shift here yourself",
+     the Cafe without an employee says it too. Reason: the hint's premise ("you cannot play
+     there") is what this spec removes.
+   - `tests/test_balance.py::test_stock_nobody_can_sell_does_not_save_the_player_from_the_dead_end`,
+     now `test_stock_in_a_shop_without_an_employee_is_no_dead_end_because_the_player_can_sell_it`:
+     beer in the unstaffed Beach Cafe is not a dead end; with no stock and no cash it still is.
    - `tests/test_balance.py::test_the_hint_tells_a_stopped_employee_from_a_missing_place`: the
-     second check unlocks the shop first (a locked shop has no hint now); the text is "no employee".
+     second check unlocks the shop first (a locked shop has no hint); the text is "buy an
+     employee place" (lower case).
    - `tests/test_shop_process.py::test_other_shops_unknown_ids_and_a_second_shift_are_refused`: the
      refusal of a shift in the unlocked Beach Cafe is replaced by one in a locked shop (the Surf
      Shop); the Beach Cafe shift is tested in `tests/test_shift_any_shop.py`. The bad ids and the
