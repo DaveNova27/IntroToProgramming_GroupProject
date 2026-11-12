@@ -668,6 +668,20 @@ let shiftHtml = "";
 let shiftTimer = null;
 const requests = createSerial(); // refill, sell and tick go one after the other
 
+// Which run the page plays (spec stale-tick). It goes up when the run is replaced (a new run, a
+// demo scenario, the end of the demo): a tick or a click from before is then not sent, and its
+// answer is not taken over. Browser only; the server refuses a stale tick anyway.
+let runGen = 0;
+
+// The run is replaced: the clock stops, a tick still on its way is answered first, then the job
+// sends the request. The timer starts again from the answer (renderAll) or, without one, here.
+function replaceRun(job) {
+  runGen++;
+  clearInterval(shiftTimer);
+  shiftTimer = null;
+  return requests.run(job).finally(() => syncShiftTimer());
+}
+
 // Today's guests (spec guests): per running shop how many come, where guests went instead, and
 // what they think most. All of it from the server's answer; written only when it changes.
 let guestsHtml = "";
@@ -778,10 +792,11 @@ function syncShiftTimer() {
 // the tick is skipped while the last one still waits; a click waits for the request before it
 function shiftTick() {
   if (!state.shift) return;
+  const gen = runGen;
   return requests.once("tick", async () => {
-    if (!state.shift) return;
+    if (!state.shift || gen !== runGen) return;
     const data = await send("/api/shift/tick", {});
-    if (!data) return;
+    if (!data || gen !== runGen) return;
     const before = state.day;
     state = data.state;
     renderAll();
@@ -794,9 +809,11 @@ function shiftTick() {
 
 function shiftAction(path, body) {
   // a click waits for the request before it; the same click again while it still waits is one click
+  const gen = runGen;
   return requests.once(`${path}:${JSON.stringify(body)}`, async () => {
+    if (gen !== runGen) return; // clicked on the run that was replaced meanwhile
     const data = await send(path, body);
-    if (!data) return;
+    if (!data || gen !== runGen) return;
     state = data.state;
     renderAll();
     if (data.error) {
@@ -1021,6 +1038,7 @@ function endDayConfirmed() {
 
 // The dashboard did something: its own screen already shows the numbers.
 function syncFromDashboard(msg) {
+  if (msg.kind === "new-run") runGen++; // the dashboard replaced the run: no tick of the old one after it
   enqueue(async () => {
     state = msg.after;
     if (msg.kind === "new-run") {
@@ -1295,13 +1313,15 @@ function wireOverlay() {
       askNewRun();
     }
   });
-  $("#new-run-dialog").addEventListener("close", async (e) => {
+  $("#new-run-dialog").addEventListener("close", (e) => {
     if (e.target.returnValue !== "confirm") return;
-    const data = await send("/api/new-run", { confirm: true });
-    if (!data) return;
-    state = data.state;
-    if (data.error) return toast(data.error, "error");
-    freshRun(data);
+    replaceRun(async () => {
+      const data = await send("/api/new-run", { confirm: true });
+      if (!data) return;
+      state = data.state;
+      if (data.error) return toast(data.error, "error");
+      freshRun(data);
+    }).catch((err) => console.error(err));
   });
 }
 
@@ -1323,7 +1343,8 @@ function wireDemoActions() {
   wireDemo({
     getState: () => state,
     // an answer without a state (too many requests, the server is busy) changes nothing here
-    load: (id) => enqueue(async () => {
+    // the scenario replaces the run: no tick of the old day goes out after it (replaceRun)
+    load: (id) => enqueue(() => replaceRun(async () => {
       const data = await send("/api/demo/load", { id, confirm: true });
       if (!data) return;
       if (data.state) state = data.state;
@@ -1334,8 +1355,9 @@ function wireDemoActions() {
       freshRun(data);
       const panel = state.demo?.active?.panel; // which panel the scenario needs: from the server's data
       if (panel === "shift" || panel === "shops") openPanel(panel);
-    }),
-    finish: () => enqueue(async () => {
+    })),
+    // the end of the demo books an open day: a tick after it would find no open day
+    finish: () => enqueue(() => replaceRun(async () => {
       const data = await send("/api/demo/finish", {});
       if (!data) return;
       const before = state.day;
@@ -1345,7 +1367,7 @@ function wireDemoActions() {
       tellDashboard({ type: "action", after: data.state });
       toast(data.message);
       if (state.day !== before) startEvening(); // an open day was booked first: the evening follows
-    }),
+    })),
   });
 }
 
