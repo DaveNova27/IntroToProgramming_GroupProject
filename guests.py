@@ -43,8 +43,10 @@ CALLED = {"cafe": "the Cafe", "beach_cafe": "the Beach Cafe", "merchandise": "th
 
 
 def guest_shops(state):
-    """The shops guests can choose from today: unlocked and served today, either where the player
-    can work a shift (logic.SHIFT_SHOPS) or by a working employee. Fixed when the day opens."""
+    """The shops guests can choose from today: unlocked and served today, either the player's home
+    shop (logic.SHIFT_SHOPS) or a shop with a working employee. Fixed when the day opens. The player
+    can take a shift in any other unlocked shop too (specs/shift-any-shop.md): it plans its guests
+    alone when that shift starts (for_shop)."""
     return [shop for shop in logic.SHOPS if state["shops"][shop]["unlocked"]
             and (shop in logic.SHIFT_SHOPS
                  or any(e["shop"] == shop and e["working"] for e in state["employees"]))]
