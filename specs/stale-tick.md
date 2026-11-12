@@ -14,18 +14,30 @@ of the *new* scenario when it has an open day as well (scenario 1 to 2, 2 to 3).
 
 ## What
 
-Only `static/world/ui.js` changes. The server stays as it is: it already refuses the tick and
-changes nothing.
+Only `static/world/serial.js` and `static/world/ui.js` change. The server stays as it is: it
+already refuses the tick and changes nothing.
 
-1. `runGen` counts which run the page plays. `replaceRun(job)` raises it, stops the tick timer and
-   queues the job in the same queue as the ticks and the shift clicks (`requests`, `serial.js`):
-   a tick already on its way is answered first, then the job sends its request. The timer starts
-   again from the answer (`renderAll`) or, if there is no answer, at the end of `replaceRun`.
-2. `shiftTick` and `shiftAction` remember `runGen` when they are queued. A job of an older run is
-   not sent, and the answer of one that was already on its way is not taken over.
-3. Through `replaceRun`: the demo load (`/api/demo/load`), the end of the demo (`/api/demo/finish`,
-   it books an open day) and *New run* on the campus (`/api/new-run`).
-4. A new run started on the dashboard (`syncFromDashboard`, kind `new-run`) raises `runGen` too.
+1. Every request that replaces the run (the demo load `/api/demo/load`, the end of the demo
+   `/api/demo/finish`, which books an open day, and *New run* on the campus `/api/new-run`) is sent
+   from the same queue as the ticks and the shift clicks (`requests`, `serial.js`). A tick already
+   on its way is answered first; a tick never overtakes the replacing request.
+2. `serial.js` gets epochs: `renew()` says the run was replaced. A job queued before it and not
+   started yet is dropped; a running job gets `stale()` to ask before it takes its answer over.
+3. `renew()` is called only once the replacement **worked** (`freshRun`, and the end of the demo
+   without an error). A refused or failed request drops nothing: ticks and clicks queued meanwhile
+   still belong to the run that stays, and the answers of requests already sent are taken over.
+4. A new run started on the dashboard (`syncFromDashboard`, kind `new-run`) calls `renew()` too,
+   and a tick answer that arrives after it is not taken over (the dashboard's state counts).
+
+The tick timer keeps running during a replacement: `once("tick")` lets at most one tick wait, and
+that one is dropped once the replacement worked.
+
+## Code review
+
+`/code-review` (high) on the first version found that it ended the old run before the replacement
+was answered (a refused demo load dropped queued clicks and the answer of a tick already sent),
+that its timer stop could be undone by any redraw, and that the checks only read the source. Fixed
+by the design above; the queue is now checked for real with Node. Not fixed: see "Known limit".
 
 ## Out of scope
 
@@ -34,12 +46,13 @@ The server and its answers, the pace of the ticks, the dashboard page's own requ
 
 ## Decide
 
-None: no test changed. New checks in `tests/test_stale_tick.py`.
+None: no test changed. New checks in `tests/test_stale_tick.py` (the queue with Node, the wiring
+in `ui.js` by its text).
 
 ## Known limit
 
 A new run started on the **dashboard** is sent by the dashboard page, which cannot wait for a tick
-that the campus has on its way. That tick can still be refused once (the answer is dropped now);
+that the campus has on its way. That tick can still be refused once (its answer is not taken over);
 the live demo runs on the campus, so it is not affected.
 
 ## Checked in the browser
@@ -52,7 +65,11 @@ by a random 0 to 400 ms before they reach the server (as on the public URL).
 | Run | 400 answers | Console errors |
 |---|---|---|
 | `main`, 3 rounds, delay up to 400 ms | 1 (`/api/shift/tick`) | 1 ("Failed to load resource: 400") |
-| this fix, 5 rounds, delay up to 400 ms | 0 | 0 |
-| this fix, 3 rounds, delay up to 900 ms | 0 | 0 |
-| this fix, 1 round, no delay | 0 | 0 |
-| this fix, *New run* on the campus during scenario 2, 6 times, delay up to 600 ms | 0 | 0 |
+| first version, 5 rounds, delay up to 400 ms | 0 | 0 |
+| first version, 3 rounds, delay up to 900 ms | 0 | 0 |
+| first version, 1 round, no delay | 0 | 0 |
+| first version, *New run* on the campus during scenario 2, 6 times, delay up to 600 ms | 0 | 0 |
+| after the review, 5 rounds, delay up to 400 ms | 0 | 0 |
+| after the review, 3 rounds, delay up to 900 ms | 0 | 0 |
+| after the review, 1 round, no delay | 0 | 0 |
+| after the review, *New run* on the campus during scenario 2, 6 times, delay up to 600 ms | 0 | 0 |
