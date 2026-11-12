@@ -23,12 +23,26 @@ function tellMap(message) {
 window.addEventListener("run-changed", (e) => tellMap({ type: "action", ...e.detail }));
 
 // The dashboard's new run is sent by the map once it runs (spec stale-tick): from the queue of its
-// ticks, so no tick of the old run reaches the server after it. Before that no tick runs.
-window.addEventListener("new-run-wanted", (e) => {
-  if (!mapReady) return;
-  e.preventDefault();
+// ticks, so no tick of the old run reaches the server after it. Before that no tick runs, and
+// app.js sends it itself. Returns true when the map has it. One request at a time; if the map
+// does not answer in time the player is told (the request may still arrive later).
+let newRunWait = null;
+function newRunByCampus() {
+  if (!mapReady) return false;
+  if (newRunWait) return true;
+  document.body.classList.add("busy");
+  newRunWait = setTimeout(() => {
+    newRunAnswered();
+    toast("The campus has not answered yet. Check the run before you try again.", "error");
+  }, 8000);
   tellMap({ type: "new-run" });
-});
+  return true;
+}
+function newRunAnswered() {
+  clearTimeout(newRunWait);
+  newRunWait = null;
+  document.body.classList.remove("busy");
+}
 
 window.addEventListener("message", (e) => {
   if (e.origin !== location.origin || e.source !== frame.contentWindow) return;
@@ -39,7 +53,11 @@ window.addEventListener("message", (e) => {
     if (view === "map") frame.focus();
   }
   if (msg.type === "action") applyExternalState(msg.after, msg.kind);
-  if (msg.type === "new-run-done" && (msg.error || msg.message)) toast(msg.error || msg.message, msg.error ? "error" : "ok");
+  if (msg.type === "new-run-done") {
+    newRunAnswered();
+    if (msg.error && msg.state) applyExternalState(msg.state); // a refused request still sends the state
+    if (msg.error || msg.message) toast(msg.error || msg.message, msg.error ? "error" : "ok");
+  }
   if (msg.type === "open-dashboard") openDrawer();
   if (msg.type === "panel-open") {
     closeDrawer();

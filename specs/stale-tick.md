@@ -26,15 +26,19 @@ Only the browser changes (`static/world/serial.js`, `static/world/ui.js`, `stati
 3. `renew()` is called only once the replacement **worked** (`freshRun`, and the end of the demo
    without an error). A refused or failed request drops nothing: ticks and clicks queued meanwhile
    still belong to the run that stays, and the answers of requests already sent are taken over.
-4. A new run started on the **dashboard** is sent by the campus once it runs: the dashboard fires
-   `new-run-wanted` (cancelable); `views.js` takes it over when the map has said `ready` and sends
-   the map `{type: "new-run"}`. The map runs the same `newRun()` as its own dialog (from the queue
-   of the ticks) and answers `new-run-done` with the message or the error, which the dashboard
-   shows as its toast; the new state comes as before with the `action` message (typed inputs are
-   not kept after a new run, as before). Before the map is ready no tick runs, so the dashboard
-   sends the request itself, as before.
-5. If the dashboard ever sends a new run itself, `syncFromDashboard` (kind `new-run`) calls
-   `renew()` too, and a tick answer that arrives after it is not taken over.
+4. A new run started on the **dashboard** is sent by the campus once it runs: the dashboard calls
+   `newRunByCampus()` (`views.js`), which returns true when the map has said `ready` and sends the
+   map `{type: "new-run"}`. The map runs the same `newRun()` as its own dialog (from the queue of
+   the ticks) and answers `new-run-done` with the message or the error, which the dashboard shows
+   as its toast. The new state comes as before with the `action` message (typed inputs are not kept
+   after a new run, as before). Before the map is ready no tick runs, so the dashboard sends the
+   request itself, as before.
+5. A request that replaces the run is queued with `{keep: true}` and is never dropped by an
+   earlier replacement (a new run confirmed while a demo load runs is still done, after it).
+6. While the campus has the dashboard's new run, the dashboard shows the busy cursor and ignores
+   a second click. If the campus does not answer in 8 seconds the dashboard says so (the request
+   may still arrive later). A refused request sends its state with the error; an answer without a
+   state changes nothing (`newRun` no longer sets `state` from it).
 
 The tick timer keeps running during a replacement: `once("tick")` lets at most one tick wait, and
 that one is dropped once the replacement worked.
@@ -46,6 +50,12 @@ was answered (a refused demo load dropped queued clicks and the answer of a tick
 that its timer stop could be undone by any redraw, and that the checks only read the source. Fixed
 by the design above; the queue is now checked for real with Node. The dashboard's new run, first left open, is
 point 4.
+
+`/code-review` (high) on the PR found 7 more points; all are fixed here: a refused answer without a
+state (6), a replacement dropped behind another one (5), no feedback or hang message on the
+dashboard (6), the unreachable renew in `syncFromDashboard` (removed), the cancelable event (now the
+function `newRunByCampus`), a duplicated message text, and brittle tests (functions are cut out
+whole now; the dropped-replacement case is tested with Node).
 
 ## Out of scope
 
@@ -84,3 +94,5 @@ by a random 0 to 400 ms before they reach the server (as on the public URL).
 | with point 4: the same, 6 times, delay up to 600 ms (all 6 sent by the campus) | 0 | 0 |
 | with point 4: the same, 6 times, delay up to 900 ms | 0 | 0 |
 | with point 4: four scenarios 3 rounds (400 ms), campus *New run* 6 times | 0 | 0 |
+| after the PR review: four scenarios 3 rounds (400 ms), campus *New run* 6 times, dashboard *New run* 6 times (900 ms) | 0 | 0 |
+| after the PR review: the campus never answers the dashboard's new run: busy cursor, second click ignored (1 request), message after 8 s | 0 | 0 |

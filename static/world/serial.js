@@ -2,16 +2,18 @@
 // instead of being dropped. Pure, no page and no game rules (spec calm-panels).
 // Epochs (spec stale-tick): renew() says the run was replaced. A job queued before that and not
 // started yet is dropped; a job already running can ask stale() before it takes its answer over.
+// A job queued with {keep: true} is never dropped: it is the request that replaces the run, and the
+// player asked for it.
 
 export function createSerial() {
   let tail = Promise.resolve();
   let epoch = 0;
   // run(job): the job starts when all earlier jobs are done, whether they worked or failed.
   // It gets stale(): true once renew() was called after the job was queued.
-  const run = (job) => {
+  const run = (job, { keep = false } = {}) => {
     const at = epoch;
     const stale = () => at !== epoch;
-    const start = () => (stale() ? undefined : job(stale));
+    const start = () => (!keep && stale() ? undefined : job(stale));
     const result = tail.then(start, start);
     tail = result.then(() => {}, () => {});
     return result;

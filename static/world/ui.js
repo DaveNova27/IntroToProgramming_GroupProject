@@ -1024,7 +1024,6 @@ function endDayConfirmed() {
 
 // The dashboard did something: its own screen already shows the numbers.
 function syncFromDashboard(msg) {
-  if (msg.kind === "new-run") requests.renew(); // the dashboard replaced the run: no tick of the old one after it
   enqueue(async () => {
     state = msg.after;
     if (msg.kind === "new-run") {
@@ -1309,16 +1308,16 @@ function wireOverlay() {
 // The answer says how it went, for the dashboard's own message.
 function newRun() {
   return requests.run(async () => {
-    const data = await send("/api/new-run", { confirm: true });
-    if (!data) return { error: "Could not reach the server. Is app.py still running?" };
-    state = data.state;
+    const data = await send("/api/new-run", { confirm: true }); // send() already told about a failure
+    if (!data) return { error: "The new run was not started." };
+    if (data.state) state = data.state; // an answer without a state (too many requests) changes nothing
     if (data.error) {
       toast(data.error, "error");
-      return { error: data.error };
+      return { error: data.error, state: data.state };
     }
     freshRun(data);
     return { message: data.message };
-  });
+  }, { keep: true }); // the player asked for it: a replacement before it does not drop it
 }
 
 // A new run arrived (a new run, or a demo scenario that replaces the run): start over on the map.
@@ -1352,7 +1351,7 @@ function wireDemoActions() {
       freshRun(data);
       const panel = state.demo?.active?.panel; // which panel the scenario needs: from the server's data
       if (panel === "shift" || panel === "shops") openPanel(panel);
-    })),
+    }, { keep: true })),
     // the end of the demo books an open day: a tick after it would find no open day
     finish: () => enqueue(() => requests.run(async () => {
       const data = await send("/api/demo/finish", {});
@@ -1365,7 +1364,7 @@ function wireDemoActions() {
       tellDashboard({ type: "action", after: data.state });
       toast(data.message);
       if (state.day !== before) startEvening(); // an open day was booked first: the evening follows
-    })),
+    }, { keep: true })),
   });
 }
 

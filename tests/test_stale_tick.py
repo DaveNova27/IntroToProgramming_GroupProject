@@ -56,6 +56,14 @@ let fresh = null;
 await run(async (stale) => { fresh = stale(); });
 out.staleWithoutRenew = fresh;
 
+// a request that replaces the run is never dropped, even when another replacement came first
+const order = [];
+const first = run(async () => { await wait(10); order.push("first"); renew(); }, { keep: true });
+const second = run(async () => { order.push("second"); }, { keep: true });
+const plain = run(async () => { order.push("click"); });
+await Promise.all([first, second, plain]);
+out.order = order;
+
 out.sent = sent;
 console.log(JSON.stringify(out));
 """
@@ -73,6 +81,7 @@ def test_the_queue_drops_what_was_queued_for_the_replaced_run(tmp_path):
     assert result["kept"] == ["sell"]
     assert result["staleAfterRenew"] is True
     assert result["staleWithoutRenew"] is False
+    assert result["order"] == ["first", "second"]  # the kept request ran, the plain click was dropped
 
 
 def body(name):
@@ -82,18 +91,20 @@ def body(name):
     return match.group(0)
 
 
-def test_every_request_that_replaces_the_run_waits_in_the_queue_of_the_ticks():
+def test_every_request_that_replaces_the_run_waits_in_the_queue_of_the_ticks_and_is_kept():
     for path in ("/api/demo/load", "/api/demo/finish", "/api/new-run"):
         at = UI.index(f'send("{path}"')
-        start = UI.rindex("requests.run(async", 0, at)
+        start = UI.rindex("requests.run(", 0, at)
         assert "\n\n" not in UI[start:at], f"{path} is not sent from inside requests.run"
+        end = UI.index("{ keep: true }", at)
+        assert "requests.run(" not in UI[at:end], f"{path}: the job is not queued with keep"
 
 
 def test_the_old_run_ends_only_when_the_replacement_worked():
     assert "requests.renew()" in body("freshRun")  # new run and demo load, after a good answer
-    assert "requests.renew()" in body("syncFromDashboard")
+    assert "requests.renew()" not in body("syncFromDashboard")  # the campus sends the dashboard's new run
     finish = UI[UI.index('send("/api/demo/finish"'):]
-    assert finish.index("if (!data.error) requests.renew()") < finish.index("})),")
+    assert finish.index("if (!data.error) requests.renew()") < finish.index("{ keep: true }")
 
 
 def test_a_tick_answer_of_the_replaced_run_is_not_taken_over():

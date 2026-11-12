@@ -690,9 +690,8 @@ function wireNewRun() {
   });
   $("#new-run-dialog").addEventListener("close", (e) => {
     if (e.target.returnValue !== "confirm") return;
-    // the campus sends it when it runs (views.js, spec stale-tick); else this page sends it
-    const byCampus = !window.dispatchEvent(new CustomEvent("new-run-wanted", { cancelable: true }));
-    if (!byCampus) send("/api/new-run", { confirm: true });
+    // the campus sends it when it runs (newRunByCampus in views.js, spec stale-tick); else this page does
+    if (!window.newRunByCampus?.()) send("/api/new-run", { confirm: true });
   });
 }
 
