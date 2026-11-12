@@ -2,6 +2,7 @@
 shift at a time and one per shop and day. New file; no old test is touched here."""
 
 import copy
+from pathlib import Path
 
 import pytest
 
@@ -128,7 +129,8 @@ def test_the_options_tell_where_the_player_can_work_and_why_not():
     state = logic.start_shift(state, "cafe")
     options = {o["shop"]: o for o in logic.shift_options(state)}
     assert not options["beach_cafe"]["can"] and "already running" in options["beach_cafe"]["why"]
-    assert not options["cafe"]["can"]
+    assert not options["beach_cafe"]["done"]  # not worked yet: the screen still shows it
+    assert not options["cafe"]["can"] and options["cafe"]["done"]  # working there: not offered again
 
 
 def test_hints_say_that_the_player_can_work_there():
@@ -157,3 +159,51 @@ def test_the_api_start_and_the_choices(tmp_path, monkeypatch):
     assert answer["state"]["shift"]["shop"] == "beach_cafe"
     assert client.post("/api/shift/start", json={"shop": "cafe"}).get_json()["error"]
     assert client.post("/api/shift/start", json={"shop": "surf_shop"}).get_json()["error"]
+
+
+def three_shops():
+    state = shops()
+    state = logic.unlock_shop(state, "merchandise")
+    return state
+
+
+def test_three_shifts_fit_into_the_day_and_the_fourth_does_not():
+    state = logic.open_day(three_shops())
+    for shop in ("cafe", "beach_cafe", "merchandise"):
+        state = logic.start_shift(state, shop)
+        state = advance(state, logic.SHIFT_TICKS)
+    assert sorted(state["shift"]["extra"]) == ["beach_cafe", "cafe"] and state["shift"]["over"]
+    state, result = run(state)
+    assert sorted(result["shops"]) == ["beach_cafe", "cafe", "merchandise"] and result["played"] is True
+    state = advance(logic.start_shift(logic.open_day(three_shops()), "cafe"), 3 * logic.SHIFT_TICKS - 5)
+    assert state["shift"]["tick"] == 3 * logic.SHIFT_TICKS - 5
+    refused(lambda s: logic.start_shift(s, "merchandise"), state)  # the Cafe shift is long over, too late
+
+
+def test_taking_the_staffed_cafe_back_after_the_other_shift_joins_its_running_crew():
+    state = logic.open_day(shops(cafe_staff=True))
+    state = logic.start_shift(state, "beach_cafe")  # the Cafe crew moves aside and goes on
+    assert state["shift"]["extra"]["cafe"]["staffed"]
+    refused(lambda s: logic.start_shift(s, "cafe"), state)  # the own shift still runs
+    state = advance(state, logic.SHIFT_TICKS)  # the staffed Cafe shift ran from tick 0, it is over too
+    refused(lambda s: logic.start_shift(s, "cafe"), state)  # finished shifts are not joined
+    options = {o["shop"]: o for o in logic.shift_options(state)}
+    assert options["cafe"]["done"] and options["beach_cafe"]["done"]
+
+
+def test_a_shift_without_an_open_day_still_opens_both_together():
+    state = logic.start_shift(shops(), "beach_cafe")
+    assert state["shift"]["shop"] == "beach_cafe" and state["shift"]["day_end"] == logic.DAY_TICKS
+    refused(lambda s: logic.start_shift(s, "cafe"), state)  # one at a time; no room for a second shift
+
+
+def test_the_home_shop_gets_no_hint_but_an_unstaffed_other_shop_does():
+    state = shops()
+    assert logic.shop_hint(state, "cafe") is None
+    assert logic.shop_hint(state, "beach_cafe") is not None
+
+
+def test_ending_the_day_asks_while_another_shop_could_still_be_worked():
+    ui = (Path(app.__file__).parent / "static" / "world" / "ui.js").read_text(encoding="utf-8")
+    warning = ui[ui.index("function endDayWarning"):ui.index("function askEndDay")]
+    assert "sh.over && !sh.staffed" in warning and "o.can" in warning

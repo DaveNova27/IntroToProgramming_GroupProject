@@ -30,13 +30,14 @@ Rules (all in `logic.py`, the browser decides nothing):
    `SHIFT_SHOPS` keeps this meaning: the player's home shop, where a staffed shift takes the slot at
    once and the day's guests are planned.
 5. **Dead end and hints.** Stock in an unlocked shop counts as sellable (the player can sell it).
-   `shop_hint` says "It earns nothing unless you take a shift here yourself" instead of "you cannot
+   For an unlocked shop without an employee (not the home shop), `shop_hint` says "It earns nothing unless you take a shift here yourself" instead of "you cannot
    play a shift here yet".
 6. **Day result.** `played` is true when any shift of the player's ran (also one that moved aside);
    wages are paid for every shop that ran. `shop` in the result is the shop of the last shift.
 
 Screen: the Shift panel lists a button for every shop the player can start in now (`shift.choices`
-from the server: shop, name, can, why). It shows before the first shift, after a finished shift, and
+from the server: shop, name, can, done, why; `done` = worked there today, not offered again). Ending
+the day asks first when the player's shift is over and another shop could still be worked. It shows before the first shift, after a finished shift, and
 under the controls while a crew holds the slot ("You can take a shift in another shop").
 
 ## Out of scope
@@ -56,8 +57,8 @@ guests' day plan for shops without employees (Decide 2), a way to end a shift ea
    session on 2026-11-12 ("ja und ok"). Each with its reason:
    - `tests/test_balance.py::test_a_shop_the_player_cannot_play_says_so_until_it_has_an_employee`,
      now `test_a_shop_without_an_employee_says_the_player_can_take_the_shift_until_it_has_one`: a
-     locked shop has no hint, an unlocked one without an employee says "take a shift here yourself",
-     the Cafe without an employee says it too. Reason: the hint's premise ("you cannot play
+     locked shop has no hint, an unlocked one without an employee says "take a shift here yourself"
+     (the Cafe, the home shop, stays silent as before). Reason: the hint's premise ("you cannot play
      there") is what this spec removes.
    - `tests/test_balance.py::test_stock_nobody_can_sell_does_not_save_the_player_from_the_dead_end`,
      now `test_stock_in_a_shop_without_an_employee_is_no_dead_end_because_the_player_can_sell_it`:

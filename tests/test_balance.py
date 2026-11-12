@@ -212,7 +212,7 @@ def test_the_warning_changes_nothing_and_reaches_the_screen():
 def test_a_shop_without_an_employee_says_the_player_can_take_the_shift_until_it_has_one():
     state = logic.new_state(1)
     state["cash"] = 100_000
-    assert logic.shop_hint(state, "cafe") is not None  # nobody works in the Cafe either: take the shift
+    assert logic.shop_hint(state, "cafe") is None  # the player plays the Cafe
     assert logic.shop_hint(state, "beach_cafe") is None  # locked: nothing to say yet
     state = logic.unlock_shop(state, "beach_cafe")
     assert "take a shift here yourself" in logic.shop_hint(state, "beach_cafe")

@@ -351,7 +351,8 @@ def guests_view(state):
     return {"tick": tick, "shops": shops, "walking": walking[:guests.MAX_VISIBLE_GUESTS],
             # a shift is running: the map shows the guests (the passers-by step aside only then)
             "active": any(not part.get("over") for part in parts),
-            # only the shops the player can start a shift in: for the others nothing is waited for
+            # only the home shop of the player (logic.SHIFT_SHOPS) is planned for without staff: a guest
+            # waits for the player's shift there; the other shops plan alone when a shift starts
             "waiting_shops": [sid for sid in shift.get("guest_shops", [])
                               if sid not in running and sid in logic.SHIFT_SHOPS]}
 

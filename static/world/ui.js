@@ -701,7 +701,7 @@ function renderGuests() {
 // for each, and a short reason for the shops that cannot be started.
 function startChoices(sh) {
   // a shop the player works in or worked in today is not offered again
-  const options = (sh.choices ?? []).filter((o) => o.can || !/already/.test(o.why ?? ""));
+  const options = (sh.choices ?? []).filter((o) => !o.done);
   const buttons = options.map((o) => `
       <button class="btn wide" type="button" data-shift-start="${esc(o.shop)}" ${o.can ? "" : "disabled"}
         title="${esc(o.why ?? "")}">Start shift in the ${esc(o.name)}</button>`).join("");
@@ -1019,6 +1019,9 @@ function endDayWarning() {
   if (sh.shop && !sh.over && !sh.staffed) { // a staffed shift runs on without the player
     const name = state.shops.find((shop) => shop.id === sh.shop)?.name ?? "shop";
     return `Your shift in the ${name} is still running. If you end the day now, the customers still to come are lost.`;
+  }
+  if (sh.shop && sh.over && !sh.staffed && (sh.choices ?? []).some((o) => o.can)) { // shift-any-shop
+    return "Your shift is over, but you could still take a shift in another shop today. If you end the day now, nothing more is sold by you.";
   }
   return "";
 }

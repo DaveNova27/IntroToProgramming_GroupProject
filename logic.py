@@ -404,7 +404,8 @@ def shop_hint(state, shop):
     fine (an employee works there) or locked."""
     _check_shop(shop)
     entry = state["shops"][shop]
-    if not entry["unlocked"] or any(e["shop"] == shop and e["working"] for e in state["employees"]):
+    if (not entry["unlocked"] or shop in SHIFT_SHOPS  # the home shop is the one the player plays anyway
+            or any(e["shop"] == shop and e["working"] for e in state["employees"])):
         return None
     if entry["staff_places"] > 0:
         return ("Nobody works in this shop: the place is free, or the employee stopped for lack of "
@@ -1240,11 +1241,8 @@ def _open_staffed_shift(new):
                 or not any(e["shop"] == shop and e["working"] for e in new["employees"])):
             continue
         if shift["shop"] is None and shop in SHIFT_SHOPS:  # the player's own shift is free
-            extra = shift.get("extra")
-            new = start_shift(new, shop)
+            new = start_shift(new, shop)  # keeps the staffed shops beside it
             new["shift"]["staffed"] = True
-            if extra:
-                new["shift"]["extra"] = extra
             shift = new["shift"]
         else:
             sub = _new_shift(new, shop, shift["tick"], shift["day_end"])
@@ -1285,14 +1283,15 @@ def _check_start(state, shop):
     open_shift = state.get("shift")
     if open_shift is None:
         return "new"
+    if open_shift["shop"] == shop:  # the shift in the slot is this shop's
+        raise RejectedAction(f"You already worked in the {name} today." if open_shift.get("over")
+                             else f"You are working in the {name} already.")
     sub = open_shift.get("extra", {}).get(shop)
-    if open_shift["shop"] == shop or sub is not None and (sub.get("over") or not sub.get("staffed")):
-        mine = open_shift if open_shift["shop"] == shop else sub
-        raise RejectedAction(f"You are working in the {name} already." if not mine.get("over")
-                             else f"You already worked in the {name} today.")
+    if sub is not None and (sub.get("over") or not sub.get("staffed")):  # finished, or the player's own
+        raise RejectedAction(f"You already worked in the {name} today.")
     if open_shift["shop"] is not None and not open_shift.get("over") and not open_shift.get("staffed"):
         raise RejectedAction("A shift is already running.")
-    if sub is not None:
+    if sub is not None:  # a running staffed shift of this shop
         return "join"
     if open_shift["day_end"] - open_shift["tick"] < SHIFT_TICKS:
         raise RejectedAction("Too late for a shift: the day ends before it could be played.")
@@ -1301,16 +1300,20 @@ def _check_start(state, shop):
 
 def shift_options(state):
     """For the screen: every unlocked shop with whether the player can take a shift there now and, if
-    not, why. The rules answer, so no screen has to guess."""
+    not, why. `done` is true for a shop the player works in or worked in today: the screen does not
+    offer it again. The rules answer, so no screen has to guess (or read the text of the reason)."""
+    shift = state.get("shift") or {}
+    today = {shift.get("shop"), *(sid for sid, sub in shift.get("extra", {}).items()
+                                  if sub.get("over") or not sub.get("staffed"))} - {None}
     options = []
     for shop in SHOPS:
         if not state["shops"][shop]["unlocked"]:
             continue
         try:
             _check_start(state, shop)
-            options.append({"shop": shop, "can": True, "why": None})
+            options.append({"shop": shop, "can": True, "done": False, "why": None})
         except RejectedAction as err:
-            options.append({"shop": shop, "can": False, "why": str(err)})
+            options.append({"shop": shop, "can": False, "done": shop in today, "why": str(err)})
     return options
 
 
