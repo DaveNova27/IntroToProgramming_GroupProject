@@ -1300,14 +1300,24 @@ function wireOverlay() {
     }
   });
   $("#new-run-dialog").addEventListener("close", (e) => {
-    if (e.target.returnValue !== "confirm") return;
-    requests.run(async () => {
-      const data = await send("/api/new-run", { confirm: true });
-      if (!data) return;
-      state = data.state;
-      if (data.error) return toast(data.error, "error");
-      freshRun(data);
-    }).catch((err) => console.error(err));
+    if (e.target.returnValue === "confirm") newRun().catch((err) => console.error(err));
+  });
+}
+
+// A new run, from the campus dialog or asked for by the dashboard (views.js). It is sent from the
+// queue of the ticks (spec stale-tick), so no tick of the old run reaches the server after it.
+// The answer says how it went, for the dashboard's own message.
+function newRun() {
+  return requests.run(async () => {
+    const data = await send("/api/new-run", { confirm: true });
+    if (!data) return { error: "Could not reach the server. Is app.py still running?" };
+    state = data.state;
+    if (data.error) {
+      toast(data.error, "error");
+      return { error: data.error };
+    }
+    freshRun(data);
+    return { message: data.message };
   });
 }
 
@@ -1429,6 +1439,11 @@ export function initUi(firstState, actions) {
     const msg = e.data || {};
     if (msg.type === "mode") setMode(msg.mode);
     if (msg.type === "action") syncFromDashboard(msg);
+    if (msg.type === "new-run") {
+      newRun()
+        .then((result) => tellDashboard({ type: "new-run-done", ...result }))
+        .catch((err) => console.error(err));
+    }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePanel();
