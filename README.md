@@ -17,7 +17,7 @@ Built individually for the Solo Project, now extended as the Group Project for
 | David Ben Morsey | 79133 |
 | Christopher Bryce Tiedke | 79960 |
 | Gregor Maximilian Rosenberger | 78878 |
-| Felix Antes | _TODO: add student number_ |
+| Felix Antes | 73306 |
 
 **Deployed app:** _TODO: add the deployed URL once the project is deployed_
 
