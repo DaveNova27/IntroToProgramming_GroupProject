@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS shop_products (    -- the products a shop has, one ro
     product TEXT NOT NULL,
     PRIMARY KEY (shop, product)
 );
-CREATE TABLE IF NOT EXISTS meta (             -- the seed and the weather override, as JSON values
+CREATE TABLE IF NOT EXISTS meta (             -- the seed, the weather override and the popularity, as JSON values
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
@@ -135,6 +135,7 @@ def load(path=DEFAULT_PATH):
         "history": [json.loads(r) for (r,) in history],
         # a save from before badges has no rows: none earned; a removed badge is dropped
         "badges": [{"id": i, "day": d} for i, d in badge_rows if i in logic.BADGE_IDS],
+        "popularity": _popularity(meta.get("popularity")),
         "player": _player(player),
     }
     # the running demo scenario: only stored when one runs (a save without it has none)
@@ -142,6 +143,23 @@ def load(path=DEFAULT_PATH):
     if scenario is not None:
         state["scenario"] = scenario
     return state
+
+
+def _popularity(raw):
+    """The popularity of every shop (specs/popularity.md). A save from before it has none: every
+    shop starts at the normal value; a value that is not a whole number from 0 to 100 does too."""
+    try:
+        saved = json.loads(raw) if raw is not None else None
+    except ValueError:
+        saved = None
+    saved = saved if isinstance(saved, dict) else {}
+    out = {}
+    for sid in logic.SHOPS:
+        value = saved.get(sid)
+        ok = isinstance(value, int) and not isinstance(value, bool) \
+            and logic.POPULARITY_MIN <= value <= logic.POPULARITY_MAX
+        out[sid] = value if ok else logic.POPULARITY_START
+    return out
 
 
 def _shops(rows, shop_products, saved_products):
@@ -243,6 +261,12 @@ def _write(conn, state):
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, json.dumps(state[key])),
         )
+    # the popularity of every shop (specs/popularity.md); a state without it saves none
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('popularity', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (json.dumps(state.get("popularity")),),
+    )
     # the running demo scenario (specs/demo-scenarios.md); no key in the state means none
     conn.execute(
         "INSERT INTO meta (key, value) VALUES ('scenario', ?) "

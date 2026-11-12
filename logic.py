@@ -195,6 +195,7 @@ def new_state(seed=DEFAULT_SEED):
         "employee_seq": 0,  # the last employee id given out: ids are never used twice
         "history": [],
         "badges": [],  # earned badges, {"id", "day"}, in the order earned (specs/badges.md)
+        "popularity": {sid: POPULARITY_START for sid in SHOPS},  # specs/popularity.md
         "player": world.start_player(),
     }
 
@@ -612,6 +613,7 @@ def trade_day(state):
         "played": False,  # nobody stood in a shop: the day was traded as a whole
     }
     new["history"].append(result)
+    update_popularity(new, result)
     award_badges(new, result)
     new["day"] += 1  # CT R5: exactly one day per trade action
     return new, result
@@ -919,12 +921,13 @@ def editor_set_state(state, patch):
     """Set any part of the run from a patch. Everything is checked first; a refused patch
     changes nothing. Keys not in the patch stay as they are.
 
-    The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges.
+    The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges,
+    popularity ({shop: 0 to 100}; the shops not named keep theirs).
     "employees" replaces all employees: whoever is not in the list is dismissed (see
     _check_employees). Setting an
     earlier day cuts the history and the badges to the days before it. Refused while a day
     is open."""
-    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges"}
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges", "popularity"}
     if not isinstance(patch, dict) or not patch:
         raise RejectedAction("The patch must be a dictionary with at least one field.")
     unknown = sorted(str(k) for k in patch if k not in keys)
@@ -980,6 +983,14 @@ def editor_set_state(state, patch):
         new["player"] = _check_player(patch["player"])
     if "badges" in patch:
         new["badges"] = _check_badges(patch["badges"], new["day"])
+    if "popularity" in patch:
+        if not isinstance(patch["popularity"], dict) or not patch["popularity"]:
+            raise RejectedAction("'popularity' must map shops to numbers.")
+        values = {}
+        for sid, value in patch["popularity"].items():
+            _check_shop(sid)
+            values[sid] = _whole(value, POPULARITY_MIN, POPULARITY_MAX, f"The popularity of {sid}")
+        new["popularity"] = {**{sid: popularity_of(new, sid) for sid in SHOPS}, **values}
     # the storeroom limit is per shop: check it for the stock as a whole
     touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
                if pid in shop_product_ids(sid)}
@@ -1043,10 +1054,113 @@ def _event_factor(state, shop):
                                       "visitors": Fraction(percent * spec["visitors_percent"], 100)}
 
 
+# ---- popularity: the shop's name follows how its customers were treated (specs/popularity.md) ----
+# Every shop has a popularity from 0 to 100 (50 = normal). Each day a shop with customers gets a
+# report card from them: whoever wanted something and was not served counts 0, whoever was served
+# is as happy as the price was fair. Popularity walks toward that score, and moves the customers
+# of the next days. Everything is whole numbers. All constants are placeholders to balance.
+POPULARITY_START = 50
+POPULARITY_MIN = 0
+POPULARITY_MAX = 100
+POPULARITY_EFFECT_PERCENT = 15  # customers at popularity 100 (+) and 0 (-), in percent
+FAIR_PRICE_PERCENT = 100        # up to this price (percent of the reference) the customer is happy
+GREEDY_PRICE_PERCENT = 150      # from this price on the customer calls it a rip-off
+POPULARITY_RISE = 5             # it climbs a fifth of the way to a better score ...
+POPULARITY_FALL = 3             # ... and drops a third of the way to a worse one
+POPULARITY_WORDS = ((25, "Avoided"), (45, "Unpopular"), (60, "Known"), (80, "Popular"), (101, "Beloved"))
+
+
+def popularity_of(state, shop):
+    """A shop's popularity. A state without the entry (an old save, a hand-built state) is normal."""
+    value = (state.get("popularity") or {}).get(shop, POPULARITY_START)
+    return max(POPULARITY_MIN, min(POPULARITY_MAX, value))  # the factor never leaves 85 to 115 %
+
+
+def popularity_word(value):
+    return next((word for below, word in POPULARITY_WORDS if value < below), POPULARITY_WORDS[-1][1])
+
+
+def _popularity_factor(state, shop):
+    """The shop's popularity as a percent of customers for both segments, 85 to 115. At 50 it is
+    100, so the explanation shows no line for it."""
+    value = popularity_of(state, shop)
+    percent = 100 + Fraction(POPULARITY_EFFECT_PERCENT * (value - POPULARITY_START),
+                             POPULARITY_MAX - POPULARITY_START)
+    return f"Popularity: {value}", {"students": percent, "visitors": percent}
+
+
+def fairness(price_cents, ref_price_cents):
+    """How fair a price felt, 0 to 100: the reference price or less is 100, +25 % is 50, +50 % or
+    more is 0. The price in whole percent of the reference price, rounded down."""
+    percent = price_cents * 100 // ref_price_cents
+    span = GREEDY_PRICE_PERCENT - FAIR_PRICE_PERCENT
+    return max(0, min(100, 100 * (GREEDY_PRICE_PERCENT - percent) // span))
+
+
+def _shop_lines(result, shop):
+    """The lines of a day's result that belong to one shop (a product no longer in the
+    catalogue, from an old save, belongs to none)."""
+    return [line for line in result["lines"]
+            if line["product"] in CATALOGUE and shop_of_product(line["product"]) == shop]
+
+
+def _happy(lines):
+    """Sum of sold x fairness over the lines: what the served customers gave."""
+    return sum(line["sold"] * fairness(line["price"], CATALOGUE[line["product"]]["ref_price"])
+               for line in lines)
+
+
+def day_score(lines):
+    """A shop's report card for one day, 0 to 100, or None without customers. Weighted by customers:
+    sum(sold x fairness) / sum(demand), half up. Whoever was not served is in the demand and adds
+    nothing: the empty shelf, the queue that was too long and the customer who gave up count the same."""
+    demand = sum(line["demand"] for line in lines)
+    if demand <= 0:
+        return None
+    return min(100, (_happy(lines) + demand // 2) // demand)
+
+
+def walk(popularity, score):
+    """Popularity after one day with this score: up by a fifth of the gap, down by a third, rounded
+    away from where it is, so it always arrives at the score and never passes it."""
+    gap = score - popularity
+    if gap >= 0:
+        return popularity + -(-gap // POPULARITY_RISE)  # ceil(gap / 5)
+    return popularity + gap // POPULARITY_FALL  # a negative gap rounds down: ceil(-gap / 3) lower
+
+
+def update_popularity(new, result):
+    """Book the day into popularity. Changes `new` in place (the caller holds a copy, like
+    award_badges) for every shop that has customers in the result. The result stays as it is."""
+    for shop in SHOPS:
+        score = day_score(_shop_lines(result, shop))
+        if score is not None:  # no customers, no news
+            if not isinstance(new.get("popularity"), dict):
+                new["popularity"] = {}
+            popularity = new["popularity"]
+            popularity[shop] = max(POPULARITY_MIN, min(POPULARITY_MAX,
+                                                       walk(popularity_of(new, shop), score)))
+
+
+def popularity_report(state, shop):
+    """Why popularity moved: the report card of the last booked day for one shop, or None (no
+    history, or the shop had no customers that day). Worked out again from the history."""
+    if not state["history"]:
+        return None
+    lines = _shop_lines(state["history"][-1], shop)
+    score = day_score(lines)
+    if score is None:
+        return None
+    demand = sum(line["demand"] for line in lines)
+    sold = sum(line["sold"] for line in lines)
+    fair = (_happy(lines) + sold // 2) // sold if sold else None
+    return {"served": (sold * 100 + demand // 2) // demand, "fair": fair, "score": score}
+
+
 # The day's conditions. Each factor is a function (state, shop) -> (label, {segment: percent}).
 # Percents of all factors multiply; a segment a factor does not name stays at 100.
-# Weather is the first; events, trend, popularity and outfit add theirs here.
-FACTORS = (_weather_factor, _event_factor)
+# Weather is the first; events, popularity (and later outfit) add theirs here.
+FACTORS = (_weather_factor, _event_factor, _popularity_factor)
 
 
 def _round_half_up(value):
@@ -1563,6 +1677,7 @@ def _close_shift(new):
     # the player worked the shift: a shop was chosen and staff did not take the place over
     result["played"] = shift["shop"] is not None and not shift.get("staffed", False)
     new["history"].append(result)
+    update_popularity(new, result)
     award_badges(new, result)
     new["day"] += 1
     new["shift"] = None

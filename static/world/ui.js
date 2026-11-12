@@ -417,6 +417,7 @@ function renderPanel() {
             <p class="note">Sells ${s.products.map((id) => esc(product(id)?.name ?? id)).join(", ")} ·
               ${s.staff_places} employee place${s.staff_places === 1 ? "" : "s"} ·
               storeroom ${s.storage}, counter ${s.counter}</p>
+            ${popularityHtml(s.popularity)}
             ${s.hint ? `<p class="note hint">${esc(s.hint)}</p>` : ""}
             ${staffBlock(s)}
             ${s.offers.map((o) => `

@@ -144,6 +144,23 @@ function drawWeatherChip(el, id, text, title, label, prefix = "") {
   el.setAttribute("aria-label", label);
 }
 
+// ---- popularity (specs/popularity.md) ----------------------------------------------------
+// The value, its word and the report card of the last booked day all come from the server
+// (state.shops[].popularity). This only draws and words them.
+
+function popularityHtml(pop) {
+  const y = pop.yesterday;
+  const why = y
+    ? `Last day: ${y.served} % served${y.fair === null ? "" : `, prices ${y.fair} % fair`}`
+    : "No customers on the last booked day.";
+  return `
+    <div class="pop">
+      <div class="pop-top"><strong>${esc(pop.value)}</strong><span>${esc(pop.word)}</span></div>
+      <div class="pop-bar" role="img" aria-label="Popularity ${esc(pop.value)} of 100, ${esc(pop.word)}"><i style="width:${Number(pop.value)}%"></i></div>
+      <p class="pop-why">${esc(why)}</p>
+    </div>`;
+}
+
 // ---- customers and the price curve (pricing) -------------------------------------------
 // Every number comes from the server (state.products[].breakdown, state.price_curves,
 // POST /api/price_preview). Nothing here decides a rule; this only draws and words it.

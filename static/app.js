@@ -163,6 +163,13 @@ function renderStockOverview() {
   }).join("");
 }
 
+// ---- popularity of the open shops (specs/popularity.md) -------------------------------------
+
+function renderPopularity() {
+  $("#pop-grid").innerHTML = state.shops.filter((s) => s.unlocked).map((s) => `
+    <div class="pop-shop"><h3>${esc(s.name)}</h3>${popularityHtml(s.popularity)}</div>`).join("");
+}
+
 // ---- product cards ---------------------------------------------------------
 
 // Where a price sits on the curve: the curve runs from 0 to 250 % of the reference price.
@@ -717,6 +724,7 @@ function render(kept) {
   renderFinalBanner();
   renderKpis();
   renderStockOverview();
+  renderPopularity();
   renderProducts(kept);
   renderOpenPanel();
   renderCharts(!calm.matches && (firstLoad || dayAdded));
