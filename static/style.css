@@ -142,6 +142,9 @@ button, input { font: inherit; color: inherit; }
 .result-card, .history-card, .badges-card, .final-banner { grid-column: 1 / -1; }
 .campus-card { grid-column: span 5; }
 .stock-card { grid-column: span 7; }
+.pop-card { grid-column: 1 / -1; }
+.pop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 20px; }
+.pop-shop h3 { margin: 0; font-size: 14px; }
 
 .card {
   background: var(--surface);
@@ -645,3 +648,12 @@ body.map-main { overflow: hidden; }
 .note.new-badge { font-weight: 600; color: var(--good-text); }
 .final-banner .final-badges { flex-basis: 100%; }
 
+
+/* popularity of a shop (specs/popularity.md) */
+.pop { margin: 6px 0; }
+.pop-top { display: flex; align-items: baseline; gap: 8px; }
+.pop-top strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.pop-top span { font-size: 12.5px; opacity: 0.75; }
+.pop-bar { height: 6px; border-radius: 3px; background: rgba(128, 128, 128, 0.25); overflow: hidden; margin: 4px 0; }
+.pop-bar i { display: block; height: 100%; background: #2f9e75; }
+.pop-why { margin: 0; font-size: 12px; opacity: 0.75; }

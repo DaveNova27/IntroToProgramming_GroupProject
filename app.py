@@ -257,6 +257,14 @@ def load_run():
     return state
 
 
+def popularity_view(state, sid):
+    """A shop's popularity for the screen: the value, its word and why it moved (the report card
+    of the last booked day, or None)."""
+    value = logic.popularity_of(state, sid)
+    return {"value": value, "word": logic.popularity_word(value),
+            "yesterday": logic.popularity_report(state, sid)}
+
+
 def shops_view(state):
     """Each shop with its level and what its window offers, prices from the rules."""
     out = []
@@ -277,6 +285,7 @@ def shops_view(state):
             "storage": shop["storage"],
             "counter": shop["counter"],
             "offers": logic.shop_offers(state, sid),
+            "popularity": popularity_view(state, sid),
         })
     return out
 

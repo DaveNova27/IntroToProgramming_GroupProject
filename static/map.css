@@ -491,3 +491,12 @@ body.preview .loading { font-size: 13px; }
 .demo-card.folded .demo-actions { margin-top: 6px; }
 .demo-pick { display: grid; gap: 4px; margin-top: 12px; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
 .demo-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); font: inherit; }
+
+/* popularity of a shop (specs/popularity.md) */
+.pop { margin: 6px 0; }
+.pop-top { display: flex; align-items: baseline; gap: 8px; }
+.pop-top strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.pop-top span { font-size: 12.5px; opacity: 0.75; }
+.pop-bar { height: 6px; border-radius: 3px; background: rgba(128, 128, 128, 0.25); overflow: hidden; margin: 4px 0; }
+.pop-bar i { display: block; height: 100%; background: #2f9e75; }
+.pop-why { margin: 0; font-size: 12px; opacity: 0.75; }
