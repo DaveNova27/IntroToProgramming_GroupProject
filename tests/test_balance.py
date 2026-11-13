@@ -209,13 +209,13 @@ def test_the_warning_changes_nothing_and_reaches_the_screen():
 # ---- the trap (B3): a hint for a shop the player cannot play -------------------------------------------
 
 
-def test_a_shop_the_player_cannot_play_says_so_until_it_has_an_employee():
+def test_a_shop_without_an_employee_says_the_player_can_take_the_shift_until_it_has_one():
     state = logic.new_state(1)
     state["cash"] = 100_000
     assert logic.shop_hint(state, "cafe") is None  # the player plays the Cafe
-    assert "only through employees" in logic.shop_hint(state, "beach_cafe")
+    assert logic.shop_hint(state, "beach_cafe") is None  # locked: nothing to say yet
     state = logic.unlock_shop(state, "beach_cafe")
-    assert logic.shop_hint(state, "beach_cafe") is not None
+    assert "take a shift here yourself" in logic.shop_hint(state, "beach_cafe")
     state = logic.buy_upgrade(state, "beach_cafe", "staff_1")
     assert logic.shop_hint(state, "beach_cafe") is None
 
@@ -235,16 +235,15 @@ def test_units_on_the_counter_count_against_the_storeroom():
     assert after["stock"]["coffee"] == 100  # the counter goes back: 100 in all, the limit holds
 
 
-def test_stock_nobody_can_sell_does_not_save_the_player_from_the_dead_end():
+def test_stock_in_a_shop_without_an_employee_is_no_dead_end_because_the_player_can_sell_it():
     state = logic.new_state(1)
     state["cash"] = 100_000
     state = logic.unlock_shop(state, "beach_cafe")
-    state = logic.buy(state, "beer", 50)  # the Beach Cafe has no employee: the beer cannot be sold
+    state = logic.buy(state, "beer", 50)  # the Beach Cafe has no employee, the player takes the shift
     state["cash"], state["stock"]["coffee"] = 0, 0
-    assert logic.dead_end(state)
-    state = logic.buy_upgrade({**state, "cash": 10_000}, "beach_cafe", "staff_1")
-    state["cash"] = 0
-    assert not logic.dead_end(state)  # now an employee sells the beer
+    assert not logic.dead_end(state)
+    state["stock"]["beer"] = 0
+    assert logic.dead_end(state)  # nothing left to sell and no cash for more
 
 
 def test_the_hint_tells_a_stopped_employee_from_a_missing_place():
@@ -253,7 +252,8 @@ def test_the_hint_tells_a_stopped_employee_from_a_missing_place():
     state = logic.buy_upgrade(logic.unlock_shop(state, "beach_cafe"), "beach_cafe", "staff_1")
     state["employees"][0]["working"] = False  # no money for the wage
     assert "Nobody works" in logic.shop_hint(state, "beach_cafe")
-    assert "Buy an employee place" in logic.shop_hint(logic.new_state(1), "beach_cafe")
+    unlocked = logic.unlock_shop({**logic.new_state(1), "cash": 100_000}, "beach_cafe")
+    assert "buy an employee place" in logic.shop_hint(unlocked, "beach_cafe")
 
 
 def test_a_save_with_an_old_absurd_price_starts_at_the_reference_price(tmp_path):

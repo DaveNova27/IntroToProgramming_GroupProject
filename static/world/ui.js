@@ -698,6 +698,18 @@ function renderGuests() {
   }
 }
 
+// The shops the player can take a shift in now, from the server's answer (shift-any-shop): a button
+// for each, and a short reason for the shops that cannot be started.
+function startChoices(sh) {
+  // a shop the player works in or worked in today is not offered again
+  const options = (sh.choices ?? []).filter((o) => !o.done);
+  const buttons = options.map((o) => `
+      <button class="btn wide" type="button" data-shift-start="${esc(o.shop)}" ${o.can ? "" : "disabled"}
+        title="${esc(o.why ?? "")}">Start shift in the ${esc(o.name)}</button>`).join("");
+  const why = [...new Set(options.filter((o) => !o.can && o.why).map((o) => o.why))];
+  return buttons + why.map((text) => `<p class="note">${esc(text)}</p>`).join("");
+}
+
 function renderShiftPanel(body) {
   $("#panel-title").textContent = "Shift";
   const sh = state.shift;
@@ -717,8 +729,10 @@ function renderShiftPanel(body) {
   $("#shift-clock").max = working ? sh.shift_ticks : sh.day_ticks;
   $("#shift-clock").value = working ? sh.tick - (sh.shift_end - sh.shift_ticks) : sh.tick;
   if (sh.over) {
+    const more = (sh.choices ?? []).some((o) => o.can);
     const html = `<p class="note">Your shift is over: ${Object.values(sh.sold).reduce((a, b) => a + b, 0)} sold,
-      ${sh.lost} customers left. The day is still running. Skip to its end.</p>`;
+      ${sh.lost} customers left. The day is still running. ${more ? "Take another shop's shift, or skip to the end of the day." : "Skip to its end."}</p>
+      <p class="error" id="shift-error"></p>${more ? startChoices(sh) : ""}`;
     if (html !== shiftHtml) {
       $("#shift-body").innerHTML = html;
       shiftHtml = html;
@@ -726,13 +740,11 @@ function renderShiftPanel(body) {
     return;
   }
   if (!sh.shop) {
-    const cafe = state.shops.find((s) => state.shift_shops.includes(s.id) && s.unlocked);
     const html = `
       <p class="note">Day ${state.day} is running, nobody is serving. The shift lasts ${sh.shift_ticks}
-        seconds and starts when you press the button. Whoever does not work earns nothing.</p>
-      <p class="error" id="shift-error"></p>
-      <button class="btn wide" type="button" data-shift-start="${esc(cafe ? cafe.id : "")}"
-        ${cafe ? "" : "disabled"}>Start shift in the ${esc(cafe ? cafe.name : "shop")}</button>`;
+        seconds and starts when you press a button. Pick a shop; a shop where nobody works earns
+        nothing unless you take the shift. Whoever does not work earns nothing.</p>
+      <p class="error" id="shift-error"></p>${startChoices(sh)}`;
     if (html !== shiftHtml) {
       $("#shift-body").innerHTML = html;
       shiftHtml = html;
@@ -757,7 +769,8 @@ function renderShiftPanel(body) {
   }).join("");
   const html = `
     <p class="note">Counter ${sh.counter_size - sh.counter_space} / ${sh.counter_size} · customers who left: ${sh.lost}</p>
-    <p class="error" id="shift-error"></p>${rows}`;
+    <p class="error" id="shift-error"></p>${rows}${sh.staffed && (sh.choices ?? []).some((o) => o.can)
+      ? `<p class="note">Employees run this shop. You can take a shift in another shop:</p>${startChoices(sh)}` : ""}`;
   if (html !== shiftHtml) {
     $("#shift-body").innerHTML = html;
     shiftHtml = html;
@@ -1007,6 +1020,9 @@ function endDayWarning() {
   if (sh.shop && !sh.over && !sh.staffed) { // a staffed shift runs on without the player
     const name = state.shops.find((shop) => shop.id === sh.shop)?.name ?? "shop";
     return `Your shift in the ${name} is still running. If you end the day now, the customers still to come are lost.`;
+  }
+  if (sh.shop && sh.over && !sh.staffed && (sh.choices ?? []).some((o) => o.can)) { // shift-any-shop
+    return "Your shift is over, but you could still take a shift in another shop today. If you end the day now, nothing more is sold by you.";
   }
   return "";
 }

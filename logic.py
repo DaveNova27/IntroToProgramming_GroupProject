@@ -96,7 +96,10 @@ EVENTS = {
 EVENT_START_PERCENT = 30  # the chance that an event starts on a day, in whole percent
 FIRST_EVENT_DAY = 3       # the first days are quiet: the player learns the shops first
 MAX_EVENT_DAYS = max(event["days"] for event in EVENTS.values())
-SHIFT_SHOPS = ("cafe",)  # shops where a day can be played live (shop-process: one first)
+# The player's home shop(s): a staffed shift there takes the player's slot at once, and the day's
+# guests are planned for it. The player can take a shift in ANY unlocked shop (start_shift,
+# specs/shift-any-shop.md); a shop outside this list plans its guests alone when the shift starts.
+SHIFT_SHOPS = ("cafe",)
 DAY_TICKS = 90  # a played day is 90 ticks, the server counts them (about 90 seconds)
 SHIFT_TICKS = 90       # how long one shift lasts, counted from its start
 OPEN_DAY_TICKS = 300   # how long an opened day lasts (placeholder; the shift is a part of it)
@@ -155,8 +158,8 @@ SHOPS = {
 }
 
 
-# Shops where employees can work: all of them. SHIFT_SHOPS is where the PLAYER can play a
-# shift (the live walk comes with shop-walk); the staff of the other shops work on their own.
+# Shops where employees can work: all of them. The player can play a shift in every unlocked shop
+# (shift-any-shop; the live walk comes with shop-walk); a shop without staff earns only then.
 STAFF_SHOPS = tuple(SHOPS)
 
 
@@ -357,9 +360,9 @@ def offer_name(shop, item):
 
 
 def _runs(state, shop):
-    """Does anybody sell in this shop: the player (a shop of SHIFT_SHOPS) or a working employee."""
-    return state["shops"][shop]["unlocked"] and (
-        shop in SHIFT_SHOPS or any(e["shop"] == shop and e["working"] for e in state["employees"]))
+    """Can anybody sell in this shop: the player can take the shift in every unlocked shop (shift-any-shop),
+    so stock there is stock somebody can sell."""
+    return state["shops"][shop]["unlocked"]
 
 
 def dead_end(state):
@@ -397,20 +400,19 @@ def purchase_warning(state, shop, item=None):
 
 
 def shop_hint(state, shop):
-    """What the player should know about a shop that sells nothing on its own: the player can play
-    a shift only in SHIFT_SHOPS, so every other shop sells only through its employees. None when
-    the shop is fine (or is played by the player)."""
+    """What the player should know about an unlocked shop that sells nothing on its own: nobody
+    works there unless the player takes the shift or an employee works. None when the shop is
+    fine (an employee works there) or locked."""
     _check_shop(shop)
-    if shop in SHIFT_SHOPS:
-        return None
     entry = state["shops"][shop]
-    if entry["unlocked"] and any(e["shop"] == shop and e["working"] for e in state["employees"]):
+    if (not entry["unlocked"] or shop in SHIFT_SHOPS  # the home shop is the one the player plays anyway
+            or any(e["shop"] == shop and e["working"] for e in state["employees"])):
         return None
-    if entry["unlocked"] and entry["staff_places"] > 0:
+    if entry["staff_places"] > 0:
         return ("Nobody works in this shop: the place is free, or the employee stopped for lack of "
-                "money for the wage. It earns nothing until somebody works.")
-    return ("This shop sells only through employees: you cannot play a shift here yet. "
-            "Buy an employee place first, or it earns nothing.")
+                "money for the wage. It earns nothing unless you take a shift here yourself.")
+    return ("This shop has no employee. It earns nothing unless you take a shift here yourself "
+            "(Shift panel), or buy an employee place.")
 
 
 def shop_offers(state, shop):
@@ -1315,6 +1317,12 @@ def _check_open_shift(state):
     return shift
 
 
+def _player_worked(shift):
+    """The player took a shift today: the one in the slot or one that moved aside (not a crew's)."""
+    return any(part["shop"] is not None and not part.get("staffed", False)
+               for part in [shift, *shift.get("extra", {}).values()])
+
+
 def _shift_running(shift):
     """True while somebody works: the shift has started and is not over yet."""
     return shift["shop"] is not None and not shift.get("over")
@@ -1347,11 +1355,8 @@ def _open_staffed_shift(new):
                 or not any(e["shop"] == shop and e["working"] for e in new["employees"])):
             continue
         if shift["shop"] is None and shop in SHIFT_SHOPS:  # the player's own shift is free
-            extra = shift.get("extra")
-            new = start_shift(new, shop)
+            new = start_shift(new, shop)  # keeps the staffed shops beside it
             new["shift"]["staffed"] = True
-            if extra:
-                new["shift"]["extra"] = extra
             shift = new["shift"]
         else:
             sub = _new_shift(new, shop, shift["tick"], shift["day_end"])
@@ -1379,31 +1384,83 @@ def open_day(state):
     return _open_staffed_shift(new)
 
 
-def start_shift(state, shop):
-    """Start the shift in a shop. Builds the queue of customers, no randomness.
-
-    Works on the open day (the shift clock and the customers start now, and the whole shift
-    must fit into the rest of the day) or, without an open day, opens both together."""
+def _check_start(state, shop):
+    """Can the player take a shift in this shop now? "new" (a fresh shift), "join" (the shop already
+    has a running staffed shift: the player takes it over as their own) or a refusal. Changes
+    nothing. The player works one shift at a time, one shift per shop and day."""
     if is_finished(state):
         raise RejectedAction("The run is complete. The shop is closed.")
     _check_shop(shop)
-    if shop not in SHIFT_SHOPS:
-        raise RejectedAction(f"A day cannot be played in the {SHOPS[shop]['name']} yet.")
+    name = SHOPS[shop]["name"]
     if not state["shops"][shop]["unlocked"]:
-        raise RejectedAction(f"The {SHOPS[shop]['name']} is not unlocked.")
+        raise RejectedAction(f"The {name} is not unlocked.")
     open_shift = state.get("shift")
-    if open_shift is not None and open_shift["shop"] is not None:
+    if open_shift is None:
+        return "new"
+    if open_shift["shop"] == shop:  # the shift in the slot is this shop's
+        raise RejectedAction(f"You already worked in the {name} today." if open_shift.get("over")
+                             else f"You are working in the {name} already.")
+    sub = open_shift.get("extra", {}).get(shop)
+    if sub is not None and (sub.get("over") or not sub.get("staffed")):  # finished, or the player's own
+        raise RejectedAction(f"You already worked in the {name} today.")
+    if open_shift["shop"] is not None and not open_shift.get("over") and not open_shift.get("staffed"):
         raise RejectedAction("A shift is already running.")
-    start = open_shift["tick"] if open_shift else 0  # the shift clock starts now
-    if open_shift and open_shift["day_end"] - start < SHIFT_TICKS:
+    if sub is not None:  # a running staffed shift of this shop
+        return "join"
+    if open_shift["day_end"] - open_shift["tick"] < SHIFT_TICKS:
         raise RejectedAction("Too late for a shift: the day ends before it could be played.")
+    return "new"
+
+
+def shift_options(state):
+    """For the screen: every unlocked shop with whether the player can take a shift there now and, if
+    not, why. `done` is true for a shop the player works in or worked in today: the screen does not
+    offer it again. The rules answer, so no screen has to guess (or read the text of the reason)."""
+    shift = state.get("shift") or {}
+    today = {shift.get("shop"), *(sid for sid, sub in shift.get("extra", {}).items()
+                                  if sub.get("over") or not sub.get("staffed"))} - {None}
+    options = []
+    for shop in SHOPS:
+        if not state["shops"][shop]["unlocked"]:
+            continue
+        try:
+            _check_start(state, shop)
+            options.append({"shop": shop, "can": True, "done": False, "why": None})
+        except RejectedAction as err:
+            options.append({"shop": shop, "can": False, "done": shop in today, "why": str(err)})
+    return options
+
+
+def start_shift(state, shop):
+    """Start the player's shift in a shop. Builds the queue of customers, no randomness.
+
+    Works on the open day (the shift clock and the customers start now, and the whole shift
+    must fit into the rest of the day) or, without an open day, opens both together.
+
+    The player works in any unlocked shop (specs/shift-any-shop.md), one shift at a time and one per
+    shop and day. A shift of the player's that is over, or a staffed shift that holds the slot, moves
+    aside and goes on beside it (the staffed one keeps running); a staffed shift of the chosen shop is
+    taken over (the crew stays)."""
+    mode = _check_start(state, shop)
+    open_shift = state.get("shift")
     new = copy.deepcopy(state)
-    new["shift"] = _new_shift(state, shop, start, open_shift["day_end"] if open_shift else DAY_TICKS)
-    if open_shift and open_shift.get("extra"):  # the staffed shops of this day keep running
-        new["shift"]["extra"] = copy.deepcopy(open_shift["extra"])
-    if open_shift and open_shift.get("guest_plan") is not None:  # the day's plan stays the day's
-        new["shift"]["guest_shops"] = list(open_shift["guest_shops"])
-        new["shift"]["guest_plan"] = copy.deepcopy(open_shift["guest_plan"])
+    if open_shift is None:
+        new["shift"] = _new_shift(state, shop, 0, DAY_TICKS)
+        return new
+    old = new["shift"]
+    extra = old.get("extra", {})
+    if old["shop"] is not None:  # the shift that held the slot goes on beside the new one
+        extra[old["shop"]] = {k: v for k, v in old.items() if k not in ("extra", "guest_shops", "guest_plan")}
+    if mode == "join":
+        shift = extra.pop(shop)
+    else:
+        shift = _new_shift(state, shop, old["tick"], old["day_end"])
+    if extra:
+        shift["extra"] = extra
+    if old.get("guest_plan") is not None:  # the day's plan stays the day's
+        shift["guest_shops"] = list(old["guest_shops"])
+        shift["guest_plan"] = old["guest_plan"]
+    new["shift"] = shift
     return new
 
 
@@ -1674,8 +1731,8 @@ def _close_shift(new):
         "cash_after": new["cash"],
     }
     result["shops"] = sorted(ran)  # always: the shops that ran (shop is only the player's)
-    # the player worked the shift: a shop was chosen and staff did not take the place over
-    result["played"] = shift["shop"] is not None and not shift.get("staffed", False)
+    # the player worked a shift: a shop was chosen and staff did not take the place over
+    result["played"] = _player_worked(shift)
     new["history"].append(result)
     update_popularity(new, result)
     award_badges(new, result)
@@ -1801,8 +1858,7 @@ def _sold_so_far(state):
 def _played_so_far(state):
     """The player has worked a shift: on a booked day, or the shift running now."""
     shift = state.get("shift")
-    playing = bool(shift and shift.get("shop") is not None and not shift.get("staffed", False))
-    return playing or any(r.get("played", False) for r in state["history"])
+    return bool(shift and _player_worked(shift)) or any(r.get("played", False) for r in state["history"])
 
 
 def _stormy(state, result):
