@@ -23,6 +23,7 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
      size only.
    - `flashAt(look, t, day)`: how bright the lightning is at a time, 0 most of the time.
    - `mixLooks(a, b, k)`: the look between two looks (for the fade in point 6).
+   - `shelters(parts, roofs)`: the dry places of point 4, from the Nova's parts and the roofs' opacity.
 3. **What each weather looks like.** The numbers are tuned by eye in the build; the table in
    `weather.js` is the truth.
 
@@ -37,10 +38,14 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
 4. **Where it is drawn.** `environmentalProfile` takes wind, sea and cloud from the look, so every
    caller that already uses it (trees, flags, waves, clouds) follows without a change of its own.
    `drawWorld` (`render.js`) mixes the look's sky colours into the sky gradient, and draws the shade
-   or tint, the haze, the rain and the flash after the actors, over the whole canvas. The rain also
-   falls where a roof of the Nova has faded out (decided in the roadmap: "over the whole scene, also
-   over the roofless Nova"). The night shade and the lamps (`drawNightGrade`, `drawNightLights`) keep
-   working on top. The small live window on the dashboard (`scene.preview`) uses the same `drawWorld`
+   or tint, the haze, the rain and the flash after the actors, over the whole canvas.
+   **It does not rain indoors.** A wing of the Nova (the Dorm counts as one) whose roof has faded out
+   shows its rooms, and the rooms stay dry: no rain and no haze is drawn over the inside of that wing
+   (its floor and the inner face of its back wall). While the roof fades, the rain over the wing fades
+   with it; over a closed roof it rains as everywhere. The shade over the scene and the flash stay on
+   the whole picture, because the light of a rainy day is also grey indoors. This changes the roadmap's
+   line "also over the roofless Nova" (decided by David, see "Decide" 5). The night shade and the lamps
+   (`drawNightGrade`, `drawNightLights`) keep working on top. The small live window on the dashboard (`scene.preview`) uses the same `drawWorld`
    and so shows the same weather.
 5. **Nothing random, nothing from outside.** Every streak, cloud and flash is a function of the look,
    the time, the day and the canvas size. No `Math.random`, no image file, no font, no new library.
@@ -76,6 +81,8 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
    - the same inputs give the same streaks and the same flash twice in a row;
    - `rain` and `storm` give streaks, never more than 240, all inside the canvas plus a margin;
      `sun`, `heat` and the neutral look give none;
+   - `shelters`: a wing with a closed roof gives no dry place, a wing with the roof gone gives its
+     parts fully dry, a roof half faded gives them half dry, an unknown wing id in the roofs is ignored;
    - `flashAt` sampled every 50 ms over 10 minutes for several days: never above 0.25, never two
      flashes within 6 seconds, 0 for every look but `storm`.
 
@@ -92,6 +99,8 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
    `/api/editor/weather`), screenshots shown in the session and described in the pull request:
    - the four kinds of weather at three places (the plaza, the beach, inside the Nova with the roof
      gone), by day; `rain` and `storm` also in the evening with the lamps on;
+   - in `rain` and `storm` no streak is drawn over the rooms of a wing whose roof is gone (also in
+     the Dorm), and it rains on the plaza right next to it and on the closed roofs of the other wings;
    - with the day not open and with `sun`, the picture is the same as on `main` (same pixels at the
      three places, time and motion held still);
    - before the day is opened the picture is the same for a run whose real weather is `storm` and
@@ -108,7 +117,7 @@ state the server sent and the time only.
 
 ## Decide
 
-Defaults chosen while writing the spec. The owner (David) confirms or changes them before the build.
+Defaults chosen while writing the spec, and what the owner (David) said to them before the build.
 
 1. **Before the day opens the world shows the neutral look**, not the forecast. The forecast stays
    in the display. Reason: the world then cannot leak the real weather by mistake, and a wrong
@@ -118,5 +127,9 @@ Defaults chosen while writing the spec. The owner (David) confirms or changes th
 3. **After the day ends the look goes back to neutral** (`state.weather` is `null` again), so the
    walk home in the evening is dry also after a storm. The other way needs a new field in the API.
 4. **Lightning is soft and rare**, and off with `reducedMotion` (point 6 above).
+5. **No rain indoors.** The first draft let the rain fall into a wing whose roof had faded out, as
+   the roadmap says. David refused that in the session: the rooms of the Nova and the Dorm stay dry.
+
+Points 1 to 4 were confirmed by David in the session, point 5 is his change.
 
 No old test is expected to change. If one does, the build stops and says so (`AGENTS.md`).
