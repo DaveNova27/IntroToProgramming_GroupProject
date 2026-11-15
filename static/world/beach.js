@@ -702,9 +702,9 @@ function drawBeachCafe(shop, t, amount) {
   drawBlock(cooler.x, cooler.y, cooler.width, cooler.height, 16, "#e9f4f2", dark("#64cbc8", 0.3), "#64cbc8");
   drawRaisedSlab(cooler.x - 0.02, cooler.y - 0.02, cooler.width + 0.04, cooler.height + 0.04, 19, 3, "#ffffff", "#b9c8c6", "#d4e0de");
   // stools in front of the bar
-  for (const x of [26.4, 27.2, 29.2, 30.0]) {
-    const p = isoPoint(x, 27.2, 16);
-    line(isoPoint(x, 27.2, 5), p, "#31545b", 2);
+  for (const stool of world.colliders.campus.filter((c) => c.id.startsWith("bar-stool-"))) {
+    const p = isoPoint(stool.x, stool.y, 16);
+    line(isoPoint(stool.x, stool.y, 5), p, "#31545b", 2);
     oval(p, 5, 2.5, CORAL);
   }
   drawSoftShadow(bar.x + 2.6, bar.y + 1.2, 110, 26, 0.1);
@@ -1366,7 +1366,7 @@ function grassClumps() {
   let i = 0;
   for (let x = g.from; x <= g.to; x += 0.62) {
     i += 1;
-    if (g.gaps.some(([a, b]) => x > a && x < b)) continue;
+    if (!world.beach.kerb.segments.some(([a, b]) => x >= a + 0.3 && x <= b - 0.3)) continue;
     out.push({ x: x + ((i * 7) % 3) * 0.08, y: g.y + 0.25 * Math.sin(x * 0.8) + ((i * 5) % 3) * 0.09, index: i });
   }
   return out;
@@ -1862,9 +1862,10 @@ export function beachActors(t) {
   for (const c of solid) {
     if (c.id.startsWith("way-lamp")) add(depthOf(c.x, c.y) + 0.05, () => drawLamp(c.x, c.y, amount));
   }
-  add(depthOf(14.4, 17.7), () => drawArch(amount));
-  add(depthOf(11.9, 31.0), () => drawCampusBench(11.9, 30.5, 1));
-  add(depthOf(16.5, 31.0), () => drawCampusBench(16.5, 30.5, 1));
+  add(depthOf(world.beachWay.x, solid.find((c) => c.id === "way-arch-west").y + 0.2), () => drawArch(amount));
+  for (const bench of solid.filter((c) => c.id.startsWith("way-bench-"))) {
+    add(depthOf(bench.x, bench.y + bench.height), () => drawCampusBench(bench.x, bench.y, 1));
+  }
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {

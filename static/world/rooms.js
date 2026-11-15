@@ -945,7 +945,7 @@ function employeeState(employee, t, index) {
   const pause = k < 0.05 || k > 0.95;
   return {
     x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k), pose: "walk", role: "technician",
-    moving: !pause, carrying: out && !pause, facing: { x: out ? -1 : 1, y: 0 }, spots,
+    moving: !pause, carrying: out && !pause, facing: out ? { x: to.x - from.x, y: to.y - from.y } : { x: from.x - to.x, y: from.y - to.y }, spots,
   };
 }
 
@@ -1102,7 +1102,7 @@ export function roomActors(t) {
           actors.push({ depth: onTop(px, item), draw: () => drawCup(px, item.y + item.h * 0.45, 34) });
         }
         // the bar stools in front of it
-        for (const px of [item.x + 0.7, item.x + 1.9, item.x + 3.9, item.x + 5.1]) {
+        for (const px of [item.x + 0.7, item.x + 1.9, item.x + 3.9, item.x + item.w - 0.45]) {
           actors.push({ depth: depthOf(px, item.y + item.h + 0.5), draw: () => drawStool(px, item.y + item.h + 0.45, 22, CORAL) });
         }
       }
