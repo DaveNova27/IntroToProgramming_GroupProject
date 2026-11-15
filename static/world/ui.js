@@ -221,6 +221,8 @@ export function updateClock() {
 
 function renderHud() {
   scene.day = Math.min(state.day, state.last_day);
+  // the world draws the weather of the opened day only (spec weather-visuals): the server sends none before
+  scene.weather = state.weather?.id ?? null;
   $("#stat-day").textContent = state.finished ? "Done" : `${state.day} / ${state.last_day}`;
   // before the day is opened only the forecast is shown; once open, the real weather and
   // the forecast for tomorrow (none once the last day is open)

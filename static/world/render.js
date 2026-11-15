@@ -7,6 +7,9 @@ import {
   drawAmbientLighting,
   drawCoastalMotion,
   drawSkyMotion,
+  drawWeatherFall,
+  drawWeatherFlash,
+  drawWeatherShade,
   environmentalProfile,
   lightingProfile,
 } from "./environment.js";
@@ -16,6 +19,7 @@ import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer, playerDepth } from "./player.js";
 import { DEPTH, camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
+import { pullColor } from "./weather.js";
 
 // Objects far above or below the view are not drawn (see cull.js for how far is far).
 // `options.cull = false` draws everything: the check that nothing visible is lost.
@@ -30,8 +34,10 @@ export function drawWorld(t) {
 
   // one open sky over the whole campus: it also shows from inside the Nova, whose roof fades out
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, light.top);
-  sky.addColorStop(1, light.bottom);
+  // the weather of the opened day pulls the sky towards its own colours (spec weather-visuals)
+  const look = scene.look;
+  sky.addColorStop(0, pullColor(light.top, look.skyTop, look.sky));
+  sky.addColorStop(1, pullColor(light.bottom, look.skyBottom, look.sky));
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   drawSkyMotion(t, environment, w, h);
@@ -64,6 +70,9 @@ export function drawWorld(t) {
   for (const actor of actors) if (!options.cull || actorVisible(actor, top, bottom, DEPTH)) actor.draw();
   ctx.restore();
 
+  // the weather lies over the scene, under the evening: its shade, then haze and rain (not indoors)
+  drawWeatherShade(w, h);
+  drawWeatherFall(t, w, h);
   drawAmbientLighting(light, w, h);
   drawNightGrade(w, h);
   // the lights go on top of the shade, in the same camera as the scene
@@ -72,4 +81,5 @@ export function drawWorld(t) {
   ctx.scale(camera.zoom, camera.zoom);
   drawNightLights();
   ctx.restore();
+  drawWeatherFlash(t, w, h);
 }

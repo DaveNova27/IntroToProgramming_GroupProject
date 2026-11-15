@@ -115,6 +115,26 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
 Rules: nothing here touches money, state, the seed or the API. The drawing stays a function of the
 state the server sent and the time only.
 
+## Checked in the browser (2026-11-15)
+
+With Playwright on the running app (`CT_EDITOR=1`), the frame clock held by the script, a 1280 x 800 canvas.
+
+- The four kinds of weather at the plaza, the beach and inside the Nova, `rain` and `storm` also in the
+  evening: looked at, as the table in "What" says.
+- With the day not open and with `sun` the canvas has the same pixels as on `main`, at the three places.
+- Before the day is opened a run whose real weather is `storm` (seed 7) and one whose real weather is
+  `sun` (seed 3) give the same pixels, at the three places.
+- In `rain` and `storm`, inside the Nova and inside the Dorm, no streak lies over the rooms; it rains
+  on the plaza next to them and on the closed roofs.
+- The demo scenarios show their fixed weather: `serve-the-cafe` and `other-day-other-choice` rain,
+  `guests-decide` heat; `grow` starts with the day not open and so with the neutral look.
+- After *Open day* on a rainy day the look fades in over 2 seconds.
+- With reduced motion the sky of a storm is one unchanged picture over 60 seconds (1200 frames). Without
+  it the lightning shows as the only jumps in brightness.
+- JavaScript time of a frame in `storm` against the same frame on `main` (median of 400 frames, three
+  rounds, software rendering): the plaza 10.5 against 10.1 ms, the beach 9.6 against 9.3 ms, inside
+  the Nova 11.1 against 10.3 ms. At most 0.8 ms more.
+
 ## Decide
 
 Defaults chosen while writing the spec, and what the owner (David) said to them before the build.
