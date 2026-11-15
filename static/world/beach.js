@@ -637,16 +637,17 @@ function drawParasol(x, y, color) {
   ctx.restore();
 }
 
+function drawCafeStool(stool, height, color) {
+  const top = isoPoint(stool.x, stool.y, height);
+  line(isoPoint(stool.x, stool.y, 5), top, "#31545b", 2);
+  oval(top, 5, 2.5, color);
+}
+
 function drawBeachTable(x, y, index) {
   const top = isoPoint(x, y, 24);
   line(isoPoint(x, y, 5), top, "#e6dfd0", 2.6);
   oval({ x: top.x, y: top.y }, 11, 5.5, "#f4efe6");
   oval({ x: top.x, y: top.y - 0.6 }, 9.6, 4.6, index % 2 ? "#ffe3d8" : "#d9f1ee");
-  for (const [dx, dy] of [[-0.62, 0.35], [0.62, 0.35]]) {
-    const c = isoPoint(x + dx, y + dy, 12);
-    line(isoPoint(x + dx, y + dy, 5), c, "#31545b", 2);
-    oval(c, 5.2, 2.6, index % 2 ? AQUA : CORAL);
-  }
   oval(isoPoint(x + 0.12, y + 0.08, 25.4), 2, 1, "#ffffff"); // a glass
   dot(isoPoint(x - 0.18, y, 26), 1.4, SUN);
 }
@@ -703,10 +704,8 @@ function drawBeachCafe(fit) {
     }
   }
   // stools in front of the bar
-  for (const x of [26.4, 27.2, 29.2, 30.0]) {
-    const p = isoPoint(x, 27.2, 16);
-    line(isoPoint(x, 27.2, 5), p, "#31545b", 2);
-    oval(p, 5, 2.5, CORAL);
+  for (const stool of world.colliders.campus.filter((c) => c.id.startsWith("bar-stool-"))) {
+    drawCafeStool(stool, 16, CORAL);
   }
   drawSoftShadow(bar.x + 2.6, bar.y + 1.2, 110, 26, 0.1);
 }
@@ -1367,7 +1366,7 @@ function grassClumps() {
   let i = 0;
   for (let x = g.from; x <= g.to; x += 0.62) {
     i += 1;
-    if (g.gaps.some(([a, b]) => x > a && x < b)) continue;
+    if (!world.beach.kerb.segments.some(([a, b]) => x >= a + 0.3 && x <= b - 0.3)) continue;
     out.push({ x: x + ((i * 7) % 3) * 0.08, y: g.y + 0.25 * Math.sin(x * 0.8) + ((i * 5) % 3) * 0.09, index: i });
   }
   return out;
@@ -1863,9 +1862,10 @@ export function beachActors(t) {
   for (const c of solid) {
     if (c.id.startsWith("way-lamp")) add(depthOf(c.x, c.y) + 0.05, () => drawLamp(c.x, c.y, amount));
   }
-  add(depthOf(14.4, 17.7), () => drawArch(amount));
-  add(depthOf(11.9, 31.0), () => drawCampusBench(11.9, 30.5, 1));
-  add(depthOf(16.5, 31.0), () => drawCampusBench(16.5, 30.5, 1));
+  add(depthOf(world.beachWay.x, solid.find((c) => c.id === "way-arch-west").y + 0.2), () => drawArch(amount));
+  for (const bench of solid.filter((c) => c.id.startsWith("way-bench-"))) {
+    add(depthOf(bench.x, bench.y + bench.height), () => drawCampusBench(bench.x, bench.y, 1));
+  }
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
@@ -1888,7 +1888,10 @@ export function beachActors(t) {
         add(depthOf(c.x, c.y) + 0.1, () => drawBeachTable(c.x, c.y, i));
         add(depthOf(c.x, c.y) + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
       });
-      if (fit?.unlocked) glowAt(add, 28.2, 27.4, amount);
+      solid.filter((c) => c.id.startsWith("beach-seat-")).forEach((seat, i) => {
+        add(depthOf(seat.x, seat.y), () => drawCafeStool(seat, 12, i % 2 ? AQUA : CORAL));
+      });
+      if (fit?.unlocked) glowAt(add, shop.front.x, shop.front.y, amount);
     }
   }
   world.beach.loungers.forEach((l, i) => add(depthOf(l.x, l.y) + 1.5, () => drawLounger(l, i)));

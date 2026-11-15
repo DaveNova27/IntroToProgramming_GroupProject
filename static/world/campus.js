@@ -200,8 +200,9 @@ export function drawArrivalPlaza() {
 
 export function drawAcademicCourtyard(t) {
   drawPavingInlay(12.65, 9.25, 15.15, 5.15, "#f0ece3", 1.35);
-  drawGroundSlab(14.7, 10.45, 6.8, 1.15, "#72bdc4", 4);
-  const water = isoPoint(18.1, 11, 6);
+  const pool = world.colliders.campus.find((c) => c.id === "courtyard-pool");
+  drawGroundSlab(pool.x, pool.y, pool.width, pool.height, "#72bdc4", 4);
+  const water = isoPoint(pool.x + pool.width / 2, pool.y + pool.height / 2, 6);
   ctx.save();
   ctx.globalAlpha = 0.42;
   ctx.strokeStyle = "#f4ffff";
@@ -228,7 +229,6 @@ export function drawAcademicCourtyard(t) {
     ctx.stroke();
   }
   ctx.restore();
-  for (let i = 0; i < 4; i++) drawLinearPlanter(12.95 + i * 4.65, 12.94, 1.45, 0.68, 14);
   drawCampusBench(13.35, 11.8);
   drawCampusBench(24.8, 11.75);
   drawSpaceCaption(22.3, 10.95, "Academic Courtyard", "#31545b");
@@ -242,13 +242,11 @@ export function drawAcademicCourtyard(t) {
 
 export function drawCafeTerrace() {
   drawGroundSlab(13.55, 14.05, 8.2, 2.35, "#d8cfbc", 5);
-  drawPergola(14.05, 14.35, 2.25, 1.35, "#f2c85f");
-  [
-    [14.7, 14.95],
-    [17.1, 14.7],
-    [19.15, 15.25],
-    [20.65, 14.55],
-  ].forEach(([x, y], index) => drawTerraceTable(x, y, index % 2 ? "#f5c95e" : "#ed7458"));
+  const { x, y, w, h } = world.pergola;
+  drawPergola(x, y, w, h, "#f2c85f");
+  world.colliders.campus.filter((c) => c.id.startsWith("terrace-table-")).forEach((c, i) => {
+    drawTerraceTable(c.x, c.y, i % 2 ? "#f5c95e" : "#ed7458");
+  });
   drawLinearPlanter(13.72, 15.88, 7.75, 0.42, 12);
   drawSpaceCaption(13.8, 16.25, "Shaded Terrace", "#8b6645");
 }
@@ -281,12 +279,13 @@ export function drawServiceLane() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  drawGroundSlab(2.05, 9.5, 0.75, 0.95, "#b98b59", 5);
-  drawGroundSlab(2.1, 9.55, 0.65, 0.85, "#d8c59c", 7);
-  drawGroundSlab(2.05, 10.9, 0.75, 0.95, "#b98b59", 5);
-  drawGroundSlab(2.1, 10.95, 0.65, 0.85, "#c9a878", 8);
+  for (const pallet of world.colliders.campus.filter((c) => c.id.startsWith("delivery-pallet-"))) {
+    drawGroundSlab(pallet.x, pallet.y, pallet.width, pallet.height, "#b98b59", 5);
+    const north = pallet.id === "delivery-pallet-north";
+    drawGroundSlab(pallet.x + 0.05, pallet.y + 0.05, pallet.width - 0.1, pallet.height - 0.1, north ? "#d8c59c" : "#c9a878", north ? 7 : 8);
+  }
   // the barrier at the gate: a post at the building's corner with a red and white arm, lifted
-  const bx = 2.7, by = 13.2;
+  const { x: bx, y: by } = world.colliders.campus.find((c) => c.id === "delivery-gate-post");
   const post = isoPoint(bx, by, 5),
     top = isoPoint(bx, by, 30);
   ctx.strokeStyle = "#31545b";
@@ -316,7 +315,7 @@ export function drawStudentLawn() {
     [37.25, 18.75, "#d8e8d0"],
     [33.8, 19.0, "#64cbc8"],
   ];
-  patches.forEach(([x, y, color], index) => {
+  patches.forEach(([x, y, color]) => {
     const p = isoPoint(x, y, 5);
     ctx.fillStyle = color;
     ctx.globalAlpha = 0.72;
@@ -328,8 +327,10 @@ export function drawStudentLawn() {
     ctx.closePath();
     ctx.fill();
     ctx.globalAlpha = 1;
-    if (index < 2) drawCampusBench(x + 0.35, y - 0.2, index);
   });
+  for (const bench of world.colliders.campus.filter((c) => c.id.startsWith("lawn-bench-"))) {
+    drawCampusBench(bench.x, bench.y, bench.height > bench.width ? 1 : 0);
+  }
   drawLinearPlanter(38.4, 17.55, 0.48, 2.1, 13);
   drawSpaceCaption(32.75, 19.75, "Student Lawn", "#456549");
 }
@@ -344,14 +345,6 @@ export function drawCampusGroundPlan(t) {
   drawStudentLawn();
   drawBladeSign(8.6, 16.15, 32, "NOVA", WORLD_MATERIALS.coral);
   drawBladeSign(33.2, 16.15, 32, "COAST", WORLD_MATERIALS.lime);
-  const routeA = isoPoint(7.2, 15.25, 8),
-    routeB = isoPoint(34.6, 15.25, 8);
-  ctx.strokeStyle = WORLD_MATERIALS.coral;
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(routeA.x, routeA.y);
-  ctx.lineTo(routeB.x, routeB.y);
-  ctx.stroke();
 }
 
 export function drawRoofGarden(x, y, w, h, z) {

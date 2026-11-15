@@ -998,9 +998,11 @@ function employeeState(employee, t, index) {
   const out = u < 0.5; // going to the counter with the stock
   const k = out ? u * 2 : (1 - u) * 2;
   const pause = k < 0.05 || k > 0.95;
+  const direction = out ? 1 : -1;
   return {
     x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k), pose: "walk", role: "technician",
-    moving: !pause, carrying: out && !pause, facing: { x: out ? -1 : 1, y: 0 }, spots,
+    moving: !pause, carrying: out && !pause, spots,
+    facing: { x: direction * (to.x - from.x), y: direction * (to.y - from.y) },
   };
 }
 
@@ -1161,13 +1163,11 @@ export function roomActors(t) {
           actors.push({ depth: onTop(item.x + item.w, item), draw: () => drawPastries(item, cafe) });
           actors.push({ depth: onTop(item.x + 3.2, item), draw: () => drawCup(item.x + 3.2, item.y + item.h * 0.45, 34) });
         }
-        // the bar stools in front of it
-        for (const px of [item.x + 0.7, item.x + 1.9, item.x + 3.9, item.x + 5.1]) {
-          actors.push({ depth: depthOf(px, item.y + item.h + 0.5), draw: () => drawStool(px, item.y + item.h + 0.45, 22, CORAL) });
-        }
       }
       if (id === "supply-counter") actors.push({ depth: onTop(item.x + 1.3, item), draw: () => drawCartons(item) });
       if (id === "student-counter") actors.push({ depth: onTop(item.x + item.w - 0.3, item), draw: () => drawStudentScreens(item) });
+    } else if (id.startsWith("cafe-stool-")) {
+      actors.push({ depth: depthOf(item.x, item.y), draw: () => drawStool(item.x, item.y, 22, CORAL) });
     } else if (id.startsWith("cafe-table")) {
       actors.push(...sliced(item, 0.95, (x, w, i, n) => drawTableSlice(item, x, w, i, n)));
       for (const spot of tableStools(item)) {
