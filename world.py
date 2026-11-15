@@ -240,6 +240,8 @@ INTERIORS = {
             # cafe: shelves and counter against the north wall (the barista stands between them), tables
             {"id": "cafe-shelf", "wing": "nova", "x": 12.5, "y": 1.7, "w": 6.5, "h": 0.6, "label": "Cafe shelves", "kind": "furniture"},
             {"id": "cafe-counter", "wing": "nova", "x": 12.5, "y": 2.8, "w": 5.1, "h": 0.85, "label": "Cafe counter", "kind": "counter"},
+            {"id": "cafe-stool-west", "wing": "nova", "x": 13.1, "y": 4.1, "r": 0.19, "label": "Bar stool", "kind": "furniture"},
+            {"id": "cafe-stool-east", "wing": "nova", "x": 14.7, "y": 4.1, "r": 0.19, "label": "Bar stool", "kind": "furniture"},
             {"id": "cafe-table-1", "wing": "nova", "x": 12.5, "y": 5.4, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
             {"id": "cafe-table-2", "wing": "nova", "x": 14.8, "y": 5.4, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
             {"id": "cafe-table-3", "wing": "nova", "x": 13.4, "y": 7.55, "w": 1.8, "h": 0.7, "label": "Cafe table", "kind": "furniture"},
@@ -555,8 +557,9 @@ def _zone_colliders():
         solid.append(_circle(f"cafe-post-{i}", x, y, 0.12, "Post", "prop"))
     for i, x in enumerate((26.4, 27.2, 29.2)):
         solid.append(_circle(f"bar-stool-{i}", x, 27.2, 0.12, "Stool", "prop"))
-    for i, x in enumerate((26.2, 30.8)):
-        solid.append(_circle(f"beach-table-{i}", x, 28.2, 0.36, "Beach table", "prop"))
+    for i, (table_x, seat_x) in enumerate(((26.2, 26.85), (30.8, 30.15))):
+        solid.append(_circle(f"beach-table-{i}", table_x, 28.2, 0.36, "Beach table", "prop"))
+        solid.append(_circle(f"beach-seat-{i}", seat_x, 28.45, 0.12, "Stool", "prop"))
     # the beach
     for i, lounger in enumerate(BEACH["loungers"]):
         solid.append(_rect(f"lounger-{i}", lounger["x"], lounger["y"], 0.8, 1.5, "Lounger", "prop"))

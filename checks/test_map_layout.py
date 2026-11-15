@@ -103,3 +103,14 @@ def test_main_crossings_have_room_to_walk_straight():
         for i in range(steps + 1):
             p = x + (end_x - x) * i / steps, y + (end_y - y) * i / steps
             assert free(p, zone, solid, RADIUS + 0.10), p
+
+
+def test_cafe_seats_do_not_overlap_other_fixtures():
+    data = world_data()
+    zone, solid = data["zones"]["campus"], data["colliders"]["campus"]
+    for prefix in ("cafe-stool-", "beach-seat-", "bar-stool-"):
+        seats = [item for item in solid if item["id"].startswith(prefix)]
+        assert seats, prefix
+        for seat in seats:
+            others = [item for item in solid if item is not seat]
+            assert free((seat["x"], seat["y"]), zone, others, seat["radius"]), seat["id"]
