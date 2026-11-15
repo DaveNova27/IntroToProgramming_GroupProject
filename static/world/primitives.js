@@ -290,3 +290,17 @@ export function drawWorldLabel(x, y, z, title, accent = "#bce65f") {
   ctx.fillText(title, p.x + 4, p.y + 2);
   ctx.restore();
 }
+
+// A roll-down wooden shutter fills the existing display or serving hatch.
+export function drawShopShutter(x, y, width, bottom, top, color) {
+  const left = isoX(x);
+  const upper = isoY(y, top);
+  const w = width * TILE;
+  const height = top - bottom;
+  roundedRect(left, upper, w, height, 2, color);
+  ctx.fillStyle = "rgba(37,48,43,.27)";
+  for (let h = 6; h < height; h += 7) ctx.fillRect(left, upper + h, w, 1.5);
+  ctx.fillRect(left, upper, 3, height);
+  ctx.fillRect(left + w - 3, upper, 3, height);
+  roundedRect(left + w / 2 - 7, upper + height - 9, 14, 4, 2, "#344e4d");
+}
