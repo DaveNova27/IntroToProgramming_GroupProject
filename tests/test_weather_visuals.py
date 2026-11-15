@@ -187,6 +187,101 @@ console.log(JSON.stringify({
     assert out["nothing"] == [[], [], []]
 
 
+@needs_node
+def test_dry_places_are_put_on_the_canvas_the_way_the_world_is_drawn(tmp_path):
+    out = run_node(tmp_path, """
+const parts = [{ wing: "nova", x: 10, y: 2, w: 4, h: 3, z: 50 }];
+const view = { tile: 44, depth: 30.8, cx: 440, cy: 100, zoom: 2, w: 1000, h: 600 };
+const [box] = weather.dryBoxes(parts, { nova: 0 }, view);
+console.log(JSON.stringify({
+  box, none: weather.dryBoxes(parts, { nova: 1 }, view), floor: (2 + 3) * 30.8,
+}));""")
+    box = out["box"]
+    assert box["x"] == pytest.approx((10 * 44 - 440) * 2 + 500)  # the left edge of the floor
+    assert box["w"] == pytest.approx(4 * 44 * 2)
+    assert box["y"] == pytest.approx((2 * 30.8 - 50 - 100) * 2 + 300)  # the top of the back wall
+    assert box["y"] + box["h"] == pytest.approx((out["floor"] - 100) * 2 + 300)  # the front edge of the floor
+    assert box["dry"] == 1
+    assert out["none"] == []
+
+
+@needs_node
+def test_rain_is_painted_once_and_never_into_a_dry_place(tmp_path):
+    out = run_node(tmp_path, """
+const box = (x, dry) => ({ x, y: 0, w: 100, h: 100, dry });
+const names = (list) => list.map((b) => b.x);
+const describe = (boxes) => weather.rainPasses(boxes).map((p) => ({ inside: p.inside && p.inside.x, outside: names(p.outside), factor: p.factor }));
+const a = box(0, 1), b = box(50, 0.4), c = box(80, 0.7);
+console.log(JSON.stringify({
+  open: describe([]),
+  dry: describe([a]),
+  fading: describe([b]),
+  mixed: describe([b, a]),
+  two: describe([b, c]),
+}));""")
+    assert out["open"] == [{"inside": None, "outside": [], "factor": 1}]  # open air only
+    assert out["dry"] == [{"inside": None, "outside": [0], "factor": 1}]  # a dry place is cut out, nothing repaints it
+    assert out["fading"] == [
+        {"inside": None, "outside": [50], "factor": 1},
+        {"inside": 50, "outside": [], "factor": pytest.approx(0.6)},
+    ]
+    # a dry box and a fading one: the fading pass cuts the dry one out, so no rain leaks into it
+    assert out["mixed"][1] == {"inside": 50, "outside": [0], "factor": pytest.approx(0.6)}
+    # two fading boxes: the drier one (0.7) comes first, the other cuts it out, so the overlap is painted once
+    assert [p["inside"] for p in out["two"]] == [None, 80, 50]
+    assert out["two"][2]["outside"] == [80]
+    assert out["two"][1]["factor"] == pytest.approx(0.3) and out["two"][2]["factor"] == pytest.approx(0.6)
+
+
+@needs_node
+def test_a_sky_colour_is_pulled_towards_the_weather_and_dims_with_the_light(tmp_path):
+    out = run_node(tmp_path, """
+const rain = weather.weatherLook("rain"), noon = "rgb(141,200,213)", dusk = "rgb(32,62,88)";
+const clear = "rgb(141,200,213)";
+console.log(JSON.stringify({
+  none: weather.pullColor(noon, rain.skyTop, 0, clear),
+  full: weather.pullColor(noon, [10, 20, 30], 1, clear),
+  half: weather.pullColor("rgb(0,100,200)", [100, 200, 100], 0.5),
+  noonTop: weather.pullColor(noon, rain.skyTop, rain.sky, clear),
+  duskTop: weather.pullColor(dusk, rain.skyTop, rain.sky, clear),
+  over: weather.pullColor(noon, [10, 20, 30], 7, clear),
+  bad: [weather.pullColor("#8dc8d5", [1, 2, 3], 1, clear), weather.pullColor(null, [1, 2, 3], 1, clear), weather.pullColor(noon, [1, 2, 3], NaN, clear), weather.pullColor("rgb(1,2,3)", [255, 255, 255], 1, "rgb(0,0,0)")],
+  text: [weather.rgbText([300, -4, 12.6]), weather.rgbText([1, 2, 3])],
+}));""")
+    assert out["none"] == "rgb(141,200,213)"  # amount 0 gives the text back
+    assert out["full"] == "rgb(10,20,30)"
+    assert out["half"] == "rgb(50,150,150)"
+    assert out["over"] == "rgb(10,20,30)"  # more than all the way stops at the look's colour
+    # at dusk the rainy sky is dark too: darker than the rain sky at noon, and not brighter than a clear dusk sky by much
+    noon_top = [int(v) for v in out["noonTop"][4:-1].split(",")]
+    dusk_top = [int(v) for v in out["duskTop"][4:-1].split(",")]
+    assert all(d < n for d, n in zip(dusk_top, noon_top))
+    assert max(dusk_top) < 90
+    assert out["bad"] == ["#8dc8d5", None, "rgb(141,200,213)", "rgb(255,255,255)"]  # not an rgb text, no colour, NaN, no reference light
+    assert out["text"] == ["rgb(255,0,13)", "rgb(1,2,3)"]
+
+
+@needs_node
+def test_a_small_canvas_gets_thinner_rain_and_the_lists_can_be_reused(tmp_path):
+    out = run_node(tmp_path, """
+const storm = weather.weatherLook("storm");
+const count = (w, h, t) => { const s = weather.rainStreaks(storm, t, w, h); return (s.far.length + s.near.length) / 4; };
+const average = (w, h) => { let sum = 0; for (let t = 0; t < 4000; t += 400) sum += count(w, h, t); return sum / 10; };
+const reuse = { far: [1, 2, 3], near: [9] };
+const again = weather.rainStreaks(storm, 100, 1280, 800, reuse);
+const fresh = weather.rainStreaks(storm, 100, 1280, 800);
+const longest = (w, h) => { const s = weather.rainStreaks(storm, 50, w, h); let m = 0; for (const list of [s.far, s.near]) for (let i = 0; i < list.length; i += 4) m = Math.max(m, Math.hypot(list[i + 2] - list[i], list[i + 3] - list[i + 1])); return m; };
+console.log(JSON.stringify({
+  full: average(1280, 800), small: average(600, 375), huge: average(2560, 1600),
+  same: again === reuse && JSON.stringify(again) === JSON.stringify(fresh),
+  shortSmall: longest(600, 375) < longest(1280, 800),
+}));""")
+    assert out["small"] < out["full"] * 0.5  # a live window a fifth of the screen is not a curtain
+    assert out["huge"] <= 240 and out["full"] <= 240
+    assert out["same"]  # filled again, nothing of the old content stays
+    assert out["shortSmall"]
+
+
 # ---- the pieces around the looks (source checks) -----------------------------------------------
 
 def source(name):
@@ -239,7 +334,8 @@ def test_the_weather_fades_in_and_stands_still_with_reduced_motion():
     env = source("environment.js")
     assert "rainStreaks(look, reducedMotion ? 0 : t" in env  # the rain stands
     assert re.search(r"function drawWeatherFlash\(t, w, h\) \{\s*if \(reducedMotion\) return;", env)  # no flash
-    assert "shelters(world.nova?.parts, scene.roofs)" in env  # the dry places come from the roofs
+    assert "dryBoxes(world.nova?.parts, scene.roofs" in env  # the dry places come from the roofs
+    assert env.count("dryBoxes(") == 1  # worked out once a frame for haze and rain together
     render = source("render.js")
     for call in ("drawWeatherShade(w, h)", "drawWeatherFall(t, w, h)", "drawWeatherFlash(t, w, h)"):
         assert call in render, call

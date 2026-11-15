@@ -19,7 +19,7 @@ import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer, playerDepth } from "./player.js";
 import { DEPTH, camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
-import { pullColor } from "./weather.js";
+import { NEUTRAL, pullColor, rgbText } from "./weather.js";
 
 // Objects far above or below the view are not drawn (see cull.js for how far is far).
 // `options.cull = false` draws everything: the check that nothing visible is lost.
@@ -36,8 +36,9 @@ export function drawWorld(t) {
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   // the weather of the opened day pulls the sky towards its own colours (spec weather-visuals)
   const look = scene.look;
-  sky.addColorStop(0, pullColor(light.top, look.skyTop, look.sky));
-  sky.addColorStop(1, pullColor(light.bottom, look.skyBottom, look.sky));
+  // (the colours are day colours: they dim with the light, so a rainy evening is as dark as a clear one)
+  sky.addColorStop(0, pullColor(light.top, look.skyTop, look.sky, rgbText(NEUTRAL.skyTop)));
+  sky.addColorStop(1, pullColor(light.bottom, look.skyBottom, look.sky, rgbText(NEUTRAL.skyBottom)));
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   drawSkyMotion(t, environment, w, h);

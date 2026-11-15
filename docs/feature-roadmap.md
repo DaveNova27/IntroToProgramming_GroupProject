@@ -77,7 +77,6 @@ at the Dorm (`day-cycle`). The player earns badges (`badges`). All numbers are s
 | `render-cache` | #90 | The campus works out its tile list and the Nova's walls once and skips what is far outside the picture (about 10 % less JavaScript time, same picture) |
 | `guests` | #95 | Small version: the day's crowd becomes guests with a kind, a start place and a taste; a third look around and go to another shop with an employee when it is closer, its queue shorter or they like it more. They walk on the map and show their thought in a bubble. The crowd keeps its size |
 | `demo-scenarios` | #96 | The 3-minute live demo: four prepared days in `scenarios.py` (run the Cafe, guests decide, weather and events, grow), loaded by id into the player's own run, also on the public URL; a card on the campus, two ticks a second in a scenario, free play at the end |
-| `weather-visuals` | #16 | The world shows the weather of the opened day (grey sky and rain, storm with wind, waves and soft lightning, heat with a warm tint and a shimmer); looks in `static/world/weather.js`; no rain indoors; nothing before the day opens |
 | Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
@@ -208,6 +207,7 @@ one branch, one issue, one pull request.
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
 | `popularity` | #13 | L | M | pricing, balance-pass (both done) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
+| `weather-visuals` | #16 | V | M | day-context | Built in PR #105 (open, not merged yet): the world shows the weather of the opened day (grey sky and rain, storm with wind, waves and soft lightning, heat with a warm tint and a shimmer), looks in `static/world/weather.js`, no rain indoors, nothing before the day opens. Move it to the built table when the PR is merged. |
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
 | `final-polish` | #24 | V | M | demo-scenarios (done) | Last. Animations, camera, details, last security pass (`/security-review`). |
@@ -248,7 +248,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 |---|---|
 | Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #22 `guests` (PR #95), #23 `demo-scenarios` (PR #96) |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals` (built on its branch, 2026-11-15), #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
+| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals` (built, PR #105 open), #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
 | To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)

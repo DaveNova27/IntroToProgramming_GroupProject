@@ -23,6 +23,11 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
      size only.
    - `flashAt(look, t, day)`: how bright the lightning is at a time, 0 most of the time.
    - `mixLooks(a, b, k)`: the look between two looks (for the fade in point 6).
+   - `pullColor(css, color, amount, clear)`: a sky colour pulled towards a look's colour. The look's colours are
+     day colours, so they are dimmed by how much darker the sky is than `clear` (the clear noon sky): a rainy
+     evening is as dark as a clear one. Only `rgb(...)` texts are taken; anything else is given back unchanged.
+   - `dryBoxes(parts, roofs, view)` and `rainPasses(boxes)`: the dry places on the canvas, and how to paint rain
+     around them (point 4).
    - `shelters(parts, roofs)`: the dry places of point 4, from the Nova's parts and the roofs' opacity.
 3. **What each weather looks like.** The numbers are tuned by eye in the build; the table in
    `weather.js` is the truth.
@@ -42,7 +47,8 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
    **It does not rain indoors.** A wing of the Nova (the Dorm counts as one) whose roof has faded out
    shows its rooms, and the rooms stay dry: no rain and no haze is drawn over the inside of that wing
    (its floor and the inner face of its back wall). While the roof fades, the rain over the wing fades
-   with it; over a closed roof it rains as everywhere. The shade over the scene and the flash stay on
+   with it; over a closed roof it rains as everywhere. Where two such places overlap (the Nova and the Student
+   Hub fade together) the drier one wins and the rain is painted once, never twice, and never into a dry place. The shade over the scene and the flash stay on
    the whole picture, because the light of a rainy day is also grey indoors. This changes the roadmap's
    line "also over the roofless Nova" (decided by David, see "Decide" 5). The night shade and the lamps
    (`drawNightGrade`, `drawNightLights`) keep working on top. The small live window on the dashboard (`scene.preview`) uses the same `drawWorld`
@@ -55,7 +61,9 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
    - Lightning: at most one flash in any 6 seconds, a soft white wash of at most 0.25 alpha that
      fades within half a second. With `reducedMotion` there is no flash, the rain stands still and
      the haze does not move.
-   - Cost: at most 240 streaks a frame, drawn as one path per stroke style. No `shadowBlur`, no
+   - Cost: at most 240 streaks a frame, drawn as one path per stroke style. A small canvas (the live view on
+     the dashboard) gets fewer and shorter streaks, down to a fifth of the count, so it is not a curtain. The
+     dry places are worked out once a frame for haze and rain together, and the streak lists are reused. No `shadowBlur`, no
      `filter` (spec `smooth-frames`).
 7. **Credit.** The code builds on what `environment.js` already has from Felix' project (credited
    in its header). Nothing new is ported from his repository in this spec.
@@ -83,6 +91,12 @@ reads the id from `state.weather.id`, which the API already sends. Nothing in th
      `sun`, `heat` and the neutral look give none;
    - `shelters`: a wing with a closed roof gives no dry place, a wing with the roof gone gives its
      parts fully dry, a roof half faded gives them half dry, an unknown wing id in the roofs is ignored;
+   - `dryBoxes` puts the floor and the back wall of a roofless wing at the right canvas pixels; `rainPasses`
+     paints the open air once, gives a fading box its own pass at the strength of what is left of its roof, and
+     cuts dry boxes and earlier boxes out of every pass (two overlapping boxes are never painted twice);
+   - `pullColor`: amount 0 gives the text back, 1 gives the look's colour, more than 1 stops there, a hex
+     colour, `null` or `NaN` give the text back, and a rainy evening sky is darker than the rainy noon sky;
+   - a small canvas gets thinner and shorter rain, and a list given to `rainStreaks` is emptied and refilled;
    - `flashAt` sampled every 50 ms over 10 minutes for several days: never above 0.25, never two
      flashes within 6 seconds, 0 for every look but `storm`.
 

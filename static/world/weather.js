@@ -10,6 +10,8 @@ export const FLASH_SLOT = 9000; // milliseconds: one flash at most in each slot
 const FLASH_LATEST = 2500; // a flash starts in the first part of its slot, so two are 6.5 s apart or more
 const FLASH_LENGTH = 450; // milliseconds from the first light to none
 export const FADE_SECONDS = 2; // from one weather to the next
+const FULL_W = 1280; // a full-size canvas for the rain density (pixels)
+const FULL_H = 800;
 
 // A look. Colours are [red, green, blue], so two looks can be mixed number by number.
 //   sky, skyTop, skyBottom   how far the sky is pulled towards these two colours (0 = the day's own sky)
@@ -85,12 +87,24 @@ export function mixLooks(a, b, k) {
   return look;
 }
 
+// "rgb(1,2,3)" for a list of three channels (any numbers, rounded and kept between 0 and 255).
+export const rgbText = (color) => `rgb(${color.map((channel) => Math.max(0, Math.min(255, Math.round(channel)))).join(",")})`;
+
+// the three channels of "rgb(1,2,3)" (or "rgba(1,2,3,.5)"); nothing for any other text, a hex colour included
+const CHANNELS = /^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*[,)]/;
+const channels = (css) => (typeof css === "string" ? (css.match(CHANNELS)?.slice(1, 4).map(Number) ?? []) : []);
+const luminance = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
 // A colour of the page ("rgb(1,2,3)") pulled towards a colour of a look. Amount 0 gives the text back unchanged.
-export function pullColor(css, color, amount) {
-  if (amount <= 0) return css;
-  const from = (css.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+// `clear` is the colour the same sky has on a clear day at noon: the look's colour is a day colour, so it is
+// dimmed by how much darker the sky is now than at noon, and a rainy sky falls dark in the evening like a clear one.
+export function pullColor(css, color, amount, clear = null) {
+  if (!(amount > 0)) return css;
+  const from = channels(css);
   if (from.length < 3) return css;
-  return `rgb(${from.map((channel, i) => Math.round(lerp(channel, color[i], Math.min(1, amount)))).join(",")})`;
+  const reference = channels(clear);
+  const dim = reference.length === 3 && luminance(reference) > 0 ? Math.max(0, Math.min(1, luminance(from) / luminance(reference))) : 1;
+  return rgbText(from.map((channel, i) => lerp(channel, color[i] * dim, Math.min(1, amount))));
 }
 
 // A fixed number between 0 and 1 for a whole number (the same one every time).
@@ -101,14 +115,21 @@ const fraction = (n, salt) => {
 
 // The rain of one frame: two lists of streaks, each [x1, y1, x2, y2, x1, y1, ...] in canvas pixels.
 // `far` streaks are short and slow, `near` ones long and fast. With t held still the rain stands.
-export function rainStreaks(look, t, w, h) {
-  const out = { far: [], near: [] };
-  const count = Math.min(MAX_STREAKS, Math.round(MAX_STREAKS * Math.max(0, look.rain)));
-  if (!count || !(w > 0) || !(h > 0)) return out;
+// A small canvas (the small live view on the dashboard) gets fewer and shorter streaks: the count follows the
+// area against a full screen, down to a fifth. `out` is an optional pair of lists to fill again (cleared first),
+// so a frame does not allocate new ones.
+export function rainStreaks(look, t, w, h, out = { far: [], near: [] }) {
+  out.far.length = 0;
+  out.near.length = 0;
+  if (!(w > 0) || !(h > 0)) return out;
+  const density = Math.max(0.2, Math.min(1, (w * h) / (FULL_W * FULL_H)));
+  const size = Math.max(0.5, Math.min(1, w / FULL_W));
+  const count = Math.min(MAX_STREAKS, Math.round(MAX_STREAKS * Math.max(0, look.rain) * density));
+  if (!count) return out;
   const slant = Math.max(-0.6, Math.min(0.6, look.slant));
   for (let i = 0; i < count; i++) {
     const near = i % 3 === 0;
-    const length = (near ? 26 : 15) * (0.8 + fraction(i, 1) * 0.5);
+    const length = (near ? 26 : 15) * size * (0.8 + fraction(i, 1) * 0.5);
     const speed = (near ? 1.05 : 0.72) * (0.85 + fraction(i, 2) * 0.3); // pixels per millisecond
     const fall = h + length;
     const y = ((fraction(i, 3) * fall + t * speed) % fall) - length; // top end of the streak
@@ -149,4 +170,33 @@ export function shelters(parts, roofs) {
     out.push({ x: part.x, y: part.y, w: part.w, h: part.h, z: part.z ?? 0, dry: 1 - Math.max(0, roof) });
   }
   return out;
+}
+
+// The dry places in canvas pixels. `parts` and `roofs` as for shelters; `view` is how the world is drawn:
+// { tile, depth } pixels per tile across and per tile into the picture, { cx, cy } the camera's centre in map
+// pixels, `zoom`, and the canvas size { w, h }. A box runs from the top of the back wall down to the floor's
+// front edge, the way the rooms show once the roof is gone.
+export function dryBoxes(parts, roofs, view) {
+  const { tile, depth, cx, cy, zoom, w, h } = view;
+  const px = (x) => (x * tile - cx) * zoom + w / 2;
+  const py = (y, z = 0) => (y * depth - z - cy) * zoom + h / 2;
+  return shelters(parts, roofs).map((part) => ({
+    x: px(part.x), y: py(part.y, part.z), w: part.w * tile * zoom, h: py(part.y + part.h) - py(part.y, part.z), dry: part.dry,
+  }));
+}
+
+// How to paint something that must not fall indoors: a list of passes, each { inside, outside, factor }.
+// `inside` is a box to clip to (null: the whole canvas), `outside` the boxes to cut out, `factor` how strongly to
+// paint (1 = fully). The first pass paints the open air at full strength with every box cut out. A box whose roof
+// is still fading then gets its own pass at the strength of what is left of its roof, with the fully dry boxes and
+// the boxes of earlier passes cut out, so where two boxes overlap the drier one wins and nothing is painted twice.
+export function rainPasses(boxes) {
+  const dryest = [...boxes].sort((a, b) => b.dry - a.dry);
+  const passes = [{ inside: null, outside: dryest, factor: 1 }];
+  const done = [];
+  for (const box of dryest) {
+    if (box.dry < 0.99) passes.push({ inside: box, outside: [...done], factor: 1 - box.dry });
+    done.push(box);
+  }
+  return passes;
 }
