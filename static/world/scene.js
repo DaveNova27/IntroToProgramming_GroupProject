@@ -2,6 +2,8 @@
 // from map tiles to screen, and the data from the server.
 // Nothing here decides a rule. The player's position and the clock are only for showing.
 
+import { NEUTRAL } from "./weather.js";
+
 // The camera looks straight at the campus from the south, a little from above (spec map-view):
 // x goes right, y goes down into the picture (north at the top, the sea at the bottom), height goes up.
 export const TILE = 44; // pixels per tile across
@@ -46,6 +48,8 @@ export const scene = {
   wing: null, // the wing the player is in, or null outside
   inNova: false, // the player stands under the roof of any wing
   sleeping: false, // the player lies in the Dorm's bed (spec day-cycle): only drawn, no rule
+  weather: null, // the weather id of the opened day as the server sent it, or null (spec weather-visuals); ui.js sets it
+  look: NEUTRAL, // how that weather is drawn right now (weather.js); main.js fades it from one to the next
 };
 
 // A wing without an entry is closed. The rooms of a wing are drawn while its roof is thinner than this.

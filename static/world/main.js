@@ -19,6 +19,7 @@ import {
   world,
 } from "./scene.js";
 import { initUi, inputBlocked, updateClock, useLocation } from "./ui.js";
+import { FADE_SECONDS, mixLooks, weatherLook } from "./weather.js";
 import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
 
@@ -298,6 +299,22 @@ function renderHint() {
   if (near && name.textContent !== near[1].label) name.textContent = near[1].label;
 }
 
+// The look of the weather (spec weather-visuals): when the server's weather changes, the look fades
+// from the one shown to the new one. The first look and reduced motion have no fade. Only drawn.
+let weatherShown; // the id the look is going to; undefined before the first frame
+let weatherFrom = scene.look;
+let weatherFade = 1;
+
+function updateWeather(dt) {
+  if (scene.weather !== weatherShown) {
+    weatherFade = weatherShown === undefined || reducedMotion ? 1 : 0;
+    weatherShown = scene.weather;
+    weatherFrom = scene.look;
+  }
+  if (weatherFade < 1) weatherFade = Math.min(1, weatherFade + dt / FADE_SECONDS);
+  scene.look = mixLooks(weatherFrom, weatherLook(weatherShown), weatherFade);
+}
+
 function loop(t) {
   // the first frame has no earlier one: no step, so a long page load is not walked in one go
   const dt = lastTime ? Math.min((t - lastTime) / 1000 || 0, MAX_FRAME) : 0;
@@ -314,6 +331,7 @@ function loop(t) {
     if (!scene.walking || scene.zoneId !== zone || (use && !pendingUse)) break;
   }
   updateRoof(dt);
+  updateWeather(dt);
   for (let i = 0; i < steps; i++) updateWalkers(dt / steps); // waypoints are not skipped on a slow frame
   moveCamera(dt);
   renderHint();

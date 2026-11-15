@@ -207,7 +207,7 @@ one branch, one issue, one pull request.
 | `shop-art` | #18 | V | M | shop-unlock (done) | Looks of the shops on the map: locked and open, visible levels. Reference: Felix' store silhouettes. |
 | `nova-design` | #11 | V | L | nova-zones (done) | Look of the Nova (inside and outside) and the beach in Felix' style. |
 | `popularity` | #13 | L | M | pricing, balance-pass (both done) | Per shop, 0 to 100 as an integer, computed only on the server from real sales. Felix' `momentum` is the model. |
-| `weather-visuals` | #16 | V | M | day-context | Rain, storm, heat and sky in the 2.5D renderer, over the whole scene, also over the roofless Nova. Builds on `environment.js`. The weather is hidden before the day opens (`outlook`): draw only what the display may show. |
+| `weather-visuals` | #16 | V | M | day-context | Built in PR #105 (open, not merged yet): the world shows the weather of the opened day (grey sky and rain, storm with wind, waves and soft lightning, heat with a warm tint and a shimmer), looks in `static/world/weather.js`, no rain indoors, nothing before the day opens. Move it to the built table when the PR is merged. |
 | `map-layout` | #71 | V and L | M | map-view (done) | A new arrangement of the map (data in `world.py`, drawing in `static/world/`). See the issue. |
 | `outfits` | #21 | L | S | shop-unlock (done) | Optional. The look is an option of `drawPersonFigure`. |
 | `final-polish` | #24 | V | M | demo-scenarios (done) | Last. Animations, camera, details, last security pass (`/security-review`). |
@@ -248,7 +248,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 |---|---|
 | Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #22 `guests` (PR #95), #23 `demo-scenarios` (PR #96) |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
-| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals`, #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
+| Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals` (built, PR #105 open), #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
 | To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)

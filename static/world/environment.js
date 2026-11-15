@@ -3,7 +3,8 @@
 // (https://github.com/felix-anthes-png/nova-beach-ventures), reduced to what this game uses.
 
 import { mixColor } from "./primitives.js";
-import { DAWN, DAY_END, DAY_START, ctx, isoPoint, reducedMotion, scene } from "./scene.js";
+import { DAWN, DAY_END, DAY_START, TILE, DEPTH, camera, ctx, isoPoint, reducedMotion, scene, world } from "./scene.js";
+import { dryBoxes, flashAt, rainPasses, rainStreaks, rgbText } from "./weather.js";
 
 // `progress` is how far the light has gone towards the dark: 0 in the morning, 1 at dusk. Before
 // DAY_START (the dawn after sleeping, spec day-cycle) it runs from 1 at DAWN back to 0, so the lamps,
@@ -42,13 +43,17 @@ export function lightingProfile(minutes) {
   };
 }
 
-export function environmentalProfile(minutes = scene.clock, day = scene.day, t = scene.time) {
+// `look` is the weather's look (weather.js): by default the one the scene shows now, so a still picture of another
+// weather can ask for it by passing a look.
+export function environmentalProfile(minutes = scene.clock, day = scene.day, t = scene.time, look = scene.look) {
   const daySeed = ((day * 37) % 17) / 17,
     afternoon = Math.max(0, Math.sin(((minutes - DAY_START) / (DAY_END - DAY_START)) * Math.PI));
   const baseWind = 0.38 + daySeed * 0.24 + afternoon * 0.22,
     gust = reducedMotion ? 0 : Math.sin(t * 0.00073 + day * 0.91) * 0.1 + Math.sin(t * 0.00191 + day) * 0.045;
-  const wind = Math.max(0.18, Math.min(0.92, baseWind + gust)),
-    sea = 0.42 + wind * 0.52,
+  // the weather of the opened day moves the wind and the sea (spec weather-visuals); without one, or on a
+  // sunny day, both stay as the day made them
+  const wind = Math.max(0.1, Math.min(1.2, Math.max(0.18, Math.min(0.92, baseWind + gust)) * look.windScale + look.windAdd)),
+    sea = Math.max(0.2, (0.42 + wind * 0.52) * look.seaScale + look.seaAdd),
     cloud = 0.12 + ((day * 11) % 9) / 30;
   const temperature = Math.round(20 + afternoon * 4 - daySeed * 1.4),
     label = wind > 0.72 ? "COASTAL WIND" : wind > 0.48 ? "ATLANTIC BREEZE" : "CALM SURF";
@@ -56,8 +61,9 @@ export function environmentalProfile(minutes = scene.clock, day = scene.day, t =
 }
 
 export function drawSkyMotion(t, environment, w, h) {
+  const look = scene.look;
   ctx.save();
-  ctx.globalAlpha = 0.14 + environment.cloud * 0.2;
+  ctx.globalAlpha = (0.14 + environment.cloud * 0.2) * look.cloudScale;
   for (let i = 0; i < 4; i++) {
     const drift = reducedMotion ? (i * w) / 4 : (t * 0.006 * (0.35 + environment.wind) + i * 211) % (w + 280),
       x = drift - 150,
@@ -70,7 +76,8 @@ export function drawSkyMotion(t, environment, w, h) {
     ctx.ellipse(x - 35 * scale, y + 2 * scale, 35 * scale, 10 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.globalAlpha = 0.34;
+  if (look.cloudExtra > 0.01) drawCloudBank(t, environment, look, w, h);
+  ctx.globalAlpha = 0.34 * Math.max(0, 1 - look.cloudExtra); // the gulls stay down in bad weather
   ctx.strokeStyle = "#173743";
   ctx.lineWidth = 1.2;
   for (let i = 0; i < 3; i++) {
@@ -83,6 +90,152 @@ export function drawSkyMotion(t, environment, w, h) {
     ctx.arc(x + 12, y, 6, Math.PI * 1.18, Math.PI * 1.92);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+// A rainy or stormy sky (spec weather-visuals): a bank of big grey clouds over the top of the picture.
+// Places, sizes and speeds are fixed per cloud; the wind only moves them along.
+function drawCloudBank(t, environment, look, w, h) {
+  const [r, g, b] = look.cloudColor;
+  for (let i = 0; i < 9; i++) {
+    const scale = 1.5 + (i % 4) * 0.45,
+      span = w + 520,
+      drift = reducedMotion ? (i * span) / 9 : (t * 0.011 * (0.4 + environment.wind) * (0.7 + (i % 3) * 0.22) + i * 197) % span,
+      x = drift - 260,
+      y = 34 + (i % 5) * 36 + (i % 2) * 14;
+    ctx.globalAlpha = look.cloudExtra * (0.4 + (i % 3) * 0.1);
+    ctx.fillStyle = rgbText([r - (i % 3) * 8, g - (i % 3) * 8, b - (i % 3) * 7]);
+    ctx.beginPath();
+    ctx.ellipse(x, y, 96 * scale, 20 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 62 * scale, y - 10 * scale, 68 * scale, 22 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 58 * scale, y + 4 * scale, 60 * scale, 16 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---- the weather over the scene (spec weather-visuals) ------------------------------------------
+// Drawn in canvas pixels after the scene: the shade or the tint, then the haze and the rain, at the
+// very end the flash. All of it comes from scene.look, which is neutral while no day is open.
+
+// the grey of a wet day (a multiply) and the warm colour of a hot one, over the whole picture
+export function drawWeatherShade(w, h) {
+  const look = scene.look;
+  if (look.shade > 0.01) {
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = rgbText(look.shadeColor.map((channel) => 255 + (channel - 255) * look.shade));
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+  if (look.tint > 0.005) {
+    ctx.save();
+    ctx.globalAlpha = look.tint;
+    ctx.fillStyle = rgbText(look.tintColor);
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+}
+
+// Paints `paint` over the open air and, over a wing whose roof is still fading, as far as that roof is still
+// there; nothing over rooms whose roof is gone. The passes come from weather.js (rainPasses).
+function outdoors(w, h, alpha, boxes, paint) {
+  for (const pass of rainPasses(boxes)) {
+    ctx.save();
+    if (pass.inside) {
+      ctx.beginPath();
+      ctx.rect(pass.inside.x, pass.inside.y, pass.inside.w, pass.inside.h);
+      ctx.clip();
+    }
+    for (const box of pass.outside) {
+      const around = new Path2D();
+      around.rect(0, 0, w, h);
+      around.rect(box.x, box.y, box.w, box.h);
+      ctx.clip(around, "evenodd");
+    }
+    ctx.globalAlpha = alpha * pass.factor;
+    paint();
+    ctx.restore();
+  }
+}
+
+// rain: two layers of streaks, each one path
+const rainLists = { far: [], near: [] }; // refilled every frame
+function drawRain(t, w, h, boxes) {
+  const look = scene.look;
+  if (look.rain <= 0.01) return;
+  const streaks = rainStreaks(look, reducedMotion ? 0 : t, w, h, rainLists);
+  const path = (list) => {
+    const line = new Path2D();
+    for (let i = 0; i < list.length; i += 4) {
+      line.moveTo(list[i], list[i + 1]);
+      line.lineTo(list[i + 2], list[i + 3]);
+    }
+    return line;
+  };
+  const far = path(streaks.far), near = path(streaks.near);
+  ctx.save();
+  ctx.lineCap = "round";
+  outdoors(w, h, 1, boxes, () => {
+    ctx.strokeStyle = "rgba(214,228,240,.34)";
+    ctx.lineWidth = 1;
+    ctx.stroke(far);
+    ctx.strokeStyle = "rgba(232,241,250,.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke(near);
+  });
+  ctx.restore();
+}
+
+// heat: slow pale bands that waver over the lower part of the picture
+function drawHaze(t, w, h, boxes) {
+  const look = scene.look;
+  if (look.haze <= 0.01) return;
+  const time = reducedMotion ? 0 : t;
+  // the bands are worked out once a frame; the passes (outdoors) only clip and stroke them again
+  const bands = [];
+  for (let band = 0; band < 7; band++) {
+    const y = h * (0.42 + band * 0.085) + Math.sin(time * 0.0004 + band * 1.9) * 6;
+    const line = new Path2D();
+    for (let x = -20; x <= w + 20; x += 24) {
+      const wave = Math.sin(x * 0.021 + time * 0.0016 + band * 2.3) * 3.2 + Math.sin(x * 0.047 - time * 0.0011 + band) * 1.6;
+      if (x === -20) line.moveTo(x, y + wave);
+      else line.lineTo(x, y + wave);
+    }
+    bands.push({ line, style: `rgba(255,244,214,${0.032 + (band % 3) * 0.012})`, width: 9 + (band % 3) * 5 });
+  }
+  ctx.save();
+  ctx.lineCap = "round";
+  outdoors(w, h, look.haze, boxes, () => {
+    for (const band of bands) {
+      ctx.strokeStyle = band.style;
+      ctx.lineWidth = band.width;
+      ctx.stroke(band.line);
+    }
+  });
+  ctx.restore();
+}
+
+// haze and rain, with the dry places worked out once for both (the rooms of every wing whose roof has faded out)
+export function drawWeatherFall(t, w, h) {
+  const look = scene.look;
+  if (look.haze <= 0.01 && look.rain <= 0.01) return;
+  const center = isoPoint(camera.x, camera.y);
+  const boxes = dryBoxes(world.nova?.parts, scene.roofs, {
+    tile: TILE, depth: DEPTH, cx: center.x, cy: center.y, zoom: camera.zoom, w, h,
+  });
+  drawHaze(t, w, h, boxes);
+  drawRain(t, w, h, boxes);
+}
+
+// lightning: a soft white wash over everything, rare and short; none with reduced motion
+export function drawWeatherFlash(t, w, h) {
+  if (reducedMotion) return;
+  const flash = flashAt(scene.look, t, scene.day);
+  if (!(flash > 0)) return;
+  ctx.save();
+  ctx.globalAlpha = flash;
+  ctx.fillStyle = "#f4f7ff";
+  ctx.fillRect(0, 0, w, h);
   ctx.restore();
 }
 
@@ -206,7 +359,9 @@ export function drawAmbientLighting(light, w, h) {
     sunY = h * (0.16 + Math.pow(Math.abs(light.progress - 0.48), 1.7) * 0.35);
   ctx.save();
   const glow = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, Math.max(w, h) * 0.32);
-  glow.addColorStop(0, light.stage === "sunset" ? "rgba(255,196,112,.3)" : "rgba(255,245,196,.2)");
+  // the sun glows less under clouds and more on a hot day (spec weather-visuals); 1 = as always
+  const strength = scene.look.glow;
+  glow.addColorStop(0, light.stage === "sunset" ? `rgba(255,196,112,${Math.min(0.6, 0.3 * strength)})` : `rgba(255,245,196,${Math.min(0.6, 0.2 * strength)})`);
   glow.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);

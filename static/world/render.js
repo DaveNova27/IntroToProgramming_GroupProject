@@ -8,6 +8,9 @@ import {
   drawAmbientLighting,
   drawCoastalMotion,
   drawSkyMotion,
+  drawWeatherFall,
+  drawWeatherFlash,
+  drawWeatherShade,
   environmentalProfile,
   lightingProfile,
 } from "./environment.js";
@@ -17,6 +20,11 @@ import { drawNovaGround, novaActors } from "./nova.js";
 import { drawPlayer, playerDepth } from "./player.js";
 import { DEPTH, camera, canvas, ctx, depthOf, isoPoint, scene } from "./scene.js";
 import { walkerActors } from "./walkers.js";
+import { NEUTRAL, pullColor, rgbText } from "./weather.js";
+
+// the sky of a clear day at noon, the reference the weather's sky colours are dimmed against (weather.js: pullColor)
+const CLEAR_TOP = rgbText(NEUTRAL.skyTop);
+const CLEAR_BOTTOM = rgbText(NEUTRAL.skyBottom);
 
 // Objects far above or below the view are not drawn (see cull.js for how far is far).
 // `options.cull = false` draws everything: the check that nothing visible is lost.
@@ -31,8 +39,11 @@ export function drawWorld(t) {
 
   // one open sky over the whole campus: it also shows from inside the Nova, whose roof fades out
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, light.top);
-  sky.addColorStop(1, light.bottom);
+  // the weather of the opened day pulls the sky towards its own colours (spec weather-visuals)
+  const look = scene.look;
+  // (the colours are day colours: they dim with the light, so a rainy evening is as dark as a clear one)
+  sky.addColorStop(0, pullColor(light.top, look.skyTop, look.sky, CLEAR_TOP));
+  sky.addColorStop(1, pullColor(light.bottom, look.skyBottom, look.sky, CLEAR_BOTTOM));
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   drawSkyMotion(t, environment, w, h);
@@ -65,6 +76,9 @@ export function drawWorld(t) {
   for (const actor of actors) if (!options.cull || actorVisible(actor, top, bottom, DEPTH)) actor.draw();
   ctx.restore();
 
+  // the weather lies over the scene, under the evening: its shade, then haze and rain (not indoors)
+  drawWeatherShade(w, h);
+  drawWeatherFall(t, w, h);
   drawAmbientLighting(light, w, h);
   drawNightGrade(w, h);
   // the lights go on top of the shade, in the same camera as the scene
@@ -74,4 +88,5 @@ export function drawWorld(t) {
   drawNightLights();
   ctx.restore();
   positionShopSigns(center, w, h);
+  drawWeatherFlash(t, w, h);
 }
