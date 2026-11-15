@@ -191,20 +191,25 @@ function drawHaze(t, w, h, boxes) {
   const look = scene.look;
   if (look.haze <= 0.01) return;
   const time = reducedMotion ? 0 : t;
+  // the bands are worked out once a frame; the passes (outdoors) only clip and stroke them again
+  const bands = [];
+  for (let band = 0; band < 7; band++) {
+    const y = h * (0.42 + band * 0.085) + Math.sin(time * 0.0004 + band * 1.9) * 6;
+    const line = new Path2D();
+    for (let x = -20; x <= w + 20; x += 24) {
+      const wave = Math.sin(x * 0.021 + time * 0.0016 + band * 2.3) * 3.2 + Math.sin(x * 0.047 - time * 0.0011 + band) * 1.6;
+      if (x === -20) line.moveTo(x, y + wave);
+      else line.lineTo(x, y + wave);
+    }
+    bands.push({ line, style: `rgba(255,244,214,${0.032 + (band % 3) * 0.012})`, width: 9 + (band % 3) * 5 });
+  }
   ctx.save();
   ctx.lineCap = "round";
   outdoors(w, h, look.haze, boxes, () => {
-    for (let band = 0; band < 7; band++) {
-      const y = h * (0.42 + band * 0.085) + Math.sin(time * 0.0004 + band * 1.9) * 6;
-      ctx.strokeStyle = `rgba(255,244,214,${0.032 + (band % 3) * 0.012})`;
-      ctx.lineWidth = 9 + (band % 3) * 5;
-      ctx.beginPath();
-      for (let x = -20; x <= w + 20; x += 24) {
-        const wave = Math.sin(x * 0.021 + time * 0.0016 + band * 2.3) * 3.2 + Math.sin(x * 0.047 - time * 0.0011 + band) * 1.6;
-        if (x === -20) ctx.moveTo(x, y + wave);
-        else ctx.lineTo(x, y + wave);
-      }
-      ctx.stroke();
+    for (const band of bands) {
+      ctx.strokeStyle = band.style;
+      ctx.lineWidth = band.width;
+      ctx.stroke(band.line);
     }
   });
   ctx.restore();
@@ -226,7 +231,7 @@ export function drawWeatherFall(t, w, h) {
 export function drawWeatherFlash(t, w, h) {
   if (reducedMotion) return;
   const flash = flashAt(scene.look, t, scene.day);
-  if (flash <= 0) return;
+  if (!(flash > 0)) return;
   ctx.save();
   ctx.globalAlpha = flash;
   ctx.fillStyle = "#f4f7ff";

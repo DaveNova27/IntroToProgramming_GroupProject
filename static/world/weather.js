@@ -24,7 +24,13 @@ const FULL_H = 800;
 //   haze                     a shimmer near the ground (0 = none)
 //   glow                     the sun's glow: 1 = as it is
 //   lightning                1 = flashes, 0 = none
-export const NEUTRAL = Object.freeze({
+// A look and its colour lists cannot be changed (the looks share their lists): a change would reach every weather.
+const frozen = (look) => {
+  for (const value of Object.values(look)) if (Array.isArray(value)) Object.freeze(value);
+  return Object.freeze(look);
+};
+
+export const NEUTRAL = frozen({
   sky: 0, skyTop: [141, 200, 213], skyBottom: [214, 228, 192],
   cloudScale: 1, cloudExtra: 0, cloudColor: [244, 238, 225],
   windScale: 1, windAdd: 0, seaScale: 1, seaAdd: 0,
@@ -37,7 +43,7 @@ export const NEUTRAL = Object.freeze({
 // One look per weather id of the server. A sunny day is the picture the world always had.
 const LOOKS = {
   sun: NEUTRAL,
-  rain: {
+  rain: frozen({
     ...NEUTRAL,
     sky: 0.78, skyTop: [108, 126, 142], skyBottom: [172, 182, 186],
     cloudScale: 1, cloudExtra: 0.75, cloudColor: [150, 160, 170],
@@ -45,16 +51,16 @@ const LOOKS = {
     rain: 0.8, slant: 0.14,
     shade: 0.5, shadeColor: [150, 168, 190],
     glow: 0.25,
-  },
-  heat: {
+  }),
+  heat: frozen({
     ...NEUTRAL,
     sky: 0.6, skyTop: [156, 205, 226], skyBottom: [250, 226, 170],
     cloudScale: 0.15,
     windScale: 0.55, seaScale: 0.72,
     tint: 0.11, tintColor: [255, 170, 70],
     haze: 1, glow: 2.2,
-  },
-  storm: {
+  }),
+  storm: frozen({
     ...NEUTRAL,
     sky: 0.92, skyTop: [44, 54, 70], skyBottom: [104, 112, 122],
     cloudScale: 1, cloudExtra: 1, cloudColor: [74, 82, 96],
@@ -62,7 +68,7 @@ const LOOKS = {
     rain: 1, slant: 0.42,
     shade: 0.66, shadeColor: [104, 118, 150],
     glow: 0, lightning: 1,
-  },
+  }),
 };
 
 export const WEATHER_IDS = Object.freeze(Object.keys(LOOKS));
@@ -148,14 +154,15 @@ export function rainStreaks(look, t, w, h, out = { far: [], near: [] }) {
 // How bright the lightning is at a time: 0 most of the time, FLASH_MAX at most. The day moves the
 // pattern, so two stormy days do not flash at the same moments.
 export function flashAt(look, t, day) {
-  if (!(look.lightning > 0) || !(t >= 0)) return 0;
+  if (!(look.lightning > 0) || !(t >= 0) || !Number.isFinite(day)) return 0;
   const slot = Math.floor(t / FLASH_SLOT);
   if (fraction(slot, day + 0.5) > 0.6) return 0; // a slot without a flash
   const since = t - slot * FLASH_SLOT - fraction(slot, day + 7.5) * FLASH_LATEST;
   if (since < 0 || since >= FLASH_LENGTH) return 0;
   const rise = 60;
   const shape = since < rise ? since / rise : 1 - (since - rise) / (FLASH_LENGTH - rise);
-  return FLASH_MAX * Math.min(1, look.lightning) * shape;
+  const flash = FLASH_MAX * Math.min(1, look.lightning) * shape;
+  return Number.isFinite(flash) ? flash : 0; // never a number the canvas takes for full white
 }
 
 // The dry places: the parts of a building whose roof has faded out, so its rooms show. It does not

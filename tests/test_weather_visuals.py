@@ -48,6 +48,33 @@ console.log(JSON.stringify({{
 
 
 @needs_node
+def test_every_look_has_all_the_keys_and_cannot_be_changed(tmp_path):
+    out = run_node(tmp_path, """
+const keys = Object.keys(weather.NEUTRAL).sort();
+const bad = [], loose = [], text = [];
+for (const id of ["none", ...weather.WEATHER_IDS]) {
+  const look = weather.weatherLook(id);
+  if (JSON.stringify(Object.keys(look).sort()) !== JSON.stringify(keys)) bad.push(id + ": keys");
+  for (const key of keys) {
+    const value = look[key], reference = weather.NEUTRAL[key];
+    if (Array.isArray(reference)) {
+      if (!Array.isArray(value) || value.length !== 3 || !value.every((c) => Number.isFinite(c) && c >= 0 && c <= 255)) bad.push(id + ": " + key);
+      if (!Object.isFrozen(value)) loose.push(id + ": " + key);
+    } else if (!Number.isFinite(value)) bad.push(id + ": " + key);
+  }
+  if (!Object.isFrozen(look)) loose.push(id);
+}
+let threw = 0;
+for (const change of [() => { weather.NEUTRAL.rain = 1; }, () => { weather.NEUTRAL.tintColor[0] = 0; }, () => { weather.weatherLook("heat").skyTop.push(1); }]) {
+  try { change(); } catch { threw++; }
+}
+console.log(JSON.stringify({ bad, loose, threw, still: weather.NEUTRAL.rain === 0 && weather.NEUTRAL.tintColor[0] === 255 }));""")
+    assert out["bad"] == []  # no look lacks a key, and every colour has three channels (mixLooks needs both)
+    assert out["loose"] == []  # the looks share their colour lists, so those are frozen too
+    assert out["threw"] == 3 and out["still"]  # a change is refused and nothing moved
+
+
+@needs_node
 def test_sun_and_a_day_without_weather_look_the_same(tmp_path):
     out = run_node(tmp_path, """
 console.log(JSON.stringify([JSON.stringify(weather.weatherLook("sun")), JSON.stringify(weather.NEUTRAL)]));""")
@@ -157,6 +184,16 @@ console.log(JSON.stringify({ result, max: weather.FLASH_MAX, odd: [weather.flash
     assert storm["closest"] >= 6000  # never two flashes within 6 seconds
     assert storm["longest"] <= 500  # a flash is over within half a second
     assert out["odd"] == [0, 0]
+
+
+@needs_node
+def test_a_day_that_is_no_number_gives_no_flash_instead_of_a_white_screen(tmp_path):
+    out = run_node(tmp_path, """
+const storm = weather.weatherLook("storm");
+const odd = [undefined, null, NaN, Infinity, "3", {}];
+const all = odd.map((day) => { let most = 0; for (let t = 0; t < 120000; t += 50) { const f = weather.flashAt(storm, t, day); if (!(f >= 0 && f <= weather.FLASH_MAX)) return "bad"; most = Math.max(most, f); } return most; });
+console.log(JSON.stringify(all));""")
+    assert out == [0] * 6
 
 
 # ---- no rain indoors ---------------------------------------------------------------------------
@@ -335,6 +372,7 @@ def test_the_weather_fades_in_and_stands_still_with_reduced_motion():
     assert "rainStreaks(look, reducedMotion ? 0 : t" in env  # the rain stands
     assert re.search(r"function drawWeatherFlash\(t, w, h\) \{\s*if \(reducedMotion\) return;", env)  # no flash
     assert "dryBoxes(world.nova?.parts, scene.roofs" in env  # the dry places come from the roofs
+    assert "function drawHaze" in env and re.search(r"const bands = \[\];[\s\S]*outdoors\(w, h, look\.haze", env)  # the bands are built once, before the passes
     assert env.count("dryBoxes(") == 1  # worked out once a frame for haze and rain together
     render = source("render.js")
     for call in ("drawWeatherShade(w, h)", "drawWeatherFall(t, w, h)", "drawWeatherFlash(t, w, h)"):

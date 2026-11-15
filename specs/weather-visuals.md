@@ -146,8 +146,15 @@ With Playwright on the running app (`CT_EDITOR=1`), the frame clock held by the 
 - With reduced motion the sky of a storm is one unchanged picture over 60 seconds (1200 frames). Without
   it the lightning shows as the only jumps in brightness.
 - JavaScript time of a frame in `storm` against the same frame on `main` (median of 400 frames, three
-  rounds, software rendering): the plaza 10.5 against 10.1 ms, the beach 9.6 against 9.3 ms, inside
-  the Nova 11.1 against 10.3 ms. At most 0.8 ms more.
+  rounds, software rendering): the plaza 8.6 against 8.4 ms, the beach 8.1
+  against 7.7 ms, inside the Nova 8.9 against 8.8 ms (at most 0.4 ms more). These were measured on the
+  final code, on a faster run of the machine than the first measurement (10.5 / 9.6 / 11.1 ms against
+  10.1 / 9.3 / 10.3 ms on the first version): compare each pair, not the two series.
+- After the code review (findings in the pull request) these were run again on the changed code: the
+  pixels against `main` with `sun`, with no day open and with a different real weather before the day
+  opens; the Dorm in `rain` and `storm`; the roof fade (a frame in the middle of it: the rain gets thinner
+  over the fading roofs, no double band where the Nova and the Student Hub overlap); the fade-in after
+  *Open day*; reduced motion; and the small live view on the dashboard (thin rain, not a curtain).
 
 ## Decide
 
