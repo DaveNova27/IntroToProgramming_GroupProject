@@ -238,7 +238,7 @@ INTERIORS = {
             # least 1.4 wide, so that walking by hand and clicking to walk both find their way.
             # ---- the Nova ----
             # cafe: shelves and counter against the north wall (the barista stands between them), tables
-            {"id": "cafe-shelf", "wing": "nova", "x": 12.5, "y": 1.7, "w": 6.5, "h": 0.6, "label": "Cafe shelves", "kind": "furniture"},
+            {"id": "cafe-shelf", "wing": "nova", "x": 12.5, "y": 1.7, "w": 6.5, "h": 0.45, "label": "Cafe shelves", "kind": "furniture"},
             {"id": "cafe-counter", "wing": "nova", "x": 12.5, "y": 2.8, "w": 5.1, "h": 0.85, "label": "Cafe counter", "kind": "counter"},
             {"id": "cafe-stool-west", "wing": "nova", "x": 13.1, "y": 4.1, "r": 0.19, "label": "Bar stool", "kind": "furniture"},
             {"id": "cafe-stool-east", "wing": "nova", "x": 14.7, "y": 4.1, "r": 0.19, "label": "Bar stool", "kind": "furniture"},
@@ -249,7 +249,7 @@ INTERIORS = {
             {"id": "cafe-plant-west", "wing": "nova", "r": 0.38, "x": 12.65, "y": 8.15, "label": "Planter", "kind": "prop"},
             # atrium: the two desks under the gallery, the staircase, benches and planters
             {"id": "supply-counter", "wing": "nova", "x": 19.45, "y": 2.2, "w": 2.25, "h": 0.85, "label": "Supply desk", "kind": "counter"},
-            {"id": "student-counter", "wing": "nova", "x": 22.2, "y": 2.2, "w": 3.0, "h": 0.85, "label": "Student Central", "kind": "counter"},
+            {"id": "student-counter", "wing": "nova", "x": 22.0, "y": 2.2, "w": 3.0, "h": 0.85, "label": "Student Central", "kind": "counter"},
             {"id": "staircase", "wing": "nova", "x": 25.2, "y": 1.9, "w": 1.5, "h": 2.9, "label": "Staircase", "kind": "furniture"},
             {"id": "atrium-bench-west", "wing": "nova", "x": 19.5, "y": 5.9, "w": 1.8, "h": 0.5, "label": "Bench", "kind": "furniture"},
             {"id": "atrium-bench-east", "wing": "nova", "x": 24.7, "y": 5.9, "w": 1.8, "h": 0.5, "label": "Bench", "kind": "furniture"},
@@ -394,7 +394,7 @@ BEACH = {
     ],
     # beach umbrellas that stand alone: the post blocks, the canopy does not
     "umbrellas": [
-        {"x": 9.9, "y": 31.4, "color": "#ff7458"}, {"x": 20.6, "y": 30.0, "color": "#64cbc8"},
+        {"x": 9.9, "y": 31.4, "color": "#ff7458"}, {"x": 20.6, "y": 30.3, "color": "#64cbc8"},
         {"x": 28.9, "y": 31.6, "color": "#f5c95e"},
     ],
     "sandcastle": {"x": 24.4, "y": 33.0},
@@ -411,7 +411,7 @@ BEACH = {
     "benches": [[2.2, 23.4], [9.4, 23.4], [23.8, 23.4], [29.8, 23.4]],
     # rocks at the two ends of the bay, in the wash of the waves
     "rocks": [
-        {"x": 2.7, "y": 34.4, "r": 0.5, "block": True}, {"x": 1.7, "y": 34.9, "r": 0.34, "block": False},
+        {"x": 2.7, "y": 34.8, "r": 0.5, "block": True}, {"x": 1.7, "y": 34.9, "r": 0.34, "block": False},
         {"x": 3.5, "y": 35.2, "r": 0.28, "block": False},
         {"x": 39.5, "y": 34.3, "r": 0.5, "block": True}, {"x": 40.5, "y": 35.0, "r": 0.34, "block": False},
         {"x": 38.7, "y": 35.3, "r": 0.26, "block": False},
