@@ -6,13 +6,30 @@ import { createHash } from "node:crypto";
 
 const data = JSON.parse(readFileSync(0, "utf8"));
 let drawing;
+const paints = new Set();
+let fillStyle;
+const styleStack = [];
+// Sample an actual painted part of each fitting (not the sign, shutter, or browsing figures).
+const fittingPaint = {
+  cafe: { coffee: "#e9eae4", cake: "#aa6646", bagel: "#e6ac62" },
+  merchandise: { hoodie: "#233f54", tshirt: "#385668", cap: "#526e78" },
+  surf_shop: { surfboard: "#e8b265", wetsuit: "#192f3b", surf_lesson: "#20444a" },
+  beach_cafe: { beer: "#597048", coke_zero: "#a94c40", sandwich: "#c48d53" },
+};
 const context = new Proxy({}, {
   get: (_, name) => (...args) => {
     drawing.update(JSON.stringify([name, args]));
+    if (name === "save") styleStack.push(fillStyle);
+    if (name === "restore") fillStyle = styleStack.pop();
+    if (name === "fill" || name === "fillRect") paints.add(fillStyle);
     if (name === "measureText") return { width: 40 };
     if (name === "createLinearGradient" || name === "createRadialGradient") return { addColorStop() {} };
   },
-  set: (_, name, value) => { drawing.update(JSON.stringify([name, value])); return true; },
+  set: (_, name, value) => {
+    if (name === "fillStyle") fillStyle = value;
+    drawing.update(JSON.stringify([name, value]));
+    return true;
+  },
 });
 const signs = [];
 globalThis.document = {
@@ -32,9 +49,14 @@ scene.roofs.nova = 0;
 
 function picture(shops, sid) {
   updateShopSigns(shops);
+  paints.clear();
   drawing = createHash("sha256");
   const indoors = sid === "cafe" || sid === "merchandise";
   for (const actor of indoors ? roomActors(0) : beachActors(0)) actor.draw();
+  const shop = shops.find(s => s.id === sid);
+  for (const [product, color] of Object.entries(fittingPaint[sid])) {
+    assert.equal(paints.has(color), shop.products.includes(product), sid + " fitting for " + product);
+  }
   return drawing.digest("hex");
 }
 

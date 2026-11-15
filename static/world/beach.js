@@ -449,10 +449,9 @@ function drawSurfHut(shop, amount, fit) {
   drawFacadeBandX(x + 0.212, y + 0.5, 0.6, 46, 78, amount > 0.1 ? "#ffe3a0" : "#cfe7e6", 3);
   drawFacadeBandX(x + 0.214, y + 0.38, 0.12, 46, 78, "#2e8b8f", 1);
   drawFacadeBandX(x + 0.214, y + 1.0, 0.12, 46, 78, "#2e8b8f", 1);
-  if (!fit?.unlocked) return;
-  if (fit.products.includes("wetsuit")) {
-    const rail = HUT_Z - 22;
-    line(isoPoint(x + 0.45, fy, rail), isoPoint(x + 2.55, fy, rail), "#f3debc", 2.5);
+  const rail = HUT_Z - 22;
+  line(isoPoint(x + 0.45, fy, rail), isoPoint(x + 2.55, fy, rail), "#f3debc", 2.5);
+  if (fit?.products.includes("wetsuit")) {
     for (let i = 0; i < 3; i++) {
       const p = isoPoint(x + 0.8 + i * 0.68, fy, rail);
       ctx.save();
@@ -469,10 +468,10 @@ function drawSurfHut(shop, amount, fit) {
   dot(port, 8, "#f4efe6");
   dot(port, 6, "#1d4a55");
   dot({ x: port.x - 1.5, y: port.y - 2 }, 1.6, "rgba(255,255,255,.5)");
-  if (amount > 0.05) glow(x + w / 2, y + 0.9, 50, 190, amount); // light spilling from under the roof
+  if (fit?.unlocked && amount > 0.05) glow(x + w / 2, y + 0.9, 50, 190, amount); // light spilling from under the roof
 }
 
-// Tall rental boards on the fixed rack give the hut its silhouette, even with the hatch shut.
+// The three upright boards mark the shop. The rental board hangs at the pickup counter.
 function drawBoardRack(rack) {
   drawBlock(rack.x, rack.y, rack.width, rack.height, 10, ...TIMBER);
   const base = isoPoint(rack.x + rack.width / 2, rack.y + rack.height * 0.35, 9);
@@ -525,10 +524,18 @@ function drawCafeHut(shop, amount, fit) {
     ctx.fill();
   }
   ctx.restore();
-  if (!fit?.unlocked) return;
   // two shelves with bottles and glasses
   shelf(x + 0.45, x + 2.6, fy, 50);
   shelf(x + 0.45, x + 2.6, fy, 66);
+  // woven lamps on cords
+  for (const px of [x + 5.0, x + 5.9]) {
+    const top = isoPoint(px, fy, HUT_Z - 2);
+    const lamp = isoPoint(px, fy, HUT_Z - 20);
+    line(top, lamp, "#5a4a37", 1);
+    oval(lamp, 6, 5, fit?.unlocked && amount > 0.1 ? "#ffd980" : "#c9a45e");
+    for (let k = -2; k <= 2; k++) line({ x: lamp.x + k * 2, y: lamp.y - 4 }, { x: lamp.x + k * 2.2, y: lamp.y + 4 }, "#a9823d", 0.8);
+  }
+  if (!fit?.unlocked) return;
   ["#4f9d63", "#c46a52", "#e8c25a", "#4f7fa0", "#4f9d63", "#c46a52"].forEach((color, i) => {
     const p = isoPoint(x + 0.65 + i * 0.34, fy - 0.02, 66);
     ctx.fillStyle = color;
@@ -553,14 +560,6 @@ function drawCafeHut(shop, amount, fit) {
     line({ x: board.x + 12, y: board.y - 4 + i * 4.6 }, { x: board.x + 18, y: board.y - 4 + i * 4.6 }, "#e9f2ee", 1.1, 0.7);
   });
   if (amount > 0.05) glow(x + w / 2, y + 1.0, 50, 220, amount);
-  // woven lamps on cords
-  for (const px of [x + 5.0, x + 5.9]) {
-    const top = isoPoint(px, fy, HUT_Z - 2);
-    const lamp = isoPoint(px, fy, HUT_Z - 20);
-    line(top, lamp, "#5a4a37", 1);
-    oval(lamp, 6, 5, amount > 0.1 ? "#ffd980" : "#c9a45e");
-    for (let k = -2; k <= 2; k++) line({ x: lamp.x + k * 2, y: lamp.y - 4 }, { x: lamp.x + k * 2.2, y: lamp.y + 4 }, "#a9823d", 0.8);
-  }
 }
 
 function drawSurfShop(fit) {
@@ -573,6 +572,18 @@ function drawSurfShop(fit) {
   if (fit?.unlocked) {
     const till = isoPoint(counter.x + 0.7, counter.y + 0.4, 44);
     roundedRectAt(till, 11, 7, "#2f4d5a");
+    if (fit.products.includes("surfboard")) {
+      const p = isoPoint(counter.x + counter.width / 2, counter.y + counter.height, 13);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.fillStyle = "#e8b265";
+      ctx.fill(new Path2D("M-37 0 Q-30 -7 1 -7 Q26 -7 39 0 Q25 7 1 7 Q-30 7 -37 2Z"));
+      ctx.fillStyle = "#fff0cc";
+      ctx.fillRect(-29, -1, 61, 2);
+      ctx.fillStyle = "#395b5d";
+      for (const dx of [-19, 19]) ctx.fillRect(dx, 3, 3, 8);
+      ctx.restore();
+    }
     if (fit.products.includes("surf_lesson")) {
       const board = isoPoint(counter.x + 2.7, counter.y + 0.4, 36);
       ctx.save();
@@ -1872,7 +1883,7 @@ export function beachActors(t) {
       add(depthOf(shop.x, shop.y) + 1.0, () => drawBeachCafe(fit));
       for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(depthOf(c.x, c.y) + 0.05, () => drawPost(c.x, c.y, HUT_Z));
       add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawAwning(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.05, HUT_Z, "#dd7053", amount));
-      add(depthOf(shop.x + shop.w, shop.y + 1.35), () => drawStringLights(t, amount));
+      add(depthOf(shop.x + shop.w, shop.y + 1.35), () => drawStringLights(t, fit?.unlocked ? amount : 0));
       solid.filter((c) => c.id.startsWith("beach-table")).forEach((c, i) => {
         add(depthOf(c.x, c.y) + 0.1, () => drawBeachTable(c.x, c.y, i));
         add(depthOf(c.x, c.y) + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
