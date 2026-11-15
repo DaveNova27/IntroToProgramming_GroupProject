@@ -10,7 +10,7 @@
 // and only keep their old shape (see "Known issues" in specs/map-view.md).
 
 import { drawPersonFigure } from "./people.js";
-import { drawBlock, drawFacadeBandX, drawFacadeBandY, drawPlane, drawRaisedSlab, mixColor, roundedRect } from "./primitives.js";
+import { drawBlock, drawFacadeBandX, drawFacadeBandY, drawPlane, drawRaisedSlab, drawShopShutter, mixColor, roundedRect } from "./primitives.js";
 import { DAY_END, DAY_START, DEPTH, TILE, ctx, depthOf, isoPoint, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
 
 const FLOOR_Z = 4;
@@ -453,11 +453,53 @@ function drawCup(x, y, z) {
   ellipseAt({ x: p.x, y: p.y - 0.2 }, 2.8, 1.4, "#5b3b26");
 }
 
+// Enamel sign, pastry dome and bagel basket at the campus espresso bar.
+function drawCafeSign(item) {
+  const p = isoPoint(item.x + 0.55, item.y + item.h, 65);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  roundedRect(-3, -23, 6, 14, 2, "#405858");
+  ellipseAt({ x: 0, y: 0 }, 21, 21, "#304d50");
+  ellipseAt({ x: 0, y: 0 }, 18, 18, "#fff0cd");
+  ctx.strokeStyle = "#a0533d";
+  ctx.lineWidth = 2;
+  ctx.stroke(new Path2D("M7 -1 C18 -3 14 8 6 6 M-11 10 Q0 13 11 10 M-2 -4 Q-5 -7 -1 -11 M3 -5 Q1 -8 5 -12"));
+  ctx.fillStyle = "#304d50";
+  ctx.fill(new Path2D("M-10 -2 H8 Q8 9 0 9 Q-8 9 -10 -2Z"));
+  ctx.restore();
+}
+
+function drawPastries(item, fit) {
+  const y = item.y + item.h / 2;
+  if (fit.products.includes("cake")) {
+    const p = isoPoint(item.x + 1.7, y, 35);
+    roundedRect(p.x - 18, p.y - 4, 36, 5, 2, "#5d726a");
+    roundedRect(p.x - 12, p.y - 12, 24, 9, 3, "#aa6646");
+    roundedRect(p.x - 12, p.y - 12, 24, 3, 2, "#fff0cf");
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - 3, 16, Math.PI, 2 * Math.PI);
+    ctx.fillStyle = "rgba(201,235,233,.26)";
+    ctx.fill();
+    ctx.strokeStyle = "#88b2b0";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ellipseAt({ x: p.x, y: p.y - 21 }, 2.5, 2.3, "#597873");
+  }
+  if (fit.products.includes("bagel")) {
+    const p = isoPoint(item.x + 4.7, y, 35);
+    ellipseAt(p, 19, 7, "#98623e");
+    for (const [dx, dy] of [[-8, -5], [6, -6], [0, -2]]) {
+      ellipseAt({ x: p.x + dx, y: p.y + dy }, 7, 4.7, "#e6ac62");
+      ellipseAt({ x: p.x + dx, y: p.y + dy }, 2.5, 1.6, "#98623e");
+    }
+  }
+}
+
 // ---- counters ----------------------------------------------------------------------------------
 
 // a counter: a body in the colour of its place, a stone top that sticks out a little at the front
 const COUNTERS = {
-  "cafe-counter": { top: "#ebe3d4", body: "#c99a62", front: "slats" },
+  "cafe-counter": { top: "#ebe3d4", body: "#ce805e", front: "tile" },
   "supply-counter": { top: "#ddc08a", body: "#31545b", front: "panel" },
   "student-counter": { top: "#f3f1ea", body: "#2b6070", front: "glass" },
 };
@@ -466,16 +508,21 @@ function drawCounterSlice(item, x, w) {
   const style = COUNTERS[item.id];
   const front = item.y + item.h + 0.01;
   drawBlock(x, item.y, w, item.h, 30, style.body, dark(style.body, 0.3), dark(style.body, 0.12));
-  if (style.front === "slats") {
-    ctx.strokeStyle = "rgba(90,55,25,.38)";
+  if (style.front === "tile") {
+    ctx.strokeStyle = "#e1aa88";
     ctx.lineWidth = 1;
-    for (let px = x + 0.1; px < x + w - 0.04; px += 0.2) {
+    for (let px = x + 0.1; px < x + w - 0.04; px += 0.28) {
       const a = isoPoint(px, front, 4);
       const b = isoPoint(px, front, 27);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
+    }
+    for (const z of [10, 20]) {
+      const p = isoPoint(x, front, z);
+      ctx.fillStyle = "#e1aa88";
+      ctx.fillRect(p.x, p.y, w * TILE, 1);
     }
   } else if (style.front === "panel") {
     drawFacadeBandY(x + 0.06, front, w - 0.12, 5, 22, "#244e58", 1);
@@ -559,45 +606,53 @@ function drawStaircase(item) {
 
 // ---- merchandise -------------------------------------------------------------------------------
 
-function drawMerchShelfSlice(item, x, w, index) {
-  const [top, east, south] = shades("#f1efe7");
-  drawBlock(x, item.y, w, item.h, 62, top, east, south);
+function drawMerchShelfSlice(item, x, w, index, fit) {
   const front = item.y + item.h + 0.01;
-  drawFacadeBandY(x + 0.06, front, w - 0.12, 40, 57, "#c9c3b3", 1);
-  drawFacadeBandY(x + 0.06, front, w - 0.12, 21, 37, "#c9c3b3", 1);
-  drawFacadeBandY(x + 0.06, front, w - 0.12, 4, 18, TEAL, 2);
-  // folded shirts, mugs and caps
-  for (const [row, floor] of [[0, 40], [1, 21]]) {
-    for (let k = 0; k < 2; k++) {
-      const p = isoPoint(x + w * (0.28 + k * 0.46), item.y + item.h * 0.75, floor);
-      const layers = 3 + ((index + k + row) % 2);
-      for (let layer = 0; layer < layers; layer++) {
-        ctx.fillStyle = ACCENTS[(index * 2 + k + row * 3 + layer) % ACCENTS.length];
-        ctx.fillRect(p.x - 6, p.y - 3.2 * (layer + 1), 12, 3);
-      }
+  drawBlock(x, item.y, w, item.h, 62, "#fff4de", "#ac9c84", "#e1ccb0");
+  if (!fit?.unlocked) return;
+  drawFacadeBandY(x + 0.03, front, w - 0.06, 6, 53, "#f5e6ca", 1);
+  if (fit.products.includes("cap") && index % 2 === 1) {
+    const p = isoPoint(x + w / 2, front, 31);
+    for (const dx of [-10, 9]) {
+      ellipseAt({ x: p.x + dx, y: p.y }, 6.5, 5.5, "#526e78");
+      roundedRect(p.x + dx - 7, p.y, 17, 3, 1, "#243c4c");
     }
-    const mug = isoPoint(x + w * 0.5, item.y + item.h * 0.75, floor);
-    if ((index + row) % 2 === 0) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(mug.x - 2.5, mug.y - 7, 5, 7);
-    }
+    roundedRect(p.x - 21, p.y + 5, 42, 3, 1, "#bd976a");
   }
 }
 
-function drawDisplayTableSlice(item, x, w, index) {
+function drawFramedHoodie(item) {
+  const p = isoPoint(item.x + item.w / 2, item.y + item.h, 35);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  roundedRect(-26, -29, 52, 58, 2, "#ac8052");
+  roundedRect(-23, -26, 46, 52, 1, "#fff1d2");
+  ctx.fillStyle = "#233f54";
+  ctx.fill(new Path2D("M-6 -12 Q-11 -24 0 -24 Q11 -24 6 -12 L13 -9 19 8 13 11 9 2 9 20 -9 20 -9 2 -13 11 -19 8 -13 -9Z"));
+  ctx.fillStyle = "#466579";
+  ctx.fill(new Path2D("M-6 -17 Q0 -21 6 -17 L0 -11Z M-5 10 H5 L7 15 H-7Z"));
+  ctx.fillStyle = "#edddb9";
+  ctx.fillRect(-2, -10, 1, 6);
+  ctx.fillRect(2, -10, 1, 7);
+  ctx.fillRect(3, -4, 4, 2);
+  ctx.restore();
+}
+
+function drawDisplayTableSlice(item, x, w, index, shirts) {
   const leg = (px, py) => drawBlock(px, py, 0.09, 0.09, 20, "#31545b", "#1f3c43", "#294a51");
   if (index === 0) leg(x + 0.1, item.y + item.h - 0.17);
   leg(x + w - 0.19, item.y + item.h - 0.17);
   drawRaisedSlab(x, item.y, w, item.h, 24, 5, "#efebe0", "#8d9a96", "#b3bcb8");
-  const color = ACCENTS[(index + 1) % ACCENTS.length];
-  drawRaisedSlab(x + w * 0.22, item.y + 0.17, w * 0.5, 0.42, 40, 16, light(color, 0.15), dark(color, 0.35), dark(color, 0.2));
-  const label = isoPoint(x + w * 0.47, item.y + 0.6, 30);
-  ctx.fillStyle = "rgba(255,255,255,.5)";
-  ctx.fillRect(label.x - 3, label.y - 2, 6, 2);
+  if (shirts) {
+    for (const [layer, color] of ["#385668", "#c98264", "#e6d8af"].entries()) {
+      drawRaisedSlab(x + w * 0.15, item.y + 0.1, w * 0.68, 0.5, 28 + layer * 4, 3.5,
+        color, dark(color, 0.25), dark(color, 0.13));
+    }
+  }
 }
 
 // a garment rack: a rail on two posts with shirts hanging from it
-function drawRackSlice(item, x, w, index, count) {
+function drawRackSlice(item, x, w, index, count, stocked) {
   const rail = 52;
   const midY = item.y + item.h / 2;
   ctx.strokeStyle = TEAL;
@@ -612,7 +667,7 @@ function drawRackSlice(item, x, w, index, count) {
   };
   if (index === 0) post(x + 0.08);
   if (index === count - 1) post(x + w - 0.08);
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; stocked && k < 4; k++) {
     const p = isoPoint(x + 0.12 + ((w - 0.24) * (k + 0.5)) / 4, midY, rail);
     const color = ACCENTS[(index * 4 + k) % ACCENTS.length];
     ctx.fillStyle = color;
@@ -1084,6 +1139,7 @@ const dormDecor = () => [
 ];
 
 export function roomActors(t) {
+  const { cafe, merchandise } = server.shops;
   const actors = [];
   for (const item of layout().solid) {
     if (!wingIsOpen(item.wing)) continue; // a closed wing shows nothing of what is inside
@@ -1092,14 +1148,18 @@ export function roomActors(t) {
       actors.push(...dormActors(item));
     } else if (id === "cafe-shelf") {
       actors.push(...sliced(item, 1.1, (x, w, i) => drawCafeShelfSlice(item, x, w, i)));
-      actors.push({ depth: onTop(item.x + 2.7, item), draw: () => drawEspressoMachine(item.x + 2.7, item.y + item.h * 0.5) });
-      actors.push({ depth: onTop(item.x + 1.1, item), draw: () => drawCup(item.x + 1.1, item.y + item.h * 0.5, 28) });
-      actors.push({ depth: onTop(item.x + 4.3, item), draw: () => drawCup(item.x + 4.3, item.y + item.h * 0.5, 28) });
+      actors.push({ depth: onTop(item.x + 0.55, item), draw: () => drawCafeSign(item) });
+      if (cafe?.unlocked) {
+        actors.push({ depth: onTop(item.x + 2.7, item), draw: () => drawEspressoMachine(item.x + 2.7, item.y + item.h * 0.5) });
+      } else {
+        actors.push({ depth: onTop(item.x, item), draw: () => drawShopShutter(item.x, item.y + item.h, item.w, 4, 50, "#ba987f") });
+      }
     } else if (id in COUNTERS) {
       actors.push(...sliced(item, 1.1, (x, w) => drawCounterSlice(item, x, w)));
       if (id === "cafe-counter") {
-        for (const px of [item.x + 0.7, item.x + 2.1, item.x + 4.6]) {
-          actors.push({ depth: onTop(px, item), draw: () => drawCup(px, item.y + item.h * 0.45, 34) });
+        if (cafe?.unlocked) {
+          actors.push({ depth: onTop(item.x + item.w, item), draw: () => drawPastries(item, cafe) });
+          actors.push({ depth: onTop(item.x + 3.2, item), draw: () => drawCup(item.x + 3.2, item.y + item.h * 0.45, 34) });
         }
         // the bar stools in front of it
         for (const px of [item.x + 0.7, item.x + 1.9, item.x + 3.9, item.x + 5.1]) {
@@ -1118,11 +1178,17 @@ export function roomActors(t) {
     } else if (id.startsWith("atrium-bench")) {
       actors.push(...sliced(item, 0.95, (x, w, i, n) => drawBenchSlice(item, x, w, i, n)));
     } else if (id === "merch-shelf") {
-      actors.push(...sliced(item, 1.25, (x, w, i) => drawMerchShelfSlice(item, x, w, i)));
+      actors.push(...sliced(item, 1.25, (x, w, i) => drawMerchShelfSlice(item, x, w, i, merchandise)));
+      if (merchandise?.unlocked) {
+        actors.push({ depth: onTop(item.x + item.w / 2, item), draw: () => drawFramedHoodie(item) });
+      } else {
+        actors.push({ depth: onTop(item.x + item.w, item), draw: () =>
+          drawShopShutter(item.x, item.y + item.h, item.w, 4, 58, "#aaa89b") });
+      }
     } else if (id === "merch-table") {
-      actors.push(...sliced(item, 0.95, (x, w, i) => drawDisplayTableSlice(item, x, w, i)));
+      actors.push(...sliced(item, 0.95, (x, w, i) => drawDisplayTableSlice(item, x, w, i, merchandise?.products.includes("tshirt"))));
     } else if (id === "merch-rack") {
-      actors.push(...sliced(item, 0.95, (x, w, i, n) => drawRackSlice(item, x, w, i, n)));
+      actors.push(...sliced(item, 0.95, (x, w, i, n) => drawRackSlice(item, x, w, i, n, merchandise?.products.includes("tshirt"))));
     } else if (id.startsWith("printer")) {
       actors.push({ depth: frontDepth(item) + 0.3, draw: () => drawPrinter(item) });
     } else if (id.startsWith("column")) {
@@ -1157,6 +1223,7 @@ export function roomActors(t) {
   if (wingIsOpen("dorm")) actors.push(...dormDecor());
   layout().activities.forEach((activity, index) => {
     if (!wingIsOpen(activity.wing)) return;
+    if (activity.display_product && !merchandise?.products.includes(activity.display_product)) return;
     actors.push({ depth: depthOf(activity.x, activity.y) + 0.03, draw: () => drawRoomPerson(activity, t, index) });
   });
   actors.push(...employeeActors(t));

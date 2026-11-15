@@ -1,5 +1,6 @@
 // Draws one frame: sky, ground, then everything else sorted from back to front.
 
+import { positionShopSigns } from "./shop-signs.js";
 import { actorVisible } from "./cull.js";
 import { beachActors, drawBeachGround, drawNightGrade, drawNightLights } from "./beach.js";
 import { campusActors, drawCampusGroundPlan, drawTerrain } from "./campus.js";
@@ -72,4 +73,5 @@ export function drawWorld(t) {
   ctx.scale(camera.zoom, camera.zoom);
   drawNightLights();
   ctx.restore();
+  positionShopSigns(center, w, h);
 }

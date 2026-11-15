@@ -18,10 +18,10 @@ import {
   drawFootprintShadow,
   drawSoftShadow,
   drawSpaceCaption,
-  drawWorldLabel,
+  drawShopShutter,
   mixColor,
 } from "./primitives.js";
-import { DEPTH, TILE, ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, wingIsOpen, world } from "./scene.js";
+import { DEPTH, TILE, ctx, depthOf, isoPoint, reducedMotion, roofOf, scene, server, wingIsOpen, world } from "./scene.js";
 
 const TEAL = "#31545b";
 const AQUA = "#64cbc8";
@@ -439,81 +439,70 @@ function shelf(x0, x1, y, z, color = "#8f6a3f") {
   for (const x of [x0 + 0.1, x1 - 0.1]) line(isoPoint(x, y, z), isoPoint(x, y, z - 7), color, 1.6);
 }
 
-function drawSurfHut(shop, amount) {
+function drawSurfHut(shop, amount, fit) {
   const { x, y, w } = shop;
-  drawBlock(x, y, w, 0.2, HUT_Z, "#dfe9e6", "#6f9f9b", "#8fbcb7");
+  drawBlock(x, y, w, 0.2, HUT_Z, "#d3e1d5", "#25565a", "#3b7979");
   const fy = y + 0.2 + 0.012;
   for (let px = x + 0.3; px < x + w - 0.1; px += 0.34) line(isoPoint(px, fy, 6), isoPoint(px, fy, HUT_Z - 2), "rgba(40,80,80,.28)", 0.8);
   // west wall with a shuttered window
-  drawBlock(x, y + 0.2, 0.2, 1.2, HUT_Z, "#dfe9e6", "#6f9f9b", "#8fbcb7");
+  drawBlock(x, y + 0.2, 0.2, 1.2, HUT_Z, "#d3e1d5", "#25565a", "#3b7979");
   drawFacadeBandX(x + 0.212, y + 0.5, 0.6, 46, 78, amount > 0.1 ? "#ffe3a0" : "#cfe7e6", 3);
   drawFacadeBandX(x + 0.214, y + 0.38, 0.12, 46, 78, "#2e8b8f", 1);
   drawFacadeBandX(x + 0.214, y + 1.0, 0.12, 46, 78, "#2e8b8f", 1);
-  // wetsuits on a rail
-  const rail = HUT_Z - 12;
-  line(isoPoint(x + 1.7, fy, rail), isoPoint(x + 5.0, fy, rail), "#31545b", 2);
-  ["#2f4d5a", "#ff7458", "#64cbc8", "#2f4d5a", "#f5c95e"].forEach((color, i) => {
-    const p = isoPoint(x + 2.0 + i * 0.62, fy, rail);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(p.x - 5, p.y);
-    ctx.lineTo(p.x + 5, p.y);
-    ctx.lineTo(p.x + 6, p.y + 6);
-    ctx.lineTo(p.x + 3, p.y + 6);
-    ctx.lineTo(p.x + 2, p.y + 22);
-    ctx.lineTo(p.x - 2, p.y + 22);
-    ctx.lineTo(p.x - 3, p.y + 6);
-    ctx.lineTo(p.x - 6, p.y + 6);
-    ctx.closePath();
-    ctx.fill();
-  });
-  // a shelf of helmets, wax and sun cream, a porthole, a painted sign
-  shelf(x + 0.5, x + 2.4, fy, 50);
-  [CORAL, AQUA, SUN].forEach((color, i) => oval(isoPoint(x + 0.8 + i * 0.5, fy - 0.03, 54), 3.4, 2.6, color));
-  ctx.fillStyle = "#f4efe6";
-  ctx.fillRect(isoPoint(x + 2.0, fy, 52).x - 2, isoPoint(x + 2.0, fy, 52).y - 4, 4, 4);
+  if (!fit?.unlocked) return;
+  if (fit.products.includes("wetsuit")) {
+    const rail = HUT_Z - 22;
+    line(isoPoint(x + 0.45, fy, rail), isoPoint(x + 2.55, fy, rail), "#f3debc", 2.5);
+    for (let i = 0; i < 3; i++) {
+      const p = isoPoint(x + 0.8 + i * 0.68, fy, rail);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.fillStyle = "#192f3b";
+      ctx.fill(new Path2D("M-4 2 Q0 6 4 2 L9 6 12 21 8 22 4 12 5 38 1 38 0 24 -1 38 -5 38 -4 12 -8 22 -12 21 -9 6Z"));
+      ctx.fillStyle = "#70b5ad";
+      ctx.fillRect(-3, 7, 6, 3);
+      ctx.restore();
+    }
+  }
+  // Brass porthole at the far end of the timber wall.
   const port = isoPoint(x + w - 0.7, fy, 62);
   dot(port, 8, "#f4efe6");
   dot(port, 6, "#1d4a55");
   dot({ x: port.x - 1.5, y: port.y - 2 }, 1.6, "rgba(255,255,255,.5)");
   if (amount > 0.05) glow(x + w / 2, y + 0.9, 50, 190, amount); // light spilling from under the roof
-  const sign = isoPoint(x + w - 2.0, fy, 60);
-  roundedRectAt({ x: sign.x, y: sign.y }, 34, 12, "#f4efe6");
-  ctx.fillStyle = "#2e8b8f";
-  ctx.textAlign = "center";
-  ctx.font = "800 5px Menlo, Consolas, monospace";
-  ctx.fillText("RENT · LEARN", sign.x, sign.y + 1.8);
 }
 
-function drawSurfRoof(shop, amount) {
-  const { x, y, w } = shop;
-  drawAwning(x - 0.35, y - 0.05, w + 0.7, 1.15, HUT_Z, "#2e8b8f", amount);
-  // a surfboard standing on the ridge as the sign
-  const c = isoPoint(x + w / 2, y + 0.5, HUT_Z + 4);
-  ctx.save();
-  ctx.translate(c.x, c.y - 24);
-  ctx.rotate(0.06);
-  ctx.fillStyle = "#e9e3d4";
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 10, 28, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = CORAL;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 7.4, 25, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(-1.2, -24, 2.4, 48);
-  ctx.fillStyle = "#31545b";
-  ctx.font = "800 6px Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.save();
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText("SURF", 0, 2.2);
-  ctx.restore();
-  ctx.restore();
+// Tall rental boards on the fixed rack give the hut its silhouette, even with the hatch shut.
+function drawBoardRack(rack) {
+  drawBlock(rack.x, rack.y, rack.width, rack.height, 10, ...TIMBER);
+  const base = isoPoint(rack.x + rack.width / 2, rack.y + rack.height * 0.35, 9);
+  for (const [offset, height, tilt, color] of [
+    [-9, 129, -0.13, "#e9d8aa"], [1, 151, -0.045, "#db7654"], [11, 137, 0.065, "#65aaa5"],
+  ]) {
+    ctx.save();
+    ctx.translate(base.x + offset, base.y);
+    ctx.rotate(tilt);
+    ctx.scale(1, height / 100);
+    ctx.beginPath();
+    ctx.moveTo(0, -100);
+    ctx.bezierCurveTo(11, -94, 13, -31, 6, -1);
+    ctx.quadraticCurveTo(0, 2, -6, -1);
+    ctx.bezierCurveTo(-13, -31, -11, -94, 0, -100);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "#355553";
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+    ctx.clip();
+    ctx.fillStyle = "#f9eccc";
+    ctx.fillRect(-1, -99, 2, 100);
+    ctx.rotate(-0.26);
+    ctx.fillRect(-25, -45, 42, 6);
+    ctx.restore();
+  }
 }
 
-function drawCafeHut(shop, amount) {
+function drawCafeHut(shop, amount, fit) {
   const { x, y, w } = shop;
   drawBlock(x, y, w, 0.2, HUT_Z, "#fbf5e8", "#d9a483", "#f3e4cf");
   const fy = y + 0.2 + 0.012;
@@ -536,6 +525,7 @@ function drawCafeHut(shop, amount) {
     ctx.fill();
   }
   ctx.restore();
+  if (!fit?.unlocked) return;
   // two shelves with bottles and glasses
   shelf(x + 0.45, x + 2.6, fy, 50);
   shelf(x + 0.45, x + 2.6, fy, 66);
@@ -573,60 +563,34 @@ function drawCafeHut(shop, amount) {
   }
 }
 
-// a roof of palm thatch: straw lines, a hanging fringe on the front and the east edge
-function drawThatchRoof(x, y, w, h, z) {
-  const top = [isoPoint(x, y, z), isoPoint(x + w, y, z), isoPoint(x + w, y + h, z), isoPoint(x, y + h, z)];
-  drawPlane(top, "#c9a45e", "rgba(90,60,20,.4)");
-  for (let px = x + 0.08; px < x + w; px += 0.14) {
-    line(isoPoint(px, y, z), isoPoint(px, y + h, z), Math.round(px * 100) % 3 ? "#b58d45" : "#dcc07a", 1.2, 0.8);
-  }
-  line(isoPoint(x, y + h / 2, z + 1), isoPoint(x + w, y + h / 2, z + 1), "#8a6a30", 2.2); // the ridge
-  drawPlane([isoPoint(x, y + h, z), isoPoint(x + w, y + h, z), isoPoint(x + w, y + h, z - 7), isoPoint(x, y + h, z - 7)], "#a9823d", null);
-  for (let px = x; px <= x + w; px += 0.11) {
-    const drop = 9 + ((Math.round(px * 100) * 7) % 5) * 1.6;
-    line(isoPoint(px, y + h, z - 2), isoPoint(px + 0.02, y + h, z - drop), Math.round(px * 100) % 2 ? "#b58d45" : "#8f6f32", 1.7);
-  }
-  drawPlane([isoPoint(x + w, y, z), isoPoint(x + w, y + h, z), isoPoint(x + w, y + h, z - 7), isoPoint(x + w, y, z - 7)], "#957133", null);
-  for (let py = y; py <= y + h; py += 0.11) {
-    const drop = 9 + ((Math.round(py * 100) * 7) % 5) * 1.6;
-    line(isoPoint(x + w, py, z - 2), isoPoint(x + w, py, z - drop), Math.round(py * 100) % 2 ? "#a47e3a" : "#7c5f28", 1.7);
-  }
-}
-
-// ---- the Surf Shop --------------------------------------------------------------------------------
-
-function drawSurfboard(x, y, height, color, lean) {
-  const base = isoPoint(x, y, 6);
-  const top = isoPoint(x, y + lean, 6 + height);
-  line(base, top, dark(color, 0.35), 6.4);
-  line(base, top, color, 5);
-  line({ x: base.x - 0.4, y: base.y - 2 }, { x: top.x - 0.4, y: top.y + 3 }, "#ffffff", 1.1, 0.85);
-}
-
-function drawSurfShop(shop, amount) {
+function drawSurfShop(fit) {
   const counter = world.colliders.campus.find((c) => c.id === "surf-counter");
   // the counter: timber with a teal front, a till and a chalk board
   drawBlock(counter.x, counter.y, counter.width, counter.height, 30, "#e8d9bd", dark("#c9a878", 0.3), "#c9a878");
   drawFacadeBandY(counter.x + 0.06, counter.y + counter.height + 0.012, counter.width - 0.12, 4, 22, "#2e8b8f", 5);
   drawFacadeBandY(counter.x + 0.06, counter.y + counter.height + 0.014, counter.width - 0.12, 22, 25, "#ffffff", 1);
   drawRaisedSlab(counter.x - 0.05, counter.y - 0.04, counter.width + 0.1, counter.height + 0.14, 34, 4, "#f1e7d2", "#a89b82", "#c9bea8");
-  const till = isoPoint(counter.x + 0.7, counter.y + 0.4, 44);
-  roundedRectAt(till, 8, 5, "#2f4d5a");
-  ctx.fillStyle = AQUA;
-  ctx.fillRect(till.x - 5, till.y - 3.6, 6, 1.4);
-  const board = isoPoint(counter.x + 2.4, counter.y + counter.height + 0.02, 52);
-  roundedRectAt({ x: board.x, y: board.y - 5 }, 24, 14, "#22343a");
-  ctx.fillStyle = "#e9f2ee";
-  ctx.textAlign = "center";
-  ctx.font = "800 4.4px Menlo, Consolas, monospace";
-  ctx.fillText("BOARDS", board.x, board.y - 6.5);
-  ctx.fillText("LESSONS", board.x, board.y - 1);
-  // the rack with boards leaning on it, and a rail with wetsuits
-  const rack = world.colliders.campus.find((c) => c.id === "surf-rack");
-  drawBlock(rack.x, rack.y, rack.width, rack.height, 10, ...TIMBER);
-  ["#ff7458", "#64cbc8", "#f5c95e", "#bce65f", "#9a7bc1", "#ffffff"].forEach((color, i) => {
-    drawSurfboard(rack.x + 0.2, rack.y + 0.2 + i * 0.27, 44 + (i % 3) * 5, color, -0.25);
-  });
+  if (fit?.unlocked) {
+    const till = isoPoint(counter.x + 0.7, counter.y + 0.4, 44);
+    roundedRectAt(till, 11, 7, "#2f4d5a");
+    if (fit.products.includes("surf_lesson")) {
+      const board = isoPoint(counter.x + 2.7, counter.y + 0.4, 36);
+      ctx.save();
+      ctx.translate(board.x, board.y);
+      roundedRectAt({ x: 0, y: -17 }, 47, 34, "#c99c64");
+      roundedRectAt({ x: 0, y: -17 }, 43, 30, "#20444a");
+      ctx.strokeStyle = "#c5ebe0";
+      ctx.lineWidth = 2;
+      ctx.stroke(new Path2D("M-16 -16 Q-9 -13 -4 -20 Q2 -31 10 -23 Q2 -23 5 -17 Q8 -12 16 -16"));
+      ctx.fillStyle = "#fff0cc";
+      ctx.font = "bold 7px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("LESSONS", 0, -6);
+      ctx.restore();
+    }
+  } else {
+    drawShopShutter(counter.x, counter.y + counter.height, counter.width, 35, HUT_Z, "#6e9690");
+  }
   drawSoftShadow(counter.x + 1.8, counter.y + 1.3, 60, 22, 0.1);
 }
 
@@ -676,7 +640,7 @@ function drawBeachTable(x, y, index) {
   dot(isoPoint(x - 0.18, y, 26), 1.4, SUN);
 }
 
-function drawBeachCafe(shop, t, amount) {
+function drawBeachCafe(fit) {
   const bar = world.colliders.campus.find((c) => c.id === "cafe-bar");
   drawBlock(bar.x, bar.y, bar.width, bar.height, 32, "#f6efe0", dark("#ff7458", 0.28), "#ff7458");
   ctx.strokeStyle = "rgba(120,50,30,.4)";
@@ -685,22 +649,48 @@ function drawBeachCafe(shop, t, amount) {
     line(isoPoint(px, bar.y + bar.height + 0.012, 4), isoPoint(px, bar.y + bar.height + 0.012, 28), "rgba(120,50,30,.38)", 1);
   }
   drawRaisedSlab(bar.x - 0.05, bar.y - 0.04, bar.width + 0.1, bar.height + 0.16, 36, 4, "#fbf6ea", "#b9b09a", "#d6cfbd");
-  // bottles and glasses on the bar, the espresso machine, a speaker
-  ["#4f9d63", "#c46a52", "#4f7fa0", "#e8c25a", "#4f9d63"].forEach((color, i) => {
-    const p = isoPoint(bar.x + 0.5 + i * 0.28, bar.y + 0.28, 36);
-    ctx.fillStyle = color;
-    ctx.fillRect(p.x - 1.4, p.y - 9, 2.8, 9);
-    ctx.fillRect(p.x - 0.7, p.y - 12, 1.4, 3);
-  });
-  for (const px of [bar.x + 2.4, bar.x + 3.1]) oval(isoPoint(px, bar.y + 0.4, 38), 2, 1, "rgba(255,255,255,.85)");
-  const speaker = isoPoint(bar.x + bar.width - 0.5, bar.y + 0.4, 36);
-  roundedRectAt({ x: speaker.x, y: speaker.y - 6 }, 8, 12, "#22343a");
-  dot({ x: speaker.x, y: speaker.y - 4 }, 1.8, "#8aa6ad");
-  dot({ x: speaker.x, y: speaker.y - 9 }, 1, "#8aa6ad");
-  // the cooler
+  if (fit?.unlocked) {
+    const crate = isoPoint(bar.x + 0.68, bar.y + 0.5, 36);
+    for (let i = 0; i < 4; i++) {
+      const x = crate.x - 12 + i * 8;
+      ctx.fillStyle = "#69512d";
+      ctx.fillRect(x - 1.5, crate.y - 24, 3, 7);
+      roundedRectAt({ x, y: crate.y - 12 }, 6, 15, "#597048");
+    }
+    roundedRectAt({ x: crate.x, y: crate.y - 5 }, 38, 12, "#b07a4b");
+    roundedRectAt({ x: crate.x, y: crate.y - 7 }, 12, 3, "#684a35");
+    if (fit.products.includes("sandwich")) {
+      const p = isoPoint(bar.x + 3.3, bar.y + 0.45, 36);
+      roundedRectAt({ x: p.x, y: p.y - 11 }, 52, 24, "#b9d7d2");
+      for (const dx of [-18, -4, 10]) {
+        ctx.save();
+        ctx.translate(p.x + dx, p.y - 3);
+        ctx.fillStyle = "#c48d53";
+        ctx.fill(new Path2D("M0 0 L0 -14 L13 0Z"));
+        ctx.fillStyle = "#f5dfae";
+        ctx.fill(new Path2D("M1 -2 L1 -11 L10 -2Z"));
+        ctx.restore();
+      }
+      roundedRectAt(p, 54, 4, "#f5e8cc");
+    }
+  } else {
+    drawShopShutter(bar.x, bar.y + bar.height, bar.width, 36, HUT_Z, "#c8a18a");
+  }
+  // A low storage box occupies this footprint even before the drinks-fridge upgrade.
   const cooler = world.colliders.campus.find((c) => c.id === "cafe-cooler");
-  drawBlock(cooler.x, cooler.y, cooler.width, cooler.height, 16, "#e9f4f2", dark("#64cbc8", 0.3), "#64cbc8");
-  drawRaisedSlab(cooler.x - 0.02, cooler.y - 0.02, cooler.width + 0.04, cooler.height + 0.04, 19, 3, "#ffffff", "#b9c8c6", "#d4e0de");
+  const fridge = fit?.products.includes("coke_zero");
+  const height = fridge ? 53 : 16;
+  drawBlock(cooler.x, cooler.y, cooler.width, cooler.height, height, "#e9e6d7", "#9ca8a0", "#b6bdae");
+  if (fridge) {
+    const p = isoPoint(cooler.x + cooler.width / 2, cooler.y + cooler.height, 48);
+    roundedRectAt({ x: p.x, y: p.y + 18 }, 24, 36, "#21434a");
+    for (const row of [0, 1]) {
+      for (const dx of [-7, 0, 7]) {
+        roundedRectAt({ x: p.x + dx, y: p.y + 9 + row * 15 }, 5, 11, "#a94c40");
+      }
+      roundedRectAt({ x: p.x, y: p.y + 15 + row * 15 }, 22, 2, "#b9dad3");
+    }
+  }
   // stools in front of the bar
   for (const x of [26.4, 27.2, 29.2, 30.0]) {
     const p = isoPoint(x, 27.2, 16);
@@ -1868,23 +1858,26 @@ export function beachActors(t) {
 
   for (const shop of world.outdoorShops) {
     if (shop.id === "surf-shop") {
-      add(depthOf(shop.x, shop.y) + 0.05, () => drawSurfHut(shop, amount));
-      add(depthOf(shop.x, shop.y) + 1.0, () => drawSurfShop(shop, amount));
+      const fit = server.shops.surf_shop;
+      add(depthOf(shop.x, shop.y) + 0.05, () => drawSurfHut(shop, amount, fit));
+      add(depthOf(shop.x, shop.y) + 1.0, () => drawSurfShop(fit));
       for (const c of solid.filter((c) => c.id.startsWith("surf-post"))) add(depthOf(c.x, c.y) + 0.05, () => drawPost(c.x, c.y, HUT_Z));
-      add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawSurfRoof(shop, amount));
-      add(depthOf(shop.x, shop.y) + 0.2, () => drawWorldLabel(shop.x + shop.w / 2, shop.y + 0.4, 150, "SURF SHOP", AQUA));
+      add(depthOf(shop.x + shop.w, shop.y + 1.3), () =>
+        drawRaisedSlab(shop.x - 0.2, shop.y - 0.05, shop.w + 0.4, 0.64, HUT_Z + 4, 6, "#6dada3", "#244d52", "#306568"));
+      const rack = solid.find((c) => c.id === "surf-rack");
+      add(depthOf(rack.x, rack.y + rack.height), () => drawBoardRack(rack));
     } else {
-      add(depthOf(shop.x, shop.y) + 0.05, () => drawCafeHut(shop, amount));
-      add(depthOf(shop.x, shop.y) + 1.0, () => drawBeachCafe(shop, t, amount));
+      const fit = server.shops.beach_cafe;
+      add(depthOf(shop.x, shop.y) + 0.05, () => drawCafeHut(shop, amount, fit));
+      add(depthOf(shop.x, shop.y) + 1.0, () => drawBeachCafe(fit));
       for (const c of solid.filter((c) => c.id.startsWith("cafe-post"))) add(depthOf(c.x, c.y) + 0.05, () => drawPost(c.x, c.y, HUT_Z));
-      add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawThatchRoof(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.3, HUT_Z));
+      add(depthOf(shop.x + shop.w, shop.y + 1.3), () => drawAwning(shop.x - 0.3, shop.y - 0.05, shop.w + 0.6, 1.05, HUT_Z, "#dd7053", amount));
       add(depthOf(shop.x + shop.w, shop.y + 1.35), () => drawStringLights(t, amount));
-      add(depthOf(shop.x, shop.y) + 0.2, () => drawWorldLabel(shop.x + shop.w / 2 - 0.4, shop.y + 0.4, 150, "BEACH CAFE", CORAL));
       solid.filter((c) => c.id.startsWith("beach-table")).forEach((c, i) => {
         add(depthOf(c.x, c.y) + 0.1, () => drawBeachTable(c.x, c.y, i));
         add(depthOf(c.x, c.y) + 0.9, () => drawParasol(c.x, c.y, i % 2 ? SUN : AQUA));
       });
-      glowAt(add, 28.2, 27.4, amount);
+      if (fit?.unlocked) glowAt(add, 28.2, 27.4, amount);
     }
   }
   world.beach.loungers.forEach((l, i) => add(depthOf(l.x, l.y) + 1.5, () => drawLounger(l, i)));

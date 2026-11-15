@@ -2,6 +2,7 @@
 // what the server answers and forwards clicks: every rule is decided in logic.py.
 // $, esc, fmt, fmtSigned, toast and EMOJI come from common.js.
 
+import { updateShopSigns } from "./shop-signs.js";
 import { demoDialogOpen, renderDemo, tickMs, wireDemo } from "./demo.js";
 import { inReach } from "./locations.js";
 import { createSerial } from "./serial.js";
@@ -264,6 +265,7 @@ function renderToolbar() {
 }
 
 function renderAll() {
+  updateShopSigns(state.shops);
   if (state.shift) evening = false; // a day is open again (also when opened elsewhere)
   server.staff = state.staff; // the figures in the Cafe are drawn from this (rooms.js)
   server.shift = state.shift;
