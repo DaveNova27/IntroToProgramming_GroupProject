@@ -6,6 +6,7 @@ import { updateShopSigns } from "./shop-signs.js";
 import { demoDialogOpen, renderDemo, tickMs, wireDemo } from "./demo.js";
 import { inReach } from "./locations.js";
 import { createSerial } from "./serial.js";
+import { outfitPicture } from "./wardrobe.js";
 import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
@@ -273,6 +274,7 @@ function renderAll() {
   server.shift = state.shift;
   server.guests = state.guests ?? null; // the guests on the map are drawn from this (guests.js)
   server.guestsAt = performance.now();
+  server.outfit = state.outfit ?? "basic"; // what the player's figure wears (specs/outfits.md)
   const open = state.shops.find((sh) => sh.id === state.shift?.shop);
   server.storeroom = open ? state.products.filter((p) => open.products.includes(p.id)).reduce((n, p) => n + p.stock, 0) : 0;
   renderHud();
@@ -325,7 +327,55 @@ function renderDormPanel(body) {
       <div><dt>Weather</dt><dd>${weather}</dd></div>
       ${state.event ? `<div><dt>Event</dt><dd>${esc(eventText(state.event))}</dd></div>` : ""}
     </dl>
-    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>`);
+    <button type="button" class="btn" data-dorm-open ${state.finished ? "disabled" : ""}>${esc(label)}</button>
+    ${wardrobeHtml()}`);
+}
+
+// The wardrobe (spec outfits): in the room only what you wear and a button; the wardrobe itself is
+// a window of its own with a picture of every outfit, the weather it suits and Buy or Wear. Only the
+// look changes; the server checks the price and the cash and answers with the new state.
+function wardrobeHtml() {
+  const worn = (state.outfits ?? []).find((o) => o.worn);
+  if (!worn) return "";
+  return `
+    <div class="wardrobe-teaser">
+      ${outfitPicture(worn.id)}
+      <div><h3 class="wardrobe-title">Wardrobe</h3><p class="note">Wearing: ${esc(worn.name)}</p></div>
+      <button type="button" class="btn" data-wardrobe-open>Change your clothes</button>
+    </div>`;
+}
+
+// the weather the player may know now: the real one of an open day, before that today's forecast
+function weatherToday() {
+  if (state.weather) return { id: state.weather.id, text: `Today: ${state.weather.name}` };
+  if (state.outlook && !state.shift) return { id: state.outlook.id, text: `Forecast for today: ${state.outlook.name}` };
+  return null;
+}
+
+function renderWardrobePanel(body) {
+  $("#panel-title").textContent = "Wardrobe";
+  const today = weatherToday();
+  setPanelHtml(body, `
+    <button type="button" class="btn back" data-wardrobe-back>‹ Back to your room</button>
+    <p class="note">Change your clothes. An outfit only changes how you look, never your sales.
+      ${today ? `<br><strong>${esc(today.text)}</strong>` : ""}</p>
+    <div class="outfit-grid">
+      ${(state.outfits ?? []).map((o) => {
+        const suits = o.suits ?? []; // an older server sends no advice: the card shows none
+        const fits = today && suits.some((w) => w.id === today.id);
+        return `
+        <article class="outfit-card ${o.worn ? "worn" : ""}">
+          ${outfitPicture(o.id)}
+          <h4>${esc(o.name)}</h4>
+          ${o.text ? `<p class="outfit-text">${esc(o.text)}</p>` : ""}
+          ${suits.length ? `<p class="outfit-suits">Good for: ${suits.map((w) => `<span class="chip ${today && w.id === today.id ? "today" : ""}">${esc(w.name)}</span>`).join(" ")}</p>` : ""}
+          ${fits ? `<p class="outfit-fits">✓ Fits today's weather</p>` : ""}
+          ${o.worn ? `<span class="owned">Wearing</span>`
+            : o.owned ? `<button class="btn" type="button" data-outfit-wear="${esc(o.id)}">Wear</button>`
+            : `<button class="btn" type="button" data-outfit-buy="${esc(o.id)}" ${o.affordable ? "" : "disabled"}>Buy ${fmt(o.price)}</button>`}
+        </article>`;
+      }).join("")}
+    </div>`);
 }
 
 // A panel is redrawn only when its content changed (it is asked again every second while a day
@@ -444,6 +494,8 @@ function renderPanel() {
         </section>`).join("")}`);
   } else if (panelMode === "dorm") {
     renderDormPanel(body);
+  } else if (panelMode === "wardrobe") {
+    renderWardrobePanel(body);
   } else if (panelMode === "shift") {
     renderShiftPanel(body);
   } else if (panelMode === "prices") {
@@ -854,6 +906,12 @@ function wirePanel() {
       closePanel();
       return openDay();
     }
+    if (e.target.closest("[data-wardrobe-open]")) return openPanel("wardrobe");
+    if (e.target.closest("[data-wardrobe-back]")) return openPanel("dorm");
+    const buyOutfit = e.target.closest("[data-outfit-buy]");
+    if (buyOutfit) return shopAction("/api/outfit/buy", { outfit: buyOutfit.dataset.outfitBuy });
+    const wearOutfit = e.target.closest("[data-outfit-wear]");
+    if (wearOutfit) return shopAction("/api/outfit/wear", { outfit: wearOutfit.dataset.outfitWear });
     const unlockBtn = e.target.closest("[data-unlock]");
     if (unlockBtn) return shopAction("/api/shop/unlock", { shop: unlockBtn.dataset.unlock });
     const upgradeBtn = e.target.closest("[data-upgrade-item]");
@@ -1067,6 +1125,7 @@ export function useLocation(action) {
     if (evening) return goToBed();
     openPanel("dorm");
   }
+  if (action === "wardrobe") openPanel("wardrobe"); // the wardrobe in the Dorm (spec outfits)
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 

@@ -565,6 +565,9 @@ def view(state):
         "history": state["history"],
         "badges": logic.badges_view(state),
         "player": state["player"],
+        # the wardrobe in the Dorm and what the figure wears (specs/outfits.md)
+        "outfits": logic.outfits_view(state),
+        "outfit": logic.outfits_of(state)["worn"],
         "base_customers": logic.BASE_CUSTOMERS,
         "segments": [{"id": sid, "name": seg["name"]} for sid, seg in logic.SEGMENTS.items()],
         "price_curves": PRICE_CURVES,
@@ -700,6 +703,33 @@ def unlock_shop():
         new_state = logic.unlock_shop(state, shop)
         cost = state["cash"] - new_state["cash"]
         return new_state, f"{logic.SHOPS[shop]['name']} unlocked for {logic.fmt(cost)}."
+
+    return apply(action)
+
+
+@app.post("/api/outfit/buy")
+def buy_outfit():
+    """Buy an outfit in the Dorm and put it on (specs/outfits.md). The server checks id and cash."""
+    body = json_body()
+
+    def action(state):
+        outfit = body.get("outfit")
+        new_state = logic.buy_outfit(state, outfit)
+        cost = state["cash"] - new_state["cash"]
+        return new_state, f"Bought the {logic.OUTFITS[outfit][0]} for {logic.fmt(cost)}. You are wearing it now."
+
+    return apply(action)
+
+
+@app.post("/api/outfit/wear")
+def wear_outfit():
+    """Put on an outfit the player owns (specs/outfits.md)."""
+    body = json_body()
+
+    def action(state):
+        outfit = body.get("outfit")
+        new_state = logic.wear_outfit(state, outfit)
+        return new_state, f"You are wearing the {logic.OUTFITS[outfit][0]} now."
 
     return apply(action)
 
