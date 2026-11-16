@@ -137,7 +137,9 @@ The ones marked ► were answered by Felix on 2026-11-16; the rest follows from 
    Paused, the game answers 503 until someone presses *Restore* in the Supabase dashboard. Playing on
    the public URL counts as activity; the README gets a line: "open the game at least once a week, and
    check the Supabase dashboard the day before the demo".
-3. **► No backups** (explained to Felix on 2026-11-16, his answer pending; it changes no code).
+3. **► No backups: accepted** (Felix on 2026-11-16, "okay top", after it was explained what is lost
+   without backups: deleting the project, the table or rows, a bug that saves broken runs, a failure at
+   Supabase; and what is only unreachable: a paused project, a changed `CT_SECRET`, deleted cookies).
    "Automatic backups: not included in free" (pricing page). If the project is deleted or broken, the runs
    are gone; for a course project that is acceptable.
 4. **`DATABASE_URL` only in Render's dashboard, not in `render.yaml`.** Render keeps environment
