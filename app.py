@@ -27,6 +27,7 @@ from werkzeug.exceptions import HTTPException
 import db
 import guests
 import logic
+import pgstore
 import scenarios
 import world
 
@@ -235,25 +236,72 @@ def unexpected_error(error):
     return jsonify({"error": "The server hit an error. Nothing was saved."}), 500
 
 
+STORAGE_DOWN = "The game's storage cannot be reached right now. Nothing was saved. Try again in a minute."
+
+
+@app.errorhandler(pgstore.Unavailable)
+def storage_unavailable(error):
+    """The database of the public server is paused or unreachable (specs/persistent-runs.md). Only the
+    kind of error goes to the log, never the connection string (it holds the password)."""
+    reason = error.args[0] if error.args else type(error.__cause__).__name__
+    app.logger.warning("storage unreachable (%s)", reason)
+    return jsonify({"error": STORAGE_DOWN}), 503
+
+
 def _db_kw():
     """The database of this player in public mode, the one run of this computer otherwise."""
     return {"path": _player_file(g.player)} if getattr(g, "player", None) else {}
 
 
+# ---- where the run is stored (specs/persistent-runs.md) ----------------------------------------------
+# Postgres only for a player of the public server with DATABASE_URL set; SQLite in every other case.
+
+
+def _in_postgres():
+    return getattr(g, "player", None) is not None and pgstore.enabled()
+
+
+def _run_exists():
+    return pgstore.exists(g.player) if _in_postgres() else _player_file(g.player).exists()
+
+
+def _run_count():
+    return pgstore.count() if _in_postgres() else sum(1 for _ in PLAYERS_DIR.glob("*.db"))
+
+
+def _load_stored():
+    return pgstore.load(g.player) if _in_postgres() else db.load(**_db_kw())
+
+
+def _save_run(state):
+    if _in_postgres():
+        pgstore.save(state, g.player)
+    else:
+        db.save(state, **_db_kw())
+
+
+def _save_new_run(state):
+    """A new run replaces the old one with its history (a Postgres document is always written whole)."""
+    if _in_postgres():
+        pgstore.save(state, g.player)
+    else:
+        db.save_new_run(state, **_db_kw())
+
+
 def load_run():
     """Load the saved run, or start and save a fresh one (first start). In public mode a new run
     is refused (503) once MAX_PLAYERS runs exist."""
-    if getattr(g, "player", None) and not _player_file(g.player).exists():
+    if getattr(g, "player", None) and not _run_exists():
         with _create_lock:  # one new run at a time: the cap is a hard one
-            if sum(1 for _ in PLAYERS_DIR.glob("*.db")) >= MAX_PLAYERS:
+            if _run_count() >= MAX_PLAYERS:
                 abort(503, description="The game is full right now. Try again later.")
             state = logic.new_state(logic.new_seed())
-            db.save(state, **_db_kw())  # the file exists before the lock is let go
+            _save_run(state)  # the run exists before the lock is let go
             return state
-    state = db.load(**_db_kw())
+    state = _load_stored()
     if state is None:
         state = logic.new_state(logic.new_seed())
-        db.save(state, **_db_kw())
+        _save_run(state)
     return state
 
 
@@ -554,7 +602,7 @@ def apply(action):
         # a badge is reached the moment its condition is true, e.g. at the first sale
         # (specs/badges.md); only the server gives it, never from the request
         logic.award_badges(new_state)
-        db.save(new_state, **_db_kw())
+        _save_run(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 
 
@@ -775,7 +823,7 @@ def editor_action(rule):
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
         logic.award_badges(new_state)  # e.g. cash set to 1,000 euro gives "Wealthy" at once
-        db.save_new_run(new_state, **_db_kw())
+        _save_new_run(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 
 
@@ -931,7 +979,7 @@ def new_run():
                 "state": view(state),
             }), 400
         fresh = logic.new_state(logic.new_seed())
-        db.save_new_run(fresh, **_db_kw())
+        _save_new_run(fresh)
         return jsonify({
             "message": f"New run started: day 1, {logic.fmt(logic.STARTING_CASH)}, no stock.",
             "state": view(fresh),
@@ -958,7 +1006,7 @@ def demo_load():
         except logic.RejectedAction as reason:
             return jsonify({"error": str(reason), "state": view(state)}), 400
         logic.award_badges(new_state)  # like the editor: what the prepared run already meets
-        db.save_new_run(new_state, **_db_kw())  # the old run's history goes with it
+        _save_new_run(new_state)  # the old run's history goes with it
         title = scenarios.SCENARIOS[new_state["scenario"]["id"]]["title"]
         return jsonify({"message": f"Demo: {title}.", "state": view(new_state)})
 

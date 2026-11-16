@@ -5,6 +5,9 @@ description = "A 30-day campus snack-stand simulation (Nova SBE, Introduction to
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.3",
+    # the runs of the public server in Postgres (specs/persistent-runs.md); used only with DATABASE_URL
+    "psycopg[binary]>=3.3,<3.4",
+    "psycopg-pool>=3.3,<3.4",
 ]
 
 [dependency-groups]

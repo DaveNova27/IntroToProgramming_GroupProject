@@ -89,22 +89,42 @@ def connect(path=DEFAULT_PATH):
 def load(path=DEFAULT_PATH):
     """Return the saved run, or None if there is no save yet."""
     with connect(path) as conn:
-        row = conn.execute("SELECT day, cash FROM run WHERE id = 1").fetchone()
-        if row is None:
-            return None
-        day, cash = row
-        products = conn.execute("SELECT product, stock, price FROM products").fetchall()
-        history = conn.execute("SELECT result FROM history ORDER BY day").fetchall()
-        player = conn.execute("SELECT zone, x, y FROM player WHERE id = 1").fetchone()
-        shop_rows = conn.execute(
-            "SELECT shop, unlocked, level, staff_places FROM shops").fetchall()
-        shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
-        shift = conn.execute("SELECT data FROM shift WHERE id = 1").fetchone()
-        employee_rows = conn.execute(
-            "SELECT id, name, shop, place, job, level, working FROM employees ORDER BY id"
-        ).fetchall()
-        meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
-        badge_rows = conn.execute("SELECT id, day FROM badges ORDER BY day, rowid").fetchall()
+        return _read(conn)
+
+
+def through_sqlite(state):
+    """The state as SQLite stores and loads it: written into a fresh database in memory, with the same
+    tables, CHECKs and repairs as a file, and read back. The Postgres store (specs/persistent-runs.md)
+    sends every run through here on its way in and out, so both stores check and repair a run the same
+    way. A state that breaks a CHECK raises sqlite3.IntegrityError and nothing is written anywhere."""
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.executescript(SCHEMA)
+        with conn:  # one transaction, like save()
+            _write(conn, state)
+        return _read(conn)
+    finally:
+        conn.close()
+
+
+def _read(conn):
+    """The run stored in this connection, or None (the body of load())."""
+    row = conn.execute("SELECT day, cash FROM run WHERE id = 1").fetchone()
+    if row is None:
+        return None
+    day, cash = row
+    products = conn.execute("SELECT product, stock, price FROM products").fetchall()
+    history = conn.execute("SELECT result FROM history ORDER BY day").fetchall()
+    player = conn.execute("SELECT zone, x, y FROM player WHERE id = 1").fetchone()
+    shop_rows = conn.execute(
+        "SELECT shop, unlocked, level, staff_places FROM shops").fetchall()
+    shop_products = conn.execute("SELECT shop, product FROM shop_products").fetchall()
+    shift = conn.execute("SELECT data FROM shift WHERE id = 1").fetchone()
+    employee_rows = conn.execute(
+        "SELECT id, name, shop, place, job, level, working FROM employees ORDER BY id"
+    ).fetchall()
+    meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
+    badge_rows = conn.execute("SELECT id, day FROM badges ORDER BY day, rowid").fetchall()
     # products added to the catalogue after the save was made start with stock 0
     stock = {pid: 0 for pid in logic.CATALOGUE}
     prices = {pid: item["ref_price"] for pid, item in logic.CATALOGUE.items()}
