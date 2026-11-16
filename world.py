@@ -484,6 +484,12 @@ DORM = {
         "zone": "campus", "x": 36.5, "y": 10.75, "kind": "panel", "action": "dorm", "label": "Go to bed",
         "color": "#c99a62", "title": "YOUR BED", "sub": "DORM", "wing": "dorm",
     },
+    # the wardrobe (spec outfits): a second use point of the Dorm, in front of the wardrobe at the west
+    # wall. It opens the wardrobe window; like the bed it is no door and decides no rule.
+    "wardrobe": {
+        "zone": "campus", "x": 36.45, "y": 11.75, "kind": "panel", "action": "wardrobe",
+        "label": "Change your clothes", "color": "#9a7bc1", "title": "WARDROBE", "sub": "CLOTHES", "wing": "dorm",
+    },
     # where the player stands up after sleeping (spec day-cycle): beside the bed, in reach of it.
     # Only a spot to show; the browser saves it with POST /api/player like any other position.
     "wake": {"zone": "campus", "x": 36.8, "y": 11.1},

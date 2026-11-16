@@ -157,12 +157,29 @@ def _read(conn):
         "badges": [{"id": i, "day": d} for i, d in badge_rows if i in logic.BADGE_IDS],
         "popularity": _popularity(meta.get("popularity")),
         "player": _player(player),
+        "outfits": _outfits(meta.get("outfits")),
     }
     # the running demo scenario: only stored when one runs (a save without it has none)
     scenario = json.loads(meta.get("scenario", "null"))
     if scenario is not None:
         state["scenario"] = scenario
     return state
+
+
+def _outfits(raw):
+    """The owned and worn outfits (specs/outfits.md). A save from before outfits has none: only the
+    first outfit, worn. Unknown ids are dropped; a worn outfit that is not owned falls back to the
+    first one."""
+    try:
+        saved = json.loads(raw) if raw is not None else None
+    except ValueError:
+        saved = None
+    saved = saved if isinstance(saved, dict) else {}
+    ids = saved.get("owned") if isinstance(saved.get("owned"), list) else []
+    owned = [oid for oid in logic.OUTFITS
+             if oid == logic.FIRST_OUTFIT or oid in [i for i in ids if isinstance(i, str)]]
+    worn = saved.get("worn")
+    return {"owned": owned, "worn": worn if isinstance(worn, str) and worn in owned else logic.FIRST_OUTFIT}
 
 
 def _popularity(raw):
@@ -241,7 +258,7 @@ def save_new_run(state, path=DEFAULT_PATH):
 
 
 def _write(conn, state):
-    """Write day, cash, stock, prices, shops, player, badges and new history records (inside a transaction)."""
+    """Write day, cash, stock, prices, shops, player, badges, outfits and new history records (inside a transaction)."""
     conn.execute(
         "INSERT INTO run (id, day, cash) VALUES (1, ?, ?) "
         "ON CONFLICT(id) DO UPDATE SET day = excluded.day, cash = excluded.cash",
@@ -286,6 +303,12 @@ def _write(conn, state):
         "INSERT INTO meta (key, value) VALUES ('popularity', ?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (json.dumps(state.get("popularity")),),
+    )
+    # the owned and worn outfits (specs/outfits.md); a state without them saves the first one
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('outfits', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (json.dumps(logic.outfits_of(state)),),
     )
     # the running demo scenario (specs/demo-scenarios.md); no key in the state means none
     conn.execute(

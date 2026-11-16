@@ -196,6 +196,75 @@ export function drawCharacterProp(pose, style, frame, role) {
 // screen, so the figure keeps its direction and is only pressed flat, as a body seen lying from above.
 const LIE_SQUASH = 0.6;
 
+// How each outfit of the player looks (specs/outfits.md). The server decides which outfit is worn
+// (state.outfit), the browser only draws it; an unknown id looks basic.
+// shirt: the torso; pants: the legs; sleeves: "long" (in the shirt colour, hands bare) or "short"
+// (a sleeve cap over a bare arm); hem: how much longer than a shirt the jacket hangs; hood: drawn
+// behind the head; the rest names the details drawn by drawOutfitDetails.
+export const OUTFIT_LOOKS = {
+  basic: { shirt: WORLD_MATERIALS.lime },
+  hawaii: { shirt: "#e8573f", pants: "#d9c49b", sleeves: "short", flowers: true, collar: "open" },
+  raincoat: { shirt: "#f2c230", pants: "#26394d", sleeves: "long", hem: 3, hood: true, zip: "#b98d13",
+    band: "#e3eaec", pockets: "#d4a51d" },
+  tracksuit: { shirt: "#1f3b73", pants: "#1f3b73", sleeves: "long", zip: "#ffffff", stripes: "#ffffff",
+    collar: "high" },
+  blazer: { shirt: "#2b3445", pants: "#2b3445", sleeves: "long", hem: 1, collar: "suit" },
+};
+const OUTLINE = "#183740";
+
+// The torso of every figure; `hem` makes a jacket hang lower.
+function torsoPath(hem = 0) {
+  ctx.beginPath();
+  ctx.moveTo(-7, -36);
+  ctx.quadraticCurveTo(0, -40, 7, -35);
+  ctx.lineTo(5 + hem * 0.25, -18 + hem);
+  ctx.quadraticCurveTo(0, -15 + hem, -5 - hem * 0.25, -18 + hem);
+  ctx.closePath();
+}
+
+// The two arms of a pose, each a line from the shoulder through its points to the hand.
+function armPaths(pose, swing, dance) {
+  if (pose === "phone" || pose === "eat" || pose === "drink" || pose === "browse") {
+    return [[[-6, -32], [-2, -25], [5, -28]], [[6, -32], [8, -27]]];
+  }
+  if (pose === "clean" || pose === "repair") return [[[-6, -32], [-2, -23], [6, -20]], [[6, -32], [9, -23]]];
+  if (pose === "dance") return [[[-6, -32], [-11, -40 - dance]], [[6, -32], [12, -35 + dance]]];
+  if (pose === "chat") return [[[-6, -32], [-10, -24]], [[6, -32], [11, -36]]];
+  return [[[-6, -32], [-9 - swing, -20]], [[6, -32], [9 + swing, -21]]];
+}
+
+function strokeLine(points, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  points.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+  ctx.stroke();
+}
+
+// Bare arms as before; a long sleeve with an outline and a bare hand; a short sleeve as a cap.
+function drawArms(arms, skin, look) {
+  for (const arm of arms) {
+    if (look?.sleeves === "long") {
+      strokeLine(arm, OUTLINE, 5.6);
+      strokeLine(arm, look.shirt, 4.2);
+      if (look.stripes) strokeLine(arm.map(([px, py]) => [px + 0.9, py]), look.stripes, 0.8);
+      const [hx, hy] = arm[arm.length - 1];
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 1.9, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      strokeLine(arm, skin, 4);
+      if (look?.sleeves === "short") {
+        const [[sx, sy], [nx, ny]] = arm;
+        const cap = [[sx, sy], [sx + (nx - sx) * 0.42, sy + (ny - sy) * 0.42]];
+        strokeLine(cap, OUTLINE, 6);
+        strokeLine(cap, look.shirt, 4.8);
+      }
+    }
+  }
+}
+
 export function drawPersonFigure(x, y, t, index, options = {}) {
   const style = personStyles[Math.abs(index) % personStyles.length],
     moving = Boolean(options.moving),
@@ -215,7 +284,8 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     view = characterView(options.facing || { x: options.direction || 1, y: 0 }),
     p = isoPoint(x, y, (options.z ?? 4) + (pose === "lie" ? 0 : bob)),
     scale = (options.player ? 1.2 : 1.02) * (style.build || 1),
-    shirt = options.player ? WORLD_MATERIALS.lime : options.color || "#64cbc8",
+    look = options.player ? OUTFIT_LOOKS[options.outfit] ?? OUTFIT_LOOKS.basic : null,
+    shirt = look ? look.shirt : options.color || "#64cbc8",
     sit = pose === "sit",
     lie = pose === "lie", // in bed (spec day-cycle): the whole figure turned flat, eyes closed
     flip = view.side ? view.flip : 1;
@@ -233,7 +303,7 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
   }
   ctx.strokeStyle = "#183740";
   ctx.lineWidth = 1.15;
-  ctx.fillStyle = style.pants;
+  ctx.fillStyle = look?.pants ?? style.pants;
   if (sit) {
     for (const side of [-1, 1]) {
       ctx.beginPath();
@@ -272,48 +342,20 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     ctx.fill();
     ctx.stroke();
   }
+  if (look?.stripes && !sit) {
+    // the side stripes of the track trousers, along the outside of each leg
+    strokeLine([[-4.6, -17.5], [-5.4 + step + dance, -2]], look.stripes, 0.8);
+    strokeLine([[4.6, -17.5], [4.4 - step - dance, -2]], look.stripes, 0.8);
+  }
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 1.15;
   ctx.fillStyle = shirt;
-  ctx.beginPath();
-  ctx.moveTo(-7, -36);
-  ctx.quadraticCurveTo(0, -40, 7, -35);
-  ctx.lineTo(5, -18);
-  ctx.quadraticCurveTo(0, -15, -5, -18);
-  ctx.closePath();
+  torsoPath(look?.hem);
   ctx.fill();
   ctx.stroke();
+  if (look) drawOutfitDetails(look, view.back, style.skin);
   const armSwing = moving ? step * 0.72 : 0;
-  ctx.strokeStyle = style.skin;
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  if (pose === "phone" || pose === "eat" || pose === "drink" || pose === "browse") {
-    ctx.moveTo(-6, -32);
-    ctx.lineTo(-2, -25);
-    ctx.lineTo(5, -28);
-    ctx.moveTo(6, -32);
-    ctx.lineTo(8, -27);
-  } else if (pose === "clean" || pose === "repair") {
-    ctx.moveTo(-6, -32);
-    ctx.lineTo(-2, -23);
-    ctx.lineTo(6, -20);
-    ctx.moveTo(6, -32);
-    ctx.lineTo(9, -23);
-  } else if (pose === "dance") {
-    ctx.moveTo(-6, -32);
-    ctx.lineTo(-11, -40 - dance);
-    ctx.moveTo(6, -32);
-    ctx.lineTo(12, -35 + dance);
-  } else if (pose === "chat") {
-    ctx.moveTo(-6, -32);
-    ctx.lineTo(-10, -24);
-    ctx.moveTo(6, -32);
-    ctx.lineTo(11, -36);
-  } else {
-    ctx.moveTo(-6, -32);
-    ctx.lineTo(-9 - armSwing, -20);
-    ctx.moveTo(6, -32);
-    ctx.lineTo(9 + armSwing, -21);
-  }
-  ctx.stroke();
+  drawArms(armPaths(pose, armSwing, dance), style.skin, look);
   if ((moving || pose === "phone") && !options.role && !view.back) {
     ctx.fillStyle = style.bag;
     ctx.beginPath();
@@ -321,6 +363,16 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     ctx.fill();
     ctx.strokeStyle = "#173743";
     ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  if (look?.hood && !lie) {
+    // the hood lies around the neck and behind the head
+    ctx.fillStyle = look.shirt;
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.ellipse(0, -43, 8, 8.4, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
   }
   ctx.fillStyle = style.skin;
@@ -363,18 +415,146 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
   }
   drawCharacterProp(pose, style, frame, options.role);
   if (options.player) {
-    ctx.strokeStyle = "#173743";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-5, -35);
-    ctx.lineTo(5, -32);
-    ctx.stroke();
-    roundedRect(-5.4, -34.5, 10.8, 3, 1, "#173743");
+    if (!look || look === OUTFIT_LOOKS.basic) {
+      // the band across the basic shirt; the other outfits show their own details instead
+      ctx.strokeStyle = "#173743";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-5, -35);
+      ctx.lineTo(5, -32);
+      ctx.stroke();
+      roundedRect(-5.4, -34.5, 10.8, 3, 1, "#173743");
+    }
     if (!lie) {
       ctx.fillStyle = "#fff";
       ctx.beginPath();
       ctx.arc(view.side ? 3 : 2.2, -44, 1.1, 0, Math.PI * 2);
       ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+// The details of an outfit on the torso drawn just before (same coordinates), cut to the torso so
+// that nothing sticks out: hibiscus flowers, collars, zips, pockets, the reflective band, lapels and tie.
+// Seen from behind only the pattern and the band show.
+function drawOutfitDetails(look, back, skin) {
+  ctx.save();
+  torsoPath(look.hem);
+  ctx.clip();
+  if (look.flowers) {
+    // hibiscus: five cream petals around a yellow middle, with a leaf
+    for (const [fx, fy] of [[-4, -31.5], [3, -34.5], [0.5, -26], [-3.6, -21], [4, -21.5]]) {
+      ctx.fillStyle = "#3f8f5a";
+      ctx.beginPath();
+      ctx.ellipse(fx + 1.6, fy + 1.2, 1.2, 0.6, 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff1dc";
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(fx + Math.cos(a) * 1.1, fy + Math.sin(a) * 1.1, 0.75, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#ffd23f";
+      ctx.beginPath();
+      ctx.arc(fx, fy, 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  if (look.band) {
+    ctx.fillStyle = look.band;
+    ctx.fillRect(-8, -22.4, 16, 1.4);
+  }
+  if (!back) {
+    if (look.collar === "open") {
+      // an open camp collar: skin in the V, two flat collar wings, a row of buttons
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.moveTo(-2.4, -38.5);
+      ctx.lineTo(2.4, -38.5);
+      ctx.lineTo(0, -33.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#f07a62";
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 2.4, -38.2);
+        ctx.lineTo(side * 4.6, -36.2);
+        ctx.lineTo(side * 0.6, -33.6);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = "#fff1dc";
+      for (const by of [-31, -27, -23, -19.5]) {
+        ctx.beginPath();
+        ctx.arc(0.4, by, 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    if (look.collar === "suit") {
+      // white shirt and burgundy tie in the V, lighter lapels, two buttons and a pocket square
+      ctx.fillStyle = "#f6f3ec";
+      ctx.beginPath();
+      ctx.moveTo(-3.2, -38.6);
+      ctx.lineTo(3.2, -38.6);
+      ctx.lineTo(0, -26.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#8c2639";
+      ctx.beginPath();
+      ctx.moveTo(-0.9, -37.4);
+      ctx.lineTo(0.9, -37.4);
+      ctx.lineTo(1.2, -29);
+      ctx.lineTo(0, -27.4);
+      ctx.lineTo(-1.2, -29);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3e4a61";
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 3.2, -38.6);
+        ctx.lineTo(side * 5.2, -35.4);
+        ctx.lineTo(side * 3, -33.8);
+        ctx.lineTo(side * 0.4, -26.8);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = "#11161f";
+      for (const by of [-24.3, -21.2]) {
+        ctx.beginPath();
+        ctx.arc(0, by, 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#f6f3ec";
+      ctx.beginPath();
+      ctx.moveTo(2.6, -31.6);
+      ctx.lineTo(4.8, -31.6);
+      ctx.lineTo(3.4, -30);
+      ctx.closePath();
+      ctx.fill();
+    }
+    if (look.zip) {
+      ctx.strokeStyle = look.zip;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(0, -38);
+      ctx.lineTo(0, -12);
+      ctx.stroke();
+      ctx.fillStyle = look.zip;
+      ctx.fillRect(-0.6, -36.6, 1.2, 1.8); // the zip pull
+    }
+    if (look.collar === "high") {
+      // a stand-up collar with a white edge
+      ctx.fillStyle = look.shirt;
+      ctx.fillRect(-3.4, -39.5, 6.8, 2.6);
+      ctx.fillStyle = look.zip;
+      ctx.fillRect(-3.4, -37.2, 6.8, 0.5);
+    }
+    if (look.pockets) {
+      ctx.fillStyle = look.pockets;
+      ctx.fillRect(-5.2, -20, 3.6, 1.1);
+      ctx.fillRect(1.6, -20, 3.6, 1.1);
     }
   }
   ctx.restore();

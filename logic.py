@@ -200,6 +200,7 @@ def new_state(seed=DEFAULT_SEED):
         "badges": [],  # earned badges, {"id", "day"}, in the order earned (specs/badges.md)
         "popularity": {sid: POPULARITY_START for sid in SHOPS},  # specs/popularity.md
         "player": world.start_player(),
+        "outfits": new_outfits(),  # specs/outfits.md
     }
 
 
@@ -924,12 +925,13 @@ def editor_set_state(state, patch):
     changes nothing. Keys not in the patch stay as they are.
 
     The keys: day, cash, seed, day_override, stock, prices, shops, employees, player, badges,
-    popularity ({shop: 0 to 100}; the shops not named keep theirs).
+    popularity ({shop: 0 to 100}; the shops not named keep theirs), outfits ({"owned", "worn"}).
     "employees" replaces all employees: whoever is not in the list is dismissed (see
     _check_employees). Setting an
     earlier day cuts the history and the badges to the days before it. Refused while a day
     is open."""
-    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges", "popularity"}
+    keys = {"day", "cash", "seed", "day_override", "stock", "prices", "shops", "employees", "player", "badges",
+            "popularity", "outfits"}
     if not isinstance(patch, dict) or not patch:
         raise RejectedAction("The patch must be a dictionary with at least one field.")
     unknown = sorted(str(k) for k in patch if k not in keys)
@@ -993,6 +995,8 @@ def editor_set_state(state, patch):
             _check_shop(sid)
             values[sid] = _whole(value, POPULARITY_MIN, POPULARITY_MAX, f"The popularity of {sid}")
         new["popularity"] = {**{sid: popularity_of(new, sid) for sid in SHOPS}, **values}
+    if "outfits" in patch:
+        new["outfits"] = _check_outfits(patch["outfits"])
     # the storeroom limit is per shop: check it for the stock as a whole
     touched = {sid for sid in SHOPS for pid in patch.get("stock", {})
                if pid in shop_product_ids(sid)}
@@ -1973,3 +1977,107 @@ def _check_badges(value, day):
     if out and day <= 1:
         raise RejectedAction("On day 1 no badge can be earned yet.")
     return out
+
+
+# ---- outfits (specs/outfits.md, issue #21) --------------------------------------------------
+# Clothes for the player's figure, bought and changed in the Dorm. Only the look changes: an outfit
+# gives no bonus and changes no other rule. None of them is sold in the Merchandise shop (hoodie,
+# T-shirt, cap). The server decides every purchase; the position of the player is never read.
+# id: (name, price in cents, the weathers it suits (ids of WEATHER), a line for the wardrobe).
+# The first one is worn at the start and costs nothing. "Suits" is only advice on the screen: the
+# weather never asks for an outfit and an outfit never changes a rule.
+OUTFITS = {
+    "basic": ("Basic shirt", 0, ("sun",),
+              "The lime shirt you arrived in. Fine for an ordinary sunny day."),
+    "hawaii": ("Hawaii shirt", 2_000, ("sun", "heat"),
+               "Light linen with hibiscus flowers and an open collar, worn with light chinos."),
+    "raincoat": ("Rain jacket", 2_500, ("rain", "storm"),
+                 "A yellow waterproof jacket with a hood, a reflective band and big pockets."),
+    "tracksuit": ("Tracksuit", 3_000, ("sun", "storm"),
+                  "Navy track jacket and trousers with white side stripes. Warm when the wind blows."),
+    "blazer": ("Blazer", 6_000, ("sun", "rain"),
+               "Charcoal blazer, white shirt and a burgundy tie. Dressed for the Nova SBE career fair."),
+}
+FIRST_OUTFIT = "basic"
+
+
+def new_outfits():
+    """A fresh run: only the first outfit is owned, and it is worn."""
+    return {"owned": [FIRST_OUTFIT], "worn": FIRST_OUTFIT}
+
+
+def outfits_of(state):
+    """The outfits of a run; a run from before outfits has only the first one."""
+    return state.get("outfits") or new_outfits()
+
+
+def _check_outfit(outfit):
+    if not isinstance(outfit, str) or outfit not in OUTFITS:
+        raise RejectedAction("Unknown outfit.")
+
+
+def _in_order(ids):
+    """Owned outfits in the order of OUTFITS, each once, always with the first one."""
+    owned = set(ids) | {FIRST_OUTFIT}
+    return [oid for oid in OUTFITS if oid in owned]
+
+
+def buy_outfit(state, outfit):
+    """Buy an outfit for its price and put it on. Refused for an unknown or already owned outfit,
+    without enough cash, or when the run is complete; a refusal changes nothing."""
+    _check_outfit(outfit)
+    name, price = OUTFITS[outfit][:2]
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Outfits can no longer be bought.")
+    current = outfits_of(state)
+    if outfit in current["owned"]:
+        raise RejectedAction(f"You already own the {name}.")
+    if price > state["cash"]:
+        raise RejectedAction(
+            f"Not enough cash: the {name} costs {fmt(price)}, you have {fmt(state['cash'])}."
+        )
+    new = copy.deepcopy(state)
+    new["cash"] -= price
+    new["outfits"] = {"owned": _in_order(current["owned"] + [outfit]), "worn": outfit}
+    return new
+
+
+def wear_outfit(state, outfit):
+    """Put on an outfit the player owns. Costs nothing."""
+    _check_outfit(outfit)
+    current = outfits_of(state)
+    name = OUTFITS[outfit][0]
+    if outfit not in current["owned"]:
+        raise RejectedAction(f"You do not own the {name} yet.")
+    if outfit == current["worn"]:
+        raise RejectedAction(f"You are already wearing the {name}.")
+    new = copy.deepcopy(state)
+    new["outfits"] = {"owned": list(current["owned"]), "worn": outfit}
+    return new
+
+
+def outfits_view(state):
+    """Every outfit for the screen, in OUTFITS order."""
+    current = outfits_of(state)
+    finished = is_finished(state)
+    return [{"id": oid, "name": name, "price": price, "text": text,
+             "suits": [{"id": wid, "name": WEATHER[wid]["name"]} for wid in suits],
+             "owned": oid in current["owned"], "worn": oid == current["worn"],
+             "affordable": not finished and price <= state["cash"]}
+            for oid, (name, price, suits, text) in OUTFITS.items()]
+
+
+def _check_outfits(value):
+    """An editor entry {"owned": [ids], "worn": id}: known ids, the worn one owned. The first
+    outfit is always owned (added if missing)."""
+    if not isinstance(value, dict) or set(value) != {"owned", "worn"}:
+        raise RejectedAction("'outfits' must be {\"owned\": [ids], \"worn\": id}.")
+    if not isinstance(value["owned"], list):
+        raise RejectedAction("'owned' must be a list of outfit ids.")
+    for oid in value["owned"]:
+        _check_outfit(oid)
+    owned = _in_order(value["owned"])
+    _check_outfit(value["worn"])
+    if value["worn"] not in owned:
+        raise RejectedAction("The worn outfit must be one of the owned ones.")
+    return {"owned": owned, "worn": value["worn"]}

@@ -24,5 +24,5 @@ export function joinDorm(world) {
       activities: [...rooms.activities, ...dorm.interior.activities],
     },
   };
-  world.locations = { ...world.locations, bed: dorm.bed };
+  world.locations = { ...world.locations, bed: dorm.bed, ...(dorm.wardrobe ? { wardrobe: dorm.wardrobe } : {}) };
 }
