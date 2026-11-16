@@ -125,7 +125,7 @@ in the repository), walkthrough (20 %: how it is built, why, its limits and how 
 1. Review. The course guide "Working as a team" calls a review a second person reading the change, and the way members learn the parts they did not build; merging without one is a pitfall. We replaced it by an AI review (section 2). Because any member can be asked about anything, consider one human read per pull request as well (7.12).
 2. Shared structures. The guide asks for one owner per shared structure (data format, `app.py`, `AGENTS.md`). Not set yet (7.13).
 3. Demo mode. The live demo runs on the public URL, so the demo cannot be "local only" (3b).
-4. Storage. Runs are SQLite files; many free hosts erase the disk on every restart (guide "Storing data"). To decide in `deploy` (7.11).
+4. Storage. Runs are SQLite files; many free hosts erase the disk on every restart (guide "Storing data"). Decided in `deploy` (7.11, 2026-11-16): first a free Render deploy whose runs are erased on restart, then Supabase in its own spec `persistent-runs`.
 5. Stack. A Python backend with a plain JavaScript page is in the stack guide's list. JavaScript frameworks need an approval and we use none; ask the teaching staff once whether the canvas front end is fine (7.14).
 
 ## 2. Decisions the team gave so far
@@ -274,7 +274,7 @@ Who works on a spec is set by the assignee of its GitHub Issue (label `spec`); a
 8. Guests: answered by `guests` (PR #95): the day's plan is made on the server when the day opens, and the guests walk live on the map.
 9. Ideas from the team, not yet a spec: Merchandise customers wear the clothes when they leave, beach loungers to rent at the Beach Cafe, up to three printers on the campus where paper and ink have to be refilled.
 10. Licence and credit for Felix' project: confirm and keep the README credit.
-11. Host and storage for `deploy`: which host (free plan, no card, no sleeping if possible), and what happens to the runs when the disk is erased (accept it, or a persistent disk or database)?
+11. Host and storage for `deploy`: decided on 2026-11-16 (`specs/deploy.md`). Render free web service from `render.yaml`, Felix' account; runs erased on restart for now, then Supabase (`persistent-runs`).
 12. Review: keep the AI review only, or also one human read per pull request, because any member can be asked about any part in the walkthrough? (`AGENTS.md` changes through a pull request.)
 13. Owners of the shared structures (the data format in `db.py` and `logic.py`, `app.py`, `world.py`, `AGENTS.md`): one name each.
 14. Ask the teaching staff whether the plain JavaScript canvas front end on a Flask backend is fine for the stack.
