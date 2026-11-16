@@ -164,8 +164,9 @@ def test_the_python_version_is_pinned_and_allowed_by_the_project():
     match = re.fullmatch(r'"3\.(\d+)\.(\d+)"', value)  # Render needs a fully qualified version
     assert match, value
     requires = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["requires-python"]
-    assert requires == ">=3.11"
-    assert int(match.group(1)) >= 11
+    minimum = re.fullmatch(r">=3\.(\d+)", requires)  # the project's own lower bound
+    assert minimum, requires
+    assert int(match.group(1)) >= int(minimum.group(1)) >= 11
 
 
 # ---- the pinned production server -----------------------------------------------------------------

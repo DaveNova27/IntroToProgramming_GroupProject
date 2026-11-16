@@ -239,7 +239,13 @@ On a scratch copy of `main` (2d15526) made with `git archive`, nothing of Felix'
   six libraries (blinker, click, itsdangerous, Jinja2, MarkupSafe, Werkzeug) plus gunicorn 27.0.1, no pytest; `uv run --no-sync gunicorn -w 1 --threads 8
   -b 0.0.0.0:$PORT app:app` starts and answers `/` and `/static/style.css` with 200 (Python 3.12.14).
   gunicorn 26.2.0 answers the same; both log "Control socket listening at ~/.gunicorn/gunicorn.ctl"
-  unless `--no-control-socket` is given. (The final check with the locked 26.2.0 is in the PR.)
+  unless `--no-control-socket` is given.
+- Final check on the branch (commit 1b773d3), as the host does it: `git clone --branch deploy` into an
+  empty folder; `uv sync --locked --no-dev --group deploy` installs Flask, its six libraries and gunicorn
+  26.2.0, no pytest, with the local uv 0.12.10 **and** with uv 0.13.7, the version Render gives new
+  services (its docs, "Setting your uv version"); `uv.lock` stays unchanged. The start command with
+  `PORT=10000 CT_PUBLIC=1 CT_PROXY=1 CT_SECRET=…` answers `/` 200 and `/healthz` 200 `ok`
+  (`text/plain`, `no-store`, no cookie), `HEAD /healthz` 200, and the log shows no control socket.
 - With `CT_PUBLIC=1 CT_PROXY=1 CT_SECRET=…` and `X-Forwarded-Proto: https`: two cookie jars give two
   `.db` files and two separate runs; `/` sets a Secure cookie and HSTS; a static file sets nothing and makes
   no player; `/healthz` answered 404 before this spec; an API call without a cookie is 400; a bad quantity
@@ -251,9 +257,10 @@ On a scratch copy of `main` (2d15526) made with `git archive`, nothing of Felix'
 
 - That Render's sign-up asks for no card for a free web service (its own pages say no; forum posts
   disagree). If it asks, stop and tell Felix, decision 1's fallback list applies.
-- That Render's Python runtime accepts the build command as written (it uses `uv` when `uv.lock` is in the
-  root, per Render's changelog and docs); if not, the fix is a build setting in the dashboard and the same
-  line in `render.yaml`.
+- That Render's Python runtime accepts the build command as written. Render's docs: it "automatically
+  adds uv to your Python service's runtime" when `uv.lock` is in the root, 0.13.7 for new services, and the
+  same command worked locally with 0.13.7 (Measured). If not, the fix is a build setting in the dashboard
+  and the same line in `render.yaml`.
 - That the proxy forwards to port 10000 (Render's docs: the default port) and the first health check
   passes within Render's 15 minutes.
 - Decision 7: what the address bucket really is cannot be seen from outside; the app logs nothing about
