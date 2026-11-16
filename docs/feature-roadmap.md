@@ -102,8 +102,8 @@ Source: the team project page of the course wiki
 | What the course asks | Our state |
 |---|---|
 | Submit the link to the public GitHub repository on Moodle by **2026-11-23, 23:59** (one member); commits after the deadline do not count | The repository is public. |
-| The deployed code is on `main` | Not deployed yet: `deploy` (#93) |
-| README: the deployed URL, names and student numbers of all members, the commands to run the app and the tests | Run and test commands: yes. URL: TODO. Felix' student number: TODO |
+| The deployed code is on `main` | Yes: Render deploys `main` after the `Tests` check passed (`deploy`, #93, PR #110) |
+| README: the deployed URL, names and student numbers of all members, the commands to run the app and the tests | Yes: https://campus-tycoon.onrender.com, all four names and numbers, run and test commands |
 | Live demo at the deployed URL in week 11 or 12; slides or recorded videos are no replacement | The demo mode must run on the public URL (see 3b, `demo-scenarios`) |
 | Repository walkthrough: any member can be asked about any part of the project | Every member must be able to explain the whole project, also the world code taken from Felix |
 
