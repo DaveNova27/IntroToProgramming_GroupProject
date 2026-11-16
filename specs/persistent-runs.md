@@ -7,8 +7,8 @@ after 15 minutes without visitors. The team decided on 2026-11-16 that runs must
 (David's proposal), after the deploy and as its own spec.
 
 Every fact about Supabase and Render below was read on their own pages on 2026-11-16; every number
-about our app was measured on this repository. What could not be checked from here is listed under
-"Check on the first deploy".
+about our app was measured on this repository. What could only be checked live is listed under
+"Checked on the first deploy".
 
 ## What
 
@@ -130,8 +130,8 @@ The ones marked ► were answered by Felix on 2026-11-16; the rest follows from 
 
 1. **► Who creates the Supabase project: Felix.** An account, a project named e.g. `campus-tycoon` in
    *Central EU (Frankfurt)* (`eu-central-1`, the region nearest to Render's Frankfurt), a strong
-   database password kept in a password manager. The free plan allows 2 active projects. Whether the
-   sign-up asks for a card I did not check (the pricing page does not say). I never create accounts,
+   database password kept in a password manager. The free plan allows 2 active projects. The sign-up
+   did not ask for a card (Felix, 2026-11-16). I never create accounts,
    type passwords or copy the connection string; those clicks are the account owner's (Felix or David).
 2. **► The pause rule: accepted.** "Free projects are paused after 1 week of inactivity" (pricing page).
    Paused, the game answers 503 until someone presses *Restore* in the Supabase dashboard. Playing on
@@ -223,13 +223,28 @@ Supabase's Data API, Realtime or Storage; a second worker or instance; the bugs 
   name host and port, never the password; a malformed `DATABASE_URL` would have been quoted in part by
   psycopg's error, so it is caught and logged as "not a valid connection string".
 
-## Check on the first deploy (could not be verified from here)
+## Checked on the first deploy (2026-11-16)
 
-- Whether Supabase's sign-up asks for a card.
-- That Render reaches the session pooler (IPv4, port 5432) and the first request after a deploy takes
-  well under a second for a known player (one query, then memory).
-- How Supabase counts egress for database reads exactly (the pricing page names 5 GB of egress for the
-  free plan; the copy in memory keeps reads to about one per player and start either way).
+The Supabase project "Campus Tycoon" runs in *Central EU (Frankfurt)* (`eu-central-1`, Nano, free
+plan); `DATABASE_URL` is the shared pooler string on port 5432 (session mode), set in Render's dashboard
+by Felix. Checked on https://campus-tycoon.onrender.com (commit `2cbf65b`):
+
+- **No card:** Supabase's sign-up did not ask for one (Felix).
+- **Render reaches the pooler:** the first save made the schema and the table by itself; a test run
+  (10 coffee bought, day 1 ended: day 2, €92.00) appeared in `campus_tycoon.runs` as
+  `"day":2,"cash":9200`.
+- **Survives a deploy:** *Manual Deploy* → *Deploy latest commit* (live after 40 s), page reloaded:
+  day 2, €92.00 again.
+- **Survives the idle spin-down:** after 16.5 minutes without a visitor the first request took 23.8 s
+  (the server woke up) and the next one 0.27 s; the test run was still day 2, €92.00.
+- **A second player** (a fresh client without the cookie) gets a run of its own (day 1, €100.00) and
+  a row of its own: 2 rows for 2 players.
+- **Hidden from the Data API:** with the project's publishable key, `campus_tycoon.runs` answers
+  `PGRST106` "Invalid schema: campus_tycoon" (only `public` and `graphql_public` are exposed) and
+  `public.runs` answers `PGRST205` (no such table).
+- **Still open:** how Supabase counts egress for database reads exactly (the pricing page names 5 GB of
+  egress for the free plan; the copy in memory keeps reads to about one per player and start either
+  way). The dashboard showed 0 of 5 GB after these checks.
 
 ## Security
 
