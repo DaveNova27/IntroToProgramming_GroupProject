@@ -21,6 +21,10 @@ Built individually for the Solo Project, now extended as the Group Project for
 
 **Deployed app:** _TODO: add the deployed URL once the project is deployed_
 
+On the public server a run is erased after 15 minutes without visitors, on every deploy and on every
+restart of the free host: on purpose for now, until runs are stored in a database (spec
+`persistent-runs`, next). The first visit after a pause takes about a minute while the server wakes up.
+
 ## Run
 
 ```
@@ -38,17 +42,41 @@ you as it is. It works locally and on the public URL; the browser only sends a s
 
 ## Putting it online
 
-Local play needs nothing. For other people (spec `deploy-ready`):
+Local play needs nothing. The public server runs on **Render**, a free web service described in
+[`render.yaml`](render.yaml) (specs `deploy-ready` and `deploy`):
+
+- **Set up once:** in the Render dashboard *New → Blueprint*, pick this repository, confirm. Render
+  builds with `uv sync --locked --no-dev --group deploy` (the exact versions of `uv.lock`, gunicorn
+  from the `deploy` group, no pytest) and starts `gunicorn` with **one worker** (the locks and the rate
+  counter live in the process) on port 10000. `GET /healthz` answers `ok` for Render's health check
+  and touches nothing.
+- **Variables** (all in `render.yaml`, no secret in the repository): `CT_PUBLIC=1` (a run per player,
+  limits, no editor and no weather override), `CT_PROXY=1` (Render's proxy says HTTPS and the visitor),
+  `CT_SECRET` (signs the player cookie; Render generates it once and keeps it), `PORT=10000`,
+  `PYTHON_VERSION=3.12.14`.
+- **Redeploy:** every merge into `main` whose `Tests` check passed deploys by itself, or *Manual Deploy*
+  in the dashboard. A failed build keeps the running version.
+- **Rollback:** *Rollbacks* in the dashboard (the free plan keeps the two previous deploys), or revert
+  the pull request on GitHub.
+- **What is erased:** every run, on each deploy, restart and after 15 minutes without visitors (the free
+  plan's disk is temporary). The cookie stays valid (`CT_SECRET`), so a player simply starts a fresh run.
+  Do not merge during a demo, and open the URL two minutes before it so the server is awake.
+- **Plan B** if the host is down: `uv run python app.py` on a laptop.
+
+The production server locally, for a test (same gunicorn version as the host):
 
 ```
-CT_PUBLIC=1 CT_PROXY=1 uv run --with gunicorn gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 app:app
+CT_PUBLIC=1 uv run --group deploy gunicorn -w 1 --threads 8 --no-control-socket -b 127.0.0.1:8000 app:app
 ```
 
-Put a proxy with HTTPS in front and set `CT_PROXY=1` (only if the proxy is the only way to reach the
-server: it then tells the server who the visitor is, and the cookie is Secure). Use **one worker**: the
-locks and the rate counter live in the process. Every player gets a run in `data/players/` (the cookie
-is signed with `CT_SECRET`, or a random key in `data/players/.secret`); the editor and the weather
-override are off. The server never shows a path or a stack trace to a player.
+Set `CT_PROXY=1` only behind a proxy that is the only way to reach the server: it then tells the server
+who the visitor is, and the cookie is Secure. The server never shows a path or a stack trace to a player.
+
+**Where is the data stored?** In SQLite: locally one file, `data/campus_tycoon.db`; on the public
+server one file per player in `data/players/<id>.db`, found by the signed cookie. Render's free plan
+erases that disk on restart; for a graded demo that is acceptable (the demo mode loads its own data),
+for data that must last it needs a database outside the server, which comes next with Supabase
+(`persistent-runs`).
 
 ## Working in the group
 
@@ -125,6 +153,7 @@ animate that answer.
 | [`map-layout.md`](specs/map-layout.md) | `map-layout` | Walking routes between the Dorm, Nova and beach shops. The world API supplies all four shop layouts and the central storage positions. |
 | `shift-any-shop.md` | `shift-any-shop` (#101) | The player takes a shift in any unlocked shop, not only the Cafe: several shifts a day one after the other (90 of 300 ticks, one per shop), a finished or staffed shift moves aside and goes on, a staffed shop can be taken over. A shop outside the day's guest plan plans alone. The Shift panel lists where the player can start. |
 | `weather-visuals.md` | `weather-visuals` (PR #105) | The world shows the weather of the opened day: a grey sky, more clouds and rain on a rainy day, a dark sky, heavy slanted rain, strong wind, high waves and rare soft lightning in a storm, a warm tint and a shimmer on a hot day; a sunny day and a day that is not open look as before. The looks are a table in `static/world/weather.js` (pure, tested with Node); the id comes from `state.weather`, which the server sends only once the day is open, so the world cannot show the real weather early. It does not rain indoors: the rooms of a wing whose roof has faded out stay dry. Nothing is random, lightning and motion are off with reduced motion. |
+| `deploy.md` | `deploy` (#93) | The game on the internet: a free Render web service from `render.yaml` (built from `main` when the tests passed, one gunicorn worker, the secret generated by Render), gunicorn pinned in the `deploy` group of `uv.lock`, `GET /healthz` for the host's health check (no player, no cookie, no file). Runs on the public server are erased on restart for now; Supabase follows in `persistent-runs`. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 

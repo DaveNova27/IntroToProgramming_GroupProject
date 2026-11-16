@@ -9,6 +9,8 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=8.0"]
+# the production server on the host (specs/deploy.md); not installed by default
+deploy = ["gunicorn>=26.2,<27"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

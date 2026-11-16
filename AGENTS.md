@@ -22,6 +22,15 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - `README.md`: how everything fits together, list of specs, known issues
 - `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
 
+## Storage
+- SQLite, written only by `db.py`. Locally one file, `data/campus_tycoon.db`; in public mode
+  (`CT_PUBLIC=1`) one file per player, `data/players/<id>.db`. `data/` is never committed.
+- The public server (Render free plan, `render.yaml`, `specs/deploy.md`) erases its disk on every
+  restart and deploy and after 15 minutes without visitors, so its runs do not last. Keeping them is the
+  next spec, `persistent-runs` (Supabase).
+- Reset: locally stop the app and delete `data/campus_tycoon.db`, or press *New run* in the game. On
+  the public server *New run* resets that player's run only; a deploy resets everybody's.
+
 ## Rules
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.
 - After every change, run the tests for the task and paste the final output. The output is the proof, not a sentence.

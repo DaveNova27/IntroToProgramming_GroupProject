@@ -175,8 +175,8 @@ def identify_player():
 def _identify_player():
     """Public mode: who is this player (a cookie we signed, or a new one for a page), and is it too much."""
     g.player, g.new_player = None, False
-    if not public_mode():
-        return None
+    if not public_mode() or request.path == "/healthz":
+        return None  # the health check touches nothing, not even the players folder (specs/deploy.md)
     _ensure_players_dir()
     g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
     if g.player is None:
@@ -556,6 +556,14 @@ def apply(action):
         logic.award_badges(new_state)
         db.save(new_state, **_db_kw())
         return jsonify({"message": message, "state": view(new_state)})
+
+
+@app.get("/healthz")
+def health():
+    """The host's health check (specs/deploy.md): proves only that the process answers. No player, no
+    cookie, no database, no counter: a failed check makes the host restart us, and a restart on the free
+    plan erases every run, so nothing here may fail for a reason a restart would not fix."""
+    return "ok", 200, {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"}
 
 
 @app.get("/")
