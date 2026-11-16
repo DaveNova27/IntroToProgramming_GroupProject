@@ -19,17 +19,23 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - `scenarios.py`: the demo scenarios as data, loaded by id into the player's run
 - `world.py`: the campus as data (zones, doors, solid objects, room layouts)
 - `db.py`: stored state (what is saved and loaded)
+- `pgstore.py`: the runs of the public server in Postgres (Supabase), through `db.py`'s rules
 - `README.md`: how everything fits together, list of specs, known issues
 - `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
 
 ## Storage
 - SQLite, written only by `db.py`. Locally one file, `data/campus_tycoon.db`; in public mode
-  (`CT_PUBLIC=1`) one file per player, `data/players/<id>.db`. `data/` is never committed.
-- The public server (Render free plan, `render.yaml`, `specs/deploy.md`) erases its disk on every
-  restart and deploy and after 15 minutes without visitors, so its runs do not last. Keeping them is the
-  next spec, `persistent-runs` (Supabase).
+  (`CT_PUBLIC=1` without `DATABASE_URL`) one file per player, `data/players/<id>.db`. `data/` is never
+  committed.
+- The public server (`CT_PUBLIC=1` and `DATABASE_URL`, `specs/persistent-runs.md`) stores each run as
+  one JSON document in Postgres at Supabase (`pgstore.py`, table `campus_tycoon.runs`). Every run goes
+  through `db.through_sqlite()` on the way in and out, so the SQLite tables stay the one place for the
+  rules: a new field of the state must be optional in `_write` (old documents lack it).
+- Tests use SQLite; the Postgres checks use `TEST_DATABASE_URL` (CI starts a Postgres), never
+  `DATABASE_URL`.
 - Reset: locally stop the app and delete `data/campus_tycoon.db`, or press *New run* in the game. On
-  the public server *New run* resets that player's run only; a deploy resets everybody's.
+  the public server *New run* resets that player's run only; everybody's runs: delete the rows of
+  `campus_tycoon.runs` in the Supabase table editor (cannot be undone).
 
 ## Rules
 - Build each spec on a branch named after it, e.g. `first-feature`. Never commit a feature to `main` directly.

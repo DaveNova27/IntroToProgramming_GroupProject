@@ -20,6 +20,22 @@ jobs:
   # branch. Do not rename it without changing the branch protection rule.
   pytest:
     runs-on: ubuntu-latest
+    # A throw-away Postgres for the checks of specs/persistent-runs.md (its password is not a secret:
+    # the container lives only for this job). The game itself never reads TEST_DATABASE_URL.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - name: Install uv

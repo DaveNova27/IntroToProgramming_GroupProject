@@ -21,9 +21,10 @@ Built individually for the Solo Project, now extended as the Group Project for
 
 **Deployed app:** https://campus-tycoon.onrender.com
 
-On the public server a run is erased after 15 minutes without visitors, on every deploy and on every
-restart of the free host: on purpose for now, until runs are stored in a database (spec
-`persistent-runs`, next). The first visit after a pause takes about a minute while the server wakes up.
+On the public server every run is stored in a Postgres database at Supabase (Frankfurt) and survives
+restarts and deploys (spec `persistent-runs`; without `DATABASE_URL` the server falls back to its
+temporary disk, which the free host erases). The first visit after a pause takes about a minute while
+the server wakes up.
 
 ## Run
 
@@ -53,14 +54,18 @@ Local play needs nothing. The public server runs on **Render**, a free web servi
 - **Variables** (all in `render.yaml`, no secret in the repository): `CT_PUBLIC=1` (a run per player,
   limits, no editor and no weather override), `CT_PROXY=1` (Render's proxy says HTTPS and the visitor),
   `CT_SECRET` (signs the player cookie; Render generates it once and keeps it), `PORT=10000`,
-  `PYTHON_VERSION=3.12.14`.
+  `PYTHON_VERSION=3.12.14`. One more, **only in Render's dashboard** (*Environment*, as a secret):
+  `DATABASE_URL`, the Supabase connection string (*Connect* → *Session pooler*, with the database
+  password). It is a password: never in the repository, never in a chat.
 - **Redeploy:** every merge into `main` whose `Tests` check passed deploys by itself, or *Manual Deploy*
   in the dashboard. A failed build keeps the running version.
 - **Rollback:** *Rollbacks* in the dashboard (the free plan keeps the two previous deploys), or revert
   the pull request on GitHub.
-- **What is erased:** every run, on each deploy, restart and after 15 minutes without visitors (the free
-  plan's disk is temporary). The cookie stays valid (`CT_SECRET`), so a player simply starts a fresh run.
-  Do not merge during a demo, and open the URL two minutes before it so the server is awake.
+- **What lasts:** the runs, in Supabase. A deploy or restart only empties the server's copy in memory;
+  the next request loads the run again. Open the URL two minutes before a demo so the server is awake.
+- **Supabase pauses** a free project after a week without activity; the game then answers "The game's
+  storage cannot be reached right now" until someone presses *Restore* in the Supabase dashboard. Play
+  at least once a week, and check the dashboard the day before the demo. The free plan has no backups.
 - **Plan B** if the host is down: `uv run python app.py` on a laptop.
 
 The production server locally, for a test (same gunicorn version as the host):
@@ -72,11 +77,13 @@ CT_PUBLIC=1 uv run --group deploy gunicorn -w 1 --threads 8 --no-control-socket 
 Set `CT_PROXY=1` only behind a proxy that is the only way to reach the server: it then tells the server
 who the visitor is, and the cookie is Secure. The server never shows a path or a stack trace to a player.
 
-**Where is the data stored?** In SQLite: locally one file, `data/campus_tycoon.db`; on the public
-server one file per player in `data/players/<id>.db`, found by the signed cookie. Render's free plan
-erases that disk on restart; for a graded demo that is acceptable (the demo mode loads its own data),
-for data that must last it needs a database outside the server, which comes next with Supabase
-(`persistent-runs`).
+**Where is the data stored?** Locally in SQLite, one file: `data/campus_tycoon.db`. On the public
+server in Postgres at Supabase (Frankfurt): one row per player in the table `campus_tycoon.runs`, the
+whole run as one JSON document, found by the random id in the signed cookie. Every run passes through
+the same SQLite tables in memory on its way in and out (`db.through_sqlite`), so both stores check and
+repair a run with the same rules. The server keeps the runs it has loaded in memory and writes every
+change through to Postgres first, which works because exactly one process serves the game. The table is
+hidden from Supabase's Data API (own schema, row level security without policies, no grants).
 
 ## Working in the group
 
@@ -97,6 +104,7 @@ Two tracks run in parallel, see the roadmap: **logic** (game rules in `logic.py`
 | Guests | `guests.py` | The guests of a day (`day_plan`, `for_shop`): the crowd of `customers_today` as guests with a kind, a start place and a taste; those who look around choose among the shops with an employee by the walk, the queue and their taste. Pure functions, all randomness from the seed, nothing stored beside the queue. See `specs/guests.md`. |
 | Demo | `scenarios.py` | The prepared days of the live demo as data (`SCENARIOS`) and their rules: `load_scenario`, `scenario_done`, `finish_demo`, `demo_view`. A scenario is a patch for `editor_set_state`, so the existing checks validate it. See `specs/demo-scenarios.md`. |
 | Storage | `db.py` | SQLite, one run (day, cash, products, shops, player, history). An old save without shops still loads. `save` (never rewrites a stored day), `save_new_run` (replaces the run and its history in one transaction), `load`. |
+| Storage (public server) | `pgstore.py` | With `CT_PUBLIC=1` and `DATABASE_URL`: each player's run as one JSON document in Postgres at Supabase (`campus_tycoon.runs`), passed through `db.through_sqlite` on the way in and out (the same CHECKs and repairs as a file), a copy in memory written through, 503 when the database cannot be reached. See `specs/persistent-runs.md`. |
 | World data | `world.py` | The campus as data: the zone, the Nova building (parts, walls, entrance), desks, solid objects, room layouts. No rules and no drawing. |
 | Server | `app.py` | Flask. `GET /api/state`, `/api/world`, `POST /api/buy`, `/api/price`, `/api/price_preview` (read-only: what a price would bring), `/api/open` (needs the current `day`), `/api/new-run` (needs `confirm: true`), `/api/player`, `/api/shop/unlock`, `/api/shop/upgrade`, `/api/staff/hire`, `/api/staff/upgrade`, `/api/staff/fire`, `/api/demo/load` (a scenario id and `confirm: true`), `/api/demo/finish`, and `/api/editor/*` (only with `CT_EDITOR=1`). Each request loads the run, applies one rule and saves only if it was accepted. `/map?embed=1` serves the campus page for the iframe. |
 | Dashboard | `static/index.html`, `style.css`, `app.js` | KPIs, stock overview, product cards, open-the-stand forecast, charts, history. Layout uses container queries (`@container dash`) so it also fits the side panel. |
@@ -154,6 +162,7 @@ animate that answer.
 | `shift-any-shop.md` | `shift-any-shop` (#101) | The player takes a shift in any unlocked shop, not only the Cafe: several shifts a day one after the other (90 of 300 ticks, one per shop), a finished or staffed shift moves aside and goes on, a staffed shop can be taken over. A shop outside the day's guest plan plans alone. The Shift panel lists where the player can start. |
 | `weather-visuals.md` | `weather-visuals` (PR #105) | The world shows the weather of the opened day: a grey sky, more clouds and rain on a rainy day, a dark sky, heavy slanted rain, strong wind, high waves and rare soft lightning in a storm, a warm tint and a shimmer on a hot day; a sunny day and a day that is not open look as before. The looks are a table in `static/world/weather.js` (pure, tested with Node); the id comes from `state.weather`, which the server sends only once the day is open, so the world cannot show the real weather early. It does not rain indoors: the rooms of a wing whose roof has faded out stay dry. Nothing is random, lightning and motion are off with reduced motion. |
 | `deploy.md` | `deploy` (#93) | The game on the internet: a free Render web service from `render.yaml` (built from `main` when the tests passed, one gunicorn worker, the secret generated by Render), gunicorn pinned in the `deploy` group of `uv.lock`, `GET /healthz` for the host's health check (no player, no cookie, no file). Runs on the public server are erased on restart for now; Supabase follows in `persistent-runs`. |
+| `persistent-runs.md` | `persistent-runs` (#112) | Runs on the public server last: one JSON document per player in Postgres at Supabase (Frankfurt) when `DATABASE_URL` is set, through the SQLite rules in memory (`db.through_sqlite`), a write-through copy in memory (one process), a 503 with our sentence when the database is paused or unreachable, the table hidden from Supabase's Data API. Local play and all tests stay on SQLite; the Postgres checks run against a Postgres in CI. |
 
 The tag `v1.0` is the dashboard-only version before the map.
 
