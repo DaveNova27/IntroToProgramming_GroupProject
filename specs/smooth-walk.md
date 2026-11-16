@@ -27,7 +27,12 @@ stop.
 2. **Numbers:** `HEAD_ON = 0.05` (a step this close to the middle counts as straight at it),
    `LEAN = 0.3` (share of the step it leans to the side), `GAP = 0.001` (the pushed point stays this
    far outside the edge). Named constants at the top of `physics.js`.
-3. **Tests:** the new file `tests/test_smooth_walk.py` runs the real `physics.js` with Node: walks with
+3. **Only forward:** a glide is taken only if it still gets on in the walking direction, otherwise the
+   old two tries follow. The AI review found that a glide around the corner of a table could lead
+   backwards into a pocket. Measured on a grid of starts over the whole campus with 16 directions
+   (85744 walks of 1.5 s): 7492 walks get at least twice as far as before, 95 get less than half as
+   far (places where objects stand close together). Accepted: the player can turn there.
+4. **Tests:** the new file `tests/test_smooth_walk.py` runs the real `physics.js` with Node: walks with
    one held key at every free-standing round object of the campus, 16 directions, many side offsets.
    None may get stuck (on the old code more than half do), the head-on walk at a palm gets past and
    gives the same result twice, no step ends inside an object, and a walk straight into a wall still

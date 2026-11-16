@@ -46,7 +46,7 @@ function glide(position,delta,collider,radius){
     const toX=collider.x-position.x,toY=collider.y-position.y,distance=Math.hypot(toX,toY);
     const side=delta.x*toY-delta.y*toX;
     if(step>0&&Math.abs(side)<step*distance*HEAD_ON){
-      const sign=side<0?-1:1;
+      const sign=side>0?-1:1; // lean away from the middle, never towards it
       target={x:target.x-delta.y*LEAN*sign,y:target.y+delta.x*LEAN*sign};
     }
   }
@@ -65,7 +65,9 @@ export function resolveMovement(position,delta,bounds,colliders,radius=.28){
   const along=glide(position,delta,direct,radius);
   if(along){
     const slide=fit(along);
-    if(!pointBlocked(slide,colliders,radius))return {...slide,blocked:true,collider:direct};
+    // only if it still gets on in the walking direction; a glide backwards would lead into a corner
+    const gain=(slide.x-position.x)*delta.x+(slide.y-position.y)*delta.y;
+    if(gain>0&&!pointBlocked(slide,colliders,radius))return {...slide,blocked:true,collider:direct};
   }
 
   const slideX={x:target.x,y:position.y};
