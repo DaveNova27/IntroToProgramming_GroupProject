@@ -19,7 +19,7 @@ Built individually for the Solo Project, now extended as the Group Project for
 | Gregor Maximilian Rosenberger | 78878 |
 | Felix Antes | 73306 |
 
-**Deployed app:** _TODO: add the deployed URL once the project is deployed_
+**Deployed app:** https://campus-tycoon.onrender.com
 
 On the public server a run is erased after 15 minutes without visitors, on every deploy and on every
 restart of the free host: on purpose for now, until runs are stored in a database (spec
