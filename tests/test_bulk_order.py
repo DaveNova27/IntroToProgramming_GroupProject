@@ -113,3 +113,56 @@ def test_nothing_is_bought_when_the_run_is_complete():
     state = two_shops()
     state["day"] = logic.LAST_DAY + 1
     refused(state, [line("coffee", 1)])
+
+
+# ---- Check 2: the API -----------------------------------------------------------------------
+
+import app  # noqa: E402
+import db  # noqa: E402
+
+
+@pytest.fixture
+def run_on_disk(tmp_path, monkeypatch):
+    """The real API on a temporary save with two shops, so the player's own run stays untouched."""
+    path = tmp_path / "run.db"
+    db.save(two_shops(cash=20_000), path)  # 200 euro
+    real_save = db.save
+    monkeypatch.setattr(app, "load_run", lambda: db.load(path))
+    monkeypatch.setattr(app.db, "save", lambda state, *_, **__: real_save(state, path))
+    return path
+
+
+def test_an_order_through_the_api(run_on_disk):
+    before = db.load(run_on_disk)
+    response = app.app.test_client().post("/api/buy-many", json={"items": [
+        {"product": "coffee", "quantity": "10"}, {"product": "beer", "quantity": 4}]})
+    assert response.status_code == 200, response.get_json()
+    after = db.load(run_on_disk)
+    cost = 10 * logic.CATALOGUE["coffee"]["cost"] + 4 * logic.CATALOGUE["beer"]["cost"]
+    assert after["cash"] == before["cash"] - cost
+    assert (after["stock"]["coffee"], after["stock"]["beer"]) == (10, 4)
+    assert response.get_json()["message"] == f"Ordered 10 × Coffee, 4 × Beer for {logic.fmt(cost)}."
+
+
+@pytest.mark.parametrize("body", [
+    {},
+    {"items": []},
+    {"items": "coffee"},
+    {"items": {"product": "coffee", "quantity": 1}},
+    {"items": [{"product": "coffee", "quantity": "ten"}]},
+    {"items": [{"product": "coffee", "quantity": "2.5"}]},
+    {"items": [{"product": "coffee", "quantity": "0"}]},
+    {"items": [{"product": "coffee", "quantity": 1, "price": 0}]},
+    {"items": [{"product": "coffee", "quantity": 5}, {"product": "hoodie", "quantity": 1}]},
+    {"items": [{"product": "coffee", "quantity": 5}, {"product": "coffee", "quantity": 5}]},
+    {"items": [{"product": "coffee", "quantity": 1}] * 13},
+    {"items": [{"product": "coffee", "quantity": 400}, {"product": "beer", "quantity": 1}]},
+    {"items": [{"product": "coffee", "quantity": 90}, {"product": "beer", "quantity": 90},
+               {"product": "cake", "quantity": 10}]},  # 222 euro, more than the cash
+])
+def test_a_crafted_order_is_refused_and_changes_nothing(run_on_disk, body):
+    before = db.load(run_on_disk)
+    response = app.app.test_client().post("/api/buy-many", json=body)
+    assert response.status_code == 400, response.get_json()
+    assert response.get_json()["error"]
+    assert db.load(run_on_disk) == before
