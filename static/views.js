@@ -186,6 +186,14 @@ function goMap() {
   applyHash(true);
 }
 
+// "Go to the order PC" on a product card (spec order-at-warehouse): the campus becomes the main view and
+// the map walks the player to the PC
+window.addEventListener("go-order", () => {
+  closeDrawer();
+  if (view !== "map") goMap();
+  tellMap({ type: "go-order" });
+});
+
 slot.addEventListener("click", goMap);
 $("#show-map").addEventListener("click", goMap);
 handle.addEventListener("click", openDrawer);
