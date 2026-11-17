@@ -30,13 +30,14 @@ ZONES = {
 
 
 # ---- places the player can use with E or a click ---------------------------------
-# kind "panel" opens a screen in the browser ("action"). The three desks stand in the
-# atrium of the Nova. There are no doors: the Nova is entered by walking in.
+# kind "panel" opens a screen in the browser ("action"). The prices desk and the results board stand in
+# the Nova; stock is ordered at the PC in the Supply Hall of the Mercado (spec order-at-warehouse).
+# There are no doors: the Nova is entered by walking in.
 
 LOCATIONS = {
     "supplier": {
-        "zone": "campus", "x": 20.7, "y": 4.1, "kind": "panel", "action": "stock", "label": "Order stock",
-        "color": "#f5c95e", "title": "SUPPLY DESK", "sub": "ORDER DESK",
+        "zone": "campus", "x": 8.0, "y": 9.65, "kind": "panel", "action": "stock", "label": "Order stock",
+        "color": "#f5c95e", "title": "ORDER PC", "sub": "SUPPLY HALL", "wing": "mercado",
     },
     "stand": {
         "zone": "campus", "x": 15.4, "y": 4.4, "kind": "panel", "action": "prices", "label": "Set your prices",
@@ -276,8 +277,12 @@ INTERIORS = {
             {"id": "seminar-table", "wing": "learning-center", "x": 10.0, "y": 6.9, "w": 1.2, "h": 1.0, "label": "Seminar table", "kind": "furniture"},
             {"id": "study-plant", "wing": "learning-center", "r": 0.4, "x": 3.15, "y": 7.65, "label": "Planter", "kind": "prop"},
             # ---- the Mercado ----
-            # a rack on the west wall, two pallets beside it, crates on the east wall, an aisle in the middle
+            # a rack on the west wall, two pallets beside it, crates on the east wall, an aisle in the middle,
+            # and the order PC (spec order-at-warehouse): a desk against the west side of the first crates,
+            # its screen to the aisle; shut against the crates and the north wall (0.5), 2.45 to the pallet,
+            # clear of the door to the Learning Center
             {"id": "stock-rack-west", "wing": "mercado", "x": 3.65, "y": 9.0, "w": 0.8, "h": 3.4, "label": "Storage rack", "kind": "furniture"},
+            {"id": "order-pc", "wing": "mercado", "x": 8.6, "y": 9.15, "w": 0.6, "h": 1.0, "label": "Order PC", "kind": "furniture"},
             {"id": "stock-pallet-1", "wing": "mercado", "x": 4.95, "y": 9.15, "w": 1.2, "h": 1.0, "label": "Pallet", "kind": "prop"},
             {"id": "stock-pallet-2", "wing": "mercado", "x": 4.95, "y": 11.55, "w": 1.2, "h": 1.0, "label": "Pallet", "kind": "prop"},
             {"id": "stock-crates-1", "wing": "mercado", "x": 9.2, "y": 9.15, "w": 1.8, "h": 1.0, "label": "Crates", "kind": "prop"},

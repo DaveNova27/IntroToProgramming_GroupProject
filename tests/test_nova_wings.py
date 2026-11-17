@@ -271,11 +271,13 @@ def test_the_people_stand_on_the_floor_of_their_wing_on_free_ground_or_behind_a_
 
 
 def test_the_three_desks_keep_their_ids_actions_and_places():
+    # spec order-at-warehouse: the order desk moved to the PC in the Supply Hall (test change confirmed
+    # by Gregor on 2026-11-17); the ids, actions and the other two places are unchanged
     assert {i: (l["action"], l["x"], l["y"]) for i, l in world.LOCATIONS.items()} == {
-        "supplier": ("stock", 20.7, 4.1), "stand": ("prices", 15.4, 4.4), "board": ("dashboard", 23.7, 4.1),
+        "supplier": ("stock", 8.0, 9.65), "stand": ("prices", 15.4, 4.4), "board": ("dashboard", 23.7, 4.1),
     }
     for loc in world.LOCATIONS.values():
-        assert on_floor(loc["x"], loc["y"], "nova")
+        assert on_floor(loc["x"], loc["y"], loc.get("wing", "nova"))
 
 
 # ---- Check 3: a player can walk everywhere and click to walk everywhere --------------

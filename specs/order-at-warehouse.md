@@ -5,8 +5,9 @@ Mercado Supply Hall (the warehouse with the loading bay and the lorry) to a smal
 
 ## What
 
-- **The order PC (`world.py`):** a desk with a PC against the north wall of the Supply Hall
-  (`order-pc` in the room's solid objects). The use point `supplier` ("Order stock") moves from the
+- **The order PC (`world.py`):** a desk with a PC at the back of the Supply Hall, against the west side
+  of the first crates, its screen to the aisle (`order-pc` in the room's solid objects). The north wall
+  has the door to the Learning Center, so the desk stands beside the aisle, not in it. The use point `supplier` ("Order stock") moves from the
   atrium of the Nova to the front of that desk, in the wing `mercado`; its id and its action `stock`
   stay, so everything that opens the order window keeps working. It shows "ORDER PC" over "SUPPLY HALL".
 - **Drawing (`rooms.js`):** the desk with a monitor, a keyboard and a small stack of order slips.

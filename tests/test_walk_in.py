@@ -183,11 +183,13 @@ def test_the_cafe_the_merchandise_shop_and_the_print_corner_are_places_with_thre
 def test_the_three_desks_stand_in_the_atrium_and_keep_their_ids_and_actions():
     actions = {loc_id: loc["action"] for loc_id, loc in world.LOCATIONS.items()}
     assert actions == {"supplier": "stock", "stand": "prices", "board": "dashboard"}
-    atrium = next(area for area in world.INTERIORS["campus"]["areas"] if area["id"] == "atrium")
-    cafe = next(area for area in world.INTERIORS["campus"]["areas"] if area["id"] == "cafe")
+    areas = {area["id"]: area for area in world.INTERIORS["campus"]["areas"]}
+    # spec order-at-warehouse: the order desk stands in the Supply Hall now (test change confirmed by
+    # Gregor on 2026-11-17); the board stays in the atrium, the prices desk in the cafe
+    room = {"supplier": "supply", "stand": "cafe", "board": "atrium"}
     solid = world.colliders("campus")
     for loc_id, loc in world.LOCATIONS.items():
-        assert inside(atrium if loc_id != "stand" else cafe, loc["x"], loc["y"]), loc_id
+        assert inside(areas[room[loc_id]], loc["x"], loc["y"]), loc_id
         assert not is_blocked(loc["x"], loc["y"], solid), loc_id
 
 
