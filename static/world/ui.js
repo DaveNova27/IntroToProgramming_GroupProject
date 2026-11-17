@@ -290,8 +290,31 @@ function renderAll() {
 
 // ---- panels --------------------------------------------------------------------------
 
+// Stock is ordered at the PC in the Supply Hall (spec order-at-warehouse): the "Stock" button walks
+// there and the window opens on arrival; at the PC it opens at once. Only the screen: the server
+// decides every purchase and never reads the position.
+let walkToPlace = () => false;
+const ORDER_PLACE = "supplier";
+let orderOnMain = false; // the dashboard asked for the order PC while the campus was the small window
+const atOrderPc = () => Boolean(world.locations?.[ORDER_PLACE]) && inReach(world.locations[ORDER_PLACE]);
+
+// Review finding: the order window stayed open while the player walked away from the PC. It closes
+// as soon as the PC is out of reach (checked every frame by main.js).
+export function keepOrderAtPc() {
+  if (panelMode === "order" && !atOrderPc()) closePanel();
+}
+
+function goOrder() {
+  if (state.finished) return;
+  if (atOrderPc()) return openPanel("order");
+  closePanel();
+  if (walkToPlace(ORDER_PLACE)) toast("Walking to the order PC in the Supply Hall …");
+  else toast("Order stock at the PC in the Supply Hall (Mercado).", "error");
+}
+
 function openPanel(mode) {
   if (state.finished && mode !== "editor") return;
+  if (mode === "order" && !atOrderPc()) return goOrder(); // away from the PC: walk there first
   panelMode = mode;
   panelHtml = "";
   editorKey = "";
@@ -1455,6 +1478,10 @@ function setMode(mode) {
   document.body.classList.toggle("preview", scene.preview);
   if (scene.preview) closePanel();
   else noticeBadges(); // a badge earned while the dashboard was in front pops up now
+  if (!scene.preview && orderOnMain) {
+    orderOnMain = false;
+    goOrder();
+  }
 }
 
 // while a card or dialog is open, the figure stays where it is
@@ -1494,6 +1521,7 @@ export function initUi(firstState, actions) {
   goHome = actions.goHome;
   jumpHome = actions.jumpHome;
   wakeAt = actions.wakeAt;
+  walkToPlace = actions.walkToPlace;
   wirePanel();
   wireEditor();
   wireOverlay();
@@ -1501,7 +1529,7 @@ export function initUi(firstState, actions) {
   wireStockToggle();
   wireDemoActions();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
-  $("#btn-order").addEventListener("click", () => openPanel("order"));
+  $("#btn-order").addEventListener("click", goOrder);
   $("#btn-prices").addEventListener("click", () => openPanel("prices"));
   $("#btn-shops").addEventListener("click", () => openPanel("shops"));
   $("#btn-shift").addEventListener("click", () => openPanel("shift"));
@@ -1518,6 +1546,12 @@ export function initUi(firstState, actions) {
     const msg = e.data || {};
     if (msg.type === "mode") setMode(msg.mode);
     if (msg.type === "action") syncFromDashboard(msg);
+    // the dashboard's "Go to the order PC" (spec order-at-warehouse): the figure walks once the campus is
+    // the main view again (in the small window it stands still)
+    if (msg.type === "go-order") {
+      if (scene.preview) orderOnMain = true;
+      else goOrder();
+    }
     if (msg.type === "new-run") {
       newRun()
         .then((result) => tellDashboard({ type: "new-run-done", ...result }))

@@ -177,7 +177,6 @@ const pricePercentOf = (price, ref) => (price / ref) * 100;
 const openWhy = new Set(); // products whose "why" lines are open, kept over re-renders
 
 function productCard(p) {
-  const maxAffordable = Math.floor(state.cash / p.cost);
   const off = state.finished ? "disabled" : "";
   return `
   <article class="card product" style="--accent: ${ACCENT[p.id]}" data-product="${p.id}">
@@ -217,41 +216,11 @@ function productCard(p) {
     </div>
 
     <div>
-      <div class="block-label"><span>Buy stock</span><span>up to ${maxAffordable} affordable</span></div>
-      <form class="field-row" data-form="buy">
-        <div class="input-wrap">
-          <button class="step-btn" type="button" data-step="-1" aria-label="One less" ${off}>−</button>
-          <input name="quantity" inputmode="numeric" autocomplete="off" value="10"
-                 style="text-align:center" aria-label="${esc(p.name)} quantity to buy" ${off}>
-          <button class="step-btn" type="button" data-step="1" aria-label="One more" ${off}>+</button>
-        </div>
-        <button class="btn" type="submit" ${off}>Buy</button>
-      </form>
-      <div class="chips">
-        <button class="chip" type="button" data-set="5" ${off}>5</button>
-        <button class="chip" type="button" data-set="10" ${off}>10</button>
-        <button class="chip" type="button" data-set="25" ${off}>25</button>
-        <button class="chip" type="button" data-set="${maxAffordable}" ${off}>Max (${maxAffordable})</button>
-      </div>
-      <p class="buy-total"></p>
-      <p class="field-error" data-error="buy"></p>
+      <div class="block-label"><span>Buy stock</span></div>
+      <p class="order-note">Stock is ordered at the PC in the Supply Hall of the Mercado.</p>
+      <button class="btn" type="button" data-go-order ${off}>Go to the order PC</button>
     </div>
   </article>`;
-}
-
-function updateBuyTotal(card) {
-  const p = state.products.find((x) => x.id === card.dataset.product);
-  const text = card.querySelector('[name="quantity"]').value.trim();
-  const out = card.querySelector(".buy-total");
-  if (!/^\d+$/.test(text)) {
-    out.className = "buy-total";
-    out.textContent = "Enter a whole number of units.";
-    return;
-  }
-  const total = Number(text) * p.cost;
-  const tooMuch = total > state.cash;
-  out.className = `buy-total ${tooMuch ? "too-much" : ""}`;
-  out.innerHTML = `Total <strong>${fmt(total)}</strong>${tooMuch ? " · more than your cash" : ""}`;
 }
 
 // Live preview while typing a price; the saved value only changes on "Save". The marker moves
@@ -273,16 +242,14 @@ function previewPrice(card) {
   });
 }
 
-// Typed values per product: the quantity always, the price only if it was
-// edited but not saved (otherwise the saved price is shown).
+// Typed values per product: the price, only if it was edited but not saved (otherwise the saved
+// price is shown).
 function captureInputs() {
   const kept = {};
   document.querySelectorAll(".product").forEach((card) => {
     const p = state.products.find((x) => x.id === card.dataset.product);
-    const quantity = card.querySelector('[name="quantity"]').value;
     const price = card.querySelector('[name="price"]').value;
-    kept[p.id] = { quantity };
-    if (price !== (p.price / 100).toFixed(2)) kept[p.id].price = price;
+    if (price !== (p.price / 100).toFixed(2)) kept[p.id] = { price };
   });
   return kept;
 }
@@ -292,14 +259,10 @@ function renderProducts(kept = {}) {
   grid.innerHTML = state.products.map(productCard).join("");
   grid.querySelectorAll(".product").forEach((card) => {
     const typed = kept[card.dataset.product];
-    if (typed && !state.finished) {
-      card.querySelector('[name="quantity"]').value = typed.quantity;
-      if (typed.price !== undefined) {
-        card.querySelector('[name="price"]').value = typed.price;
-        previewPrice(card);
-      }
+    if (typed?.price !== undefined && !state.finished) {
+      card.querySelector('[name="price"]').value = typed.price;
+      previewPrice(card);
     }
-    updateBuyTotal(card);
   });
 }
 
@@ -318,25 +281,13 @@ function wireProducts() {
   grid.addEventListener("input", (e) => {
     const card = e.target.closest(".product");
     if (!card) return;
-    if (e.target.name === "quantity") updateBuyTotal(card);
     if (e.target.name === "price") previewPrice(card);
   });
 
+  // stock is ordered at the PC in the Supply Hall (spec order-at-warehouse): the button switches to the
+  // campus, where the player walks to the PC (views.js passes it on to the map)
   grid.addEventListener("click", (e) => {
-    const card = e.target.closest(".product");
-    if (!card) return;
-    const input = card.querySelector('[name="quantity"]');
-    const step = e.target.closest("[data-step]");
-    const set = e.target.closest("[data-set]");
-    if (step) {
-      const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
-      input.value = Math.max(1, current + Number(step.dataset.step));
-    } else if (set) {
-      input.value = set.dataset.set;
-    } else {
-      return;
-    }
-    updateBuyTotal(card);
+    if (e.target.closest("[data-go-order]")) window.dispatchEvent(new CustomEvent("go-order"));
   });
 
   grid.addEventListener("submit", async (e) => {
@@ -344,10 +295,8 @@ function wireProducts() {
     const form = e.target;
     const card = form.closest(".product");
     const product = card.dataset.product;
-    const kind = form.dataset.form;
-    const data = kind === "buy"
-      ? await send("/api/buy", { product, quantity: form.quantity.value })
-      : await send("/api/price", { product, price: form.price.value });
+    const kind = form.dataset.form; // only the price form is left on a card
+    const data = await send("/api/price", { product, price: form.price.value });
     if (data?.error) {
       // the cards were re-rendered from the unchanged state; show why here too
       const fresh = $(`.product[data-product="${product}"]`);

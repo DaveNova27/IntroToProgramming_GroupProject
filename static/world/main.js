@@ -18,7 +18,7 @@ import {
   scene,
   world,
 } from "./scene.js";
-import { initUi, inputBlocked, updateClock, useLocation } from "./ui.js";
+import { initUi, inputBlocked, keepOrderAtPc, updateClock, useLocation } from "./ui.js";
 import { FADE_SECONDS, mixLooks, weatherLook } from "./weather.js";
 import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
@@ -119,6 +119,22 @@ function goHome() {
   }
   pendingUse = "bed";
   walkTo(bed);
+  if (route.length) return true;
+  pendingUse = null;
+  return false;
+}
+
+// Walk to a place and use it on arrival (spec order-at-warehouse: the "Stock" button walks to the order
+// PC), the same way a click on it does. Standing there it is used at once. Gives false when no way was found.
+function walkToPlace(id) {
+  const loc = world.locations[id];
+  if (!loc || loc.zone !== scene.zoneId) return false;
+  if (inReach(loc)) {
+    use(id);
+    return true;
+  }
+  pendingUse = id;
+  walkTo(loc);
   if (route.length) return true;
   pendingUse = null;
   return false;
@@ -335,6 +351,7 @@ function loop(t) {
   for (let i = 0; i < steps; i++) updateWalkers(dt / steps); // waypoints are not skipped on a slow frame
   moveCamera(dt);
   renderHint();
+  keepOrderAtPc();
   updateClock();
   drawWorld(t);
   requestAnimationFrame(loop);
@@ -364,7 +381,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer, goHome, jumpHome, wakeAt });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt, walkToPlace });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }
