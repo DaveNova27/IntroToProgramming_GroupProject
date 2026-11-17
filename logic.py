@@ -1542,9 +1542,22 @@ def _check_sale(state, product):
     raise RejectedAction(f"Nobody is waiting for {name}.")
 
 
+# ---- merch-wear (specs/merch-wear.md): a guest who buys clothes puts them on -----------------
+# The Merchandise products a guest can wear. When one of them is sold to a guest, the shift keeps a
+# note (guest id, product, tick), so the map can show exactly that guest leaving in exactly that item.
+# Only the server knows who bought and who gave up; the note changes no rule and no number.
+WEARABLE = ("hoodie", "tshirt", "cap")
+DRESSED_KEEP = 20  # the newest notes kept per shift: enough for the screen, the save stays small
+
+
 def _serve(state, i, product):
     """Sell one unit to customer i of the queue in this very state (already checked)."""
-    state["shift"]["queue"].pop(i)
+    customer = state["shift"]["queue"].pop(i)
+    guest = customer.get("guest")
+    if product in WEARABLE and guest is not None:
+        dressed = state["shift"].setdefault("dressed", [])
+        dressed.append({"guest": guest["id"], "product": product, "tick": state["shift"]["tick"]})
+        del dressed[:-DRESSED_KEEP]
     state["shift"]["counter"][product] -= 1
     state["shift"]["sold"][product] += 1
     state["cash"] += state["prices"][product]

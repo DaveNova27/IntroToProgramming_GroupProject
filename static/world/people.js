@@ -212,6 +212,14 @@ export const OUTFIT_LOOKS = {
 };
 const OUTLINE = "#183740";
 
+// The Merchandise goods a guest puts on right after buying them (spec merch-wear), in the colours of
+// the products on the dashboard. torso: drawn like an outfit; cap: drawn on the head.
+export const MERCH_LOOKS = {
+  hoodie: { torso: { shirt: "#8e5bd6", sleeves: "long", hood: true, hem: 1, pouch: "#7446b8", strings: "#fff1dc", name: "#fff1dc" } },
+  tshirt: { torso: { shirt: "#e8573a", sleeves: "short", name: "#fff1dc" } },
+  cap: { cap: "#1baf7a", letter: "#fff1dc" },
+};
+
 // The torso of every figure; `hem` makes a jacket hang lower.
 function torsoPath(hem = 0) {
   ctx.beginPath();
@@ -229,6 +237,9 @@ function armPaths(pose, swing, dance) {
   }
   if (pose === "clean" || pose === "repair") return [[[-6, -32], [-2, -23], [6, -20]], [[6, -32], [9, -23]]];
   if (pose === "dance") return [[[-6, -32], [-11, -40 - dance]], [[6, -32], [12, -35 + dance]]];
+  // pulling something on over the head (spec merch-wear): both arms up, or one hand at the head
+  if (pose === "dress") return [[[-6, -32], [-9, -42], [-4, -50]], [[6, -32], [9, -42], [4, -50]]];
+  if (pose === "dress-cap") return [[[-6, -32], [-9, -20]], [[6, -32], [9, -41], [4, -50]]];
   if (pose === "chat") return [[[-6, -32], [-10, -24]], [[6, -32], [11, -36]]];
   return [[[-6, -32], [-9 - swing, -20]], [[6, -32], [9 + swing, -21]]];
 }
@@ -284,7 +295,11 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     view = characterView(options.facing || { x: options.direction || 1, y: 0 }),
     p = isoPoint(x, y, (options.z ?? 4) + (pose === "lie" ? 0 : bob)),
     scale = (options.player ? 1.2 : 1.02) * (style.build || 1),
-    look = options.player ? OUTFIT_LOOKS[options.outfit] ?? OUTFIT_LOOKS.basic : null,
+    // what a guest just bought in the Merchandise shop, and how far it is on (0 to 1; spec merch-wear)
+    wear = options.wear && Object.hasOwn(MERCH_LOOKS, options.wear) ? MERCH_LOOKS[options.wear] : null,
+    dress = Math.max(0, Math.min(1, options.dress ?? 1)),
+    look = options.player ? OUTFIT_LOOKS[options.outfit] ?? OUTFIT_LOOKS.basic
+      : wear?.torso && dress >= 1 ? wear.torso : null,
     shirt = look ? look.shirt : options.color || "#64cbc8",
     sit = pose === "sit",
     lie = pose === "lie", // in bed (spec day-cycle): the whole figure turned flat, eyes closed
@@ -354,9 +369,11 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
   ctx.fill();
   ctx.stroke();
   if (look) drawOutfitDetails(look, view.back, style.skin);
+  if (wear?.torso && dress < 1) drawPullingOn(wear.torso, dress, view.back, style.skin);
   const armSwing = moving ? step * 0.72 : 0;
   drawArms(armPaths(pose, armSwing, dance), style.skin, look);
-  if ((moving || pose === "phone") && !options.role && !view.back) {
+  // no bag in front of new merch: the NOVA on the chest stays in sight (spec merch-wear)
+  if ((moving || pose === "phone") && !options.role && !view.back && !wear?.torso) {
     ctx.fillStyle = style.bag;
     ctx.beginPath();
     ctx.roundRect(-10, -34, 5.5, 15, 2);
@@ -365,9 +382,10 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
     ctx.lineWidth = 1;
     ctx.stroke();
   }
-  if (look?.hood && !lie) {
+  const hooded = look?.hood ? look : wear?.torso?.hood && dress > 0.5 ? wear.torso : null;
+  if (hooded && !lie) {
     // the hood lies around the neck and behind the head
-    ctx.fillStyle = look.shirt;
+    ctx.fillStyle = hooded.shirt;
     ctx.strokeStyle = OUTLINE;
     ctx.lineWidth = 1.1;
     ctx.beginPath();
@@ -383,6 +401,7 @@ export function drawPersonFigure(x, y, t, index, options = {}) {
   ctx.lineWidth = 1.1;
   ctx.stroke();
   drawCharacterHair(style, index, view);
+  if (wear?.cap && !lie) drawCap(wear.cap, dress, view);
   if (lie) {
     // closed eyes: two small arcs
     ctx.strokeStyle = "#173743";
@@ -461,6 +480,55 @@ function drawOutfitDetails(look, back, skin) {
       ctx.arc(fx, fy, 0.55, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+  if (look.pouch && !back) {
+    // the kangaroo pocket of the hoodie
+    ctx.fillStyle = look.pouch;
+    ctx.beginPath();
+    ctx.moveTo(-4.2, -25);
+    ctx.lineTo(4.2, -25);
+    ctx.lineTo(5, -19.5);
+    ctx.lineTo(-5, -19.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (look.strings && !back) {
+    ctx.strokeStyle = look.strings;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-1.6, -37.5);
+    ctx.lineTo(-1.9, -32.5);
+    ctx.moveTo(1.6, -37.5);
+    ctx.lineTo(1.9, -32.5);
+    ctx.stroke();
+  }
+  if (look.name) {
+    // the campus merch: NOVA across the chest (seen from behind across the back)
+    ctx.save();
+    ctx.fillStyle = look.name;
+    ctx.textAlign = "center";
+    if (ctx.getTransform().a < 0) ctx.scale(-1, 1); // a figure turned to the left: the letters stay readable
+    ctx.font = "900 3.6px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.fillText("NOVA", 0, look.pouch ? -27.6 : -28.4);
+    if (!look.pouch) {
+      ctx.font = "800 2.2px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.fillText("SBE", 0, -25.6);
+    }
+    ctx.restore();
+  }
+  if (look.print && !back) {
+    // the campus print on the chest: a sun over a wave
+    ctx.fillStyle = look.print;
+    ctx.beginPath();
+    ctx.arc(0, -31, 2.2, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = look.print;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-3.2, -29.4);
+    ctx.quadraticCurveTo(-1.6, -30.6, 0, -29.4);
+    ctx.quadraticCurveTo(1.6, -28.2, 3.2, -29.4);
+    ctx.stroke();
   }
   if (look.band) {
     ctx.fillStyle = look.band;
@@ -556,6 +624,58 @@ function drawOutfitDetails(look, back, skin) {
       ctx.fillRect(-5.2, -20, 3.6, 1.1);
       ctx.fillRect(1.6, -20, 3.6, 1.1);
     }
+  }
+  ctx.restore();
+}
+
+// The garment coming down over the body while it is pulled on (spec merch-wear): the torso in the
+// new colour, shown from the neck down to `share` (0 to 1) of its length.
+function drawPullingOn(garment, share, back, skin) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-10, -41, 20, (26 + (garment.hem ?? 0)) * share);
+  ctx.clip();
+  ctx.fillStyle = garment.shirt;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 1.15;
+  torsoPath(garment.hem);
+  ctx.fill();
+  ctx.stroke();
+  drawOutfitDetails(garment, back, skin);
+  ctx.restore();
+}
+
+// A cap on the head, its peak to the front (the figure is already turned with its view). While it is
+// put on (share below 1) it comes down onto the head from above.
+function drawCap(color, share, view) {
+  const lift = (1 - share) * 12;
+  ctx.save();
+  ctx.translate(0, -lift);
+  ctx.globalAlpha = Math.min(1, 0.35 + share);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); // the crown, a half dome over the hair
+  ctx.ellipse(0, -48.2, 6.6, 4.6, 0, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  if (!view.back) {
+    ctx.beginPath(); // the peak: in front, or to the side the figure looks to
+    if (view.side) ctx.ellipse(5.4, -48.3, 4.2, 1.3, 0.12, 0, Math.PI * 2);
+    else ctx.ellipse(0, -47.6, 5.4, 1.7, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#fff1dc"; // the button on top
+  ctx.beginPath();
+  ctx.arc(0, -52.6, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+  if (!view.back && !view.side) {
+    // the N of NOVA on the front
+    ctx.font = "900 4px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("N", 0, -48.6);
   }
   ctx.restore();
 }

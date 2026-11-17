@@ -23,6 +23,7 @@ const NEAR_PLAYER = 2.4; // tiles: next to the player a guest always shows the t
 const LEAVE_SPEED = 1.45; // tiles per second on the way back
 const LEAVE_MS = 30000; // a guest who has not got home by then is gone anyway
 const MAX_LEAVING = 12; // as many as can be drawn at once (MAX_VISIBLE_GUESTS on the server)
+const DRESS_MS = 1600; // how long a guest takes to put on what they bought (spec merch-wear)
 const LINE_SPOTS = 6; // places of a line that are drawn; whoever is further back waits at the last
 const FACING_SHOP = { x: 0, y: -1 }; // every line faces north, to its counter
 
@@ -93,10 +94,17 @@ function target(guest, tick) {
   return { ...point, walking: true };
 }
 
+// A guest who is gone from the server's list walks home. One who just bought clothes in the
+// Merchandise shop (the server's note in state.guests.dressed) first puts them on, then leaves in them.
 function startLeaving(id, view) {
   if (leaving.size >= MAX_LEAVING) return;
   const home = free(world.guests.starts[view.guest.start]);
-  leaving.set(id, { ...view, route: polyline({ x: view.x, y: view.y }, home), at: 0, until: lastT + LEAVE_MS });
+  const note = server.guests?.dressed?.find((d) => d.id === view.guest.id);
+  const dressMs = note && !reducedMotion ? DRESS_MS : 0;
+  leaving.set(id, {
+    ...view, route: polyline({ x: view.x, y: view.y }, home), at: 0, until: lastT + LEAVE_MS + dressMs,
+    wear: note?.product ?? null, dressFrom: lastT, dressMs, dress: dressMs ? 0 : 1,
+  });
 }
 
 // One step of every guest: called once per frame from the drawing (dt from the frame times).
@@ -131,6 +139,11 @@ function step(t) {
     startLeaving(id, view);
   }
   for (const [id, walk] of leaving) {
+    if (t - walk.dressFrom < walk.dressMs) { // still putting it on, facing out of the shop
+      Object.assign(walk, { moving: false, facing: { x: 0, y: 1 }, dress: (t - walk.dressFrom) / walk.dressMs });
+      continue;
+    }
+    walk.dress = 1;
     walk.at += LEAVE_SPEED * dt;
     const point = along(walk.route, walk.route.total ? walk.at / walk.route.total : 1);
     Object.assign(walk, { x: point.x, y: point.y, facing: point.facing, moving: true });
@@ -171,7 +184,10 @@ function drawGuest(view, t, thinking) {
     phase: guest.id * 0.37,
     moving: view.moving,
     facing: view.facing,
-    pose: view.moving ? "walk" : guest.id % 3 === 0 ? "phone" : "idle",
+    pose: view.wear && view.dress < 1 ? (view.wear === "cap" ? "dress-cap" : "dress")
+      : view.moving ? "walk" : guest.id % 3 === 0 ? "phone" : "idle",
+    wear: view.wear, // what they just bought in the Merchandise shop (spec merch-wear)
+    dress: view.dress,
   });
   if (thinking) drawThought(view);
 }
