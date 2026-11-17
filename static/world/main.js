@@ -124,6 +124,22 @@ function goHome() {
   return false;
 }
 
+// Walk to a place and use it on arrival (spec order-at-warehouse: the "Stock" button walks to the order
+// PC), the same way a click on it does. Standing there it is used at once. Gives false when no way was found.
+function walkToPlace(id) {
+  const loc = world.locations[id];
+  if (!loc || loc.zone !== scene.zoneId) return false;
+  if (inReach(loc)) {
+    use(id);
+    return true;
+  }
+  pendingUse = id;
+  walkTo(loc);
+  if (route.length) return true;
+  pendingUse = null;
+  return false;
+}
+
 // "Skip the walk" (spec day-cycle): straight to the bed without walking there. Only the shown position
 // changes; it is saved like any other stop. Gives false when the Dorm data is missing.
 function jumpHome() {
@@ -364,7 +380,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer, goHome, jumpHome, wakeAt });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt, walkToPlace });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }
