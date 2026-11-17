@@ -675,6 +675,31 @@ def buy():
     return apply(action)
 
 
+@app.post("/api/buy-many")
+def buy_many():
+    """Several products in one order (specs/bulk-order.md): {"items": [{"product", "quantity"}]}.
+    All lines are booked together or none; the quantities are read like in /api/buy."""
+    body = json_body()
+
+    def action(state):
+        items = body.get("items")
+        if not isinstance(items, list) or not items:
+            raise logic.RejectedAction("The order is empty: choose at least one product.")
+        if len(items) > len(logic.CATALOGUE):
+            raise logic.RejectedAction("The order has more lines than there are products.")
+        lines = []
+        for item in items:
+            if not isinstance(item, dict) or set(item) != {"product", "quantity"}:
+                raise logic.RejectedAction("Each line of the order needs a product and a quantity.")
+            lines.append({"product": item["product"], "quantity": parse_quantity(item["quantity"])})
+        new_state = logic.buy_many(state, lines)
+        cost = state["cash"] - new_state["cash"]
+        bought = ", ".join(f"{line['quantity']} × {logic.CATALOGUE[line['product']]['name']}" for line in lines)
+        return new_state, f"Ordered {bought} for {logic.fmt(cost)}."
+
+    return apply(action)
+
+
 @app.post("/api/price")
 def set_price():
     body = json_body()

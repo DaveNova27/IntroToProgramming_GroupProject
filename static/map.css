@@ -307,6 +307,16 @@ p { margin: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { padding: 3px 10px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font-size: 12px; cursor: pointer; }
 .chip:hover { background: var(--cream-deep); }
+.order-rows { display: grid; gap: 6px; margin: 10px 0 4px; }
+.order-row { display: grid; grid-template-columns: 30px 1fr 128px 62px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; background: #fff; box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px var(--line); }
+.order-row .em { font-size: 22px; text-align: center; }
+.order-row .nm { font-size: 13px; font-weight: 700; }
+.order-row .nm small { display: block; color: var(--ink-soft); font-size: 11px; font-weight: 500; }
+.order-row .stepper { height: 36px; }
+.order-row .stepper button { width: 28px; height: 28px; }
+.order-row .stepper input { font-size: 15px; }
+.order-row .line-cost { font: 700 12px var(--mono); text-align: right; color: var(--ink-soft); }
+#order-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding: 10px 12px; border-radius: 5px; background: var(--cream-deep); font-size: 14px; }
 .total strong { font: 700 18px var(--mono); }
 .total.too-much strong { color: var(--bad); }
