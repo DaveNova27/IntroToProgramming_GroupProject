@@ -370,6 +370,9 @@ def shift_view(state):
     }
 
 
+DRESSED_SHOW_TICKS = 10  # a sale of clothes is shown this many ticks (about seconds) after it
+
+
 def guests_view(state):
     """Today's guests for the screen (specs/guests.md): only while the day is open. Per running
     shop how many come and why, and the guests that are on their way or waiting now (at most
@@ -405,7 +408,12 @@ def guests_view(state):
             line += 1 if here else 0
         walking += sorted(mine, key=lambda g: (g["depart"], g["id"]))[:share]
     running = {part["shop"] for part in parts}
+    # who just bought clothes in the Merchandise shop and puts them on (specs/merch-wear.md)
+    dressed = [{"id": note["guest"], "product": note["product"]}
+               for part in parts for note in part.get("dressed", [])
+               if tick - note["tick"] <= DRESSED_SHOW_TICKS]
     return {"tick": tick, "shops": shops, "walking": walking[:guests.MAX_VISIBLE_GUESTS],
+            "dressed": dressed,
             # a shift is running: the map shows the guests (the passers-by step aside only then)
             "active": any(not part.get("over") for part in parts),
             # only the home shop of the player (logic.SHIFT_SHOPS) is planned for without staff: a guest
