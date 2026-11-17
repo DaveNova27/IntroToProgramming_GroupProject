@@ -17,7 +17,6 @@ const embedded = new URLSearchParams(location.search).has("embed");
 let state = null;
 let panelMode = null;
 let armedFire = null; // the employee whose Dismiss was clicked once (the panel is redrawn every tick)
-let orderProduct = "coffee";
 let placePlayer = () => {};
 let goHome = () => false;
 let jumpHome = () => false;
@@ -451,32 +450,27 @@ function setPanelHtml(body, html) {
 function renderPanel() {
   const body = $("#panel-body");
   if (panelMode === "order") {
+    // one row per product, one total, one button (spec bulk-order); the server books it all or nothing
     $("#panel-title").textContent = "Order stock";
-    const p = product(orderProduct);
-    const max = Math.floor(state.cash / p.cost);
     setPanelHtml(body, `
-      <div class="pick" role="group" aria-label="Product">
-        ${state.products.map((x) => `
-          <button type="button" data-pick="${esc(x.id)}" aria-pressed="${x.id === orderProduct}" style="--accent:${COLOR[x.id]}">
-            <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
-            <span class="nm">${esc(x.name)}</span>
-            <small>${fmt(x.cost)} each · ${x.stock} in stock</small>
-          </button>`).join("")}
-      </div>
       <form id="order-form">
-        <div class="field-label"><span>Quantity</span><span>up to ${max} affordable</span></div>
-        <div class="stepper">
-          <button type="button" data-step="-1" aria-label="One less">−</button>
-          <input name="quantity" inputmode="numeric" autocomplete="off" value="10" aria-label="Quantity">
-          <button type="button" data-step="1" aria-label="One more">+</button>
-        </div>
-        <div class="chips">
-          ${[5, 10, 25].map((n) => `<button type="button" class="chip" data-set="${n}">${n}</button>`).join("")}
-          <button type="button" class="chip" data-set="${max}">Max (${max})</button>
+        <p class="note">Choose how many of each product you want. Everything is ordered in one go.</p>
+        <div class="order-rows">
+          ${state.products.map((x) => `
+            <div class="order-row" style="--accent:${COLOR[x.id]}">
+              <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
+              <span class="nm">${esc(x.name)}<small>${fmt(x.cost)} each · ${esc(x.stock)} in stock</small></span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-for="${esc(x.id)}" aria-label="One less ${esc(x.name)}">−</button>
+                <input name="qty-${esc(x.id)}" data-product="${esc(x.id)}" inputmode="numeric" autocomplete="off" value="0" aria-label="${esc(x.name)} quantity">
+                <button type="button" data-step="1" data-for="${esc(x.id)}" aria-label="One more ${esc(x.name)}">+</button>
+              </div>
+              <span class="line-cost" data-line="${esc(x.id)}"></span>
+            </div>`).join("")}
         </div>
         <div class="total" id="order-total"></div>
         <p class="error" id="order-error"></p>
-        <button class="btn wide" type="submit">Order</button>
+        <button class="btn wide" type="submit" id="order-submit">Order all</button>
       </form>`);
     updateOrderTotal();
   } else if (panelMode === "editor") {
@@ -906,19 +900,41 @@ function shiftAction(path, body) {
   }).catch((err) => console.error(err));
 }
 
+// The lines of the order as typed: a field left empty counts as 0. Returns the lines to order (quantity
+// above 0), the total in cents and whether a field holds something that is not a whole number.
+function orderLines() {
+  const lines = [];
+  let total = 0;
+  let bad = false;
+  for (const input of document.querySelectorAll("#order-form [data-product]")) {
+    const text = input.value.trim() || "0";
+    const out = document.querySelector(`[data-line="${input.dataset.product}"]`);
+    if (!/^\d+$/.test(text)) {
+      bad = true;
+      if (out) out.textContent = "whole number";
+      continue;
+    }
+    const quantity = Number(text);
+    const cost = quantity * product(input.dataset.product).cost;
+    if (out) out.textContent = quantity ? fmt(cost) : "";
+    if (quantity > 0) {
+      lines.push({ product: input.dataset.product, quantity: text });
+      total += cost;
+    }
+  }
+  return { lines, total, bad };
+}
+
 function updateOrderTotal() {
   const out = $("#order-total");
   if (!out) return;
-  const text = $("#order-form").quantity.value.trim();
-  if (!/^\d+$/.test(text)) {
-    out.className = "total";
-    out.innerHTML = `<span>Enter a whole number</span><strong>—</strong>`;
-    return;
-  }
-  const total = Number(text) * product(orderProduct).cost;
+  const { lines, total, bad } = orderLines();
   const tooMuch = total > state.cash;
   out.className = `total ${tooMuch ? "too-much" : ""}`;
-  out.innerHTML = `<span>${tooMuch ? "More than your cash" : "Total cost"}</span><strong>${fmt(total)}</strong>`;
+  out.innerHTML = bad ? `<span>Enter whole numbers only</span><strong>—</strong>`
+    : !lines.length ? `<span>Nothing chosen yet</span><strong>${fmt(0)}</strong>`
+    : `<span>${tooMuch ? "More than your cash" : `Total · ${fmt(state.cash - total)} left`}</span><strong>${fmt(total)}</strong>`;
+  $("#order-submit").disabled = bad || !lines.length || tooMuch;
 }
 
 function wirePanel() {
@@ -972,31 +988,18 @@ function wirePanel() {
     }
     const sellBtn = e.target.closest("[data-sell]");
     if (sellBtn) return shiftAction("/api/shift/sell", { product: sellBtn.dataset.sell });
-    const pickBtn = e.target.closest("[data-pick]");
-    if (pickBtn) {
-      const typed = $("#order-form")?.quantity.value;
-      orderProduct = pickBtn.dataset.pick;
-      renderPanel();
-      if (typed) { $("#order-form").quantity.value = typed; markTyped($("#order-form").quantity); }
-      return updateOrderTotal();
-    }
-    const input = $("#order-form")?.quantity;
-    const step = e.target.closest("[data-step]");
-    const set = e.target.closest("[data-set]");
-    if (input && step) {
+    const step = e.target.closest("[data-step][data-for]");
+    const input = step && $(`#order-form [data-product="${step.dataset.for}"]`);
+    if (input) {
       const current = /^\d+$/.test(input.value.trim()) ? Number(input.value) : 0;
-      input.value = Math.max(1, current + Number(step.dataset.step));
-      markTyped(input);
-      updateOrderTotal();
-    } else if (input && set) {
-      input.value = set.dataset.set;
+      input.value = Math.max(0, current + Number(step.dataset.step));
       markTyped(input);
       updateOrderTotal();
     }
   });
   panel.addEventListener("input", (e) => {
     markTyped(e.target);
-    if (e.target.name === "quantity") return updateOrderTotal();
+    if (e.target.dataset?.product) return updateOrderTotal(); // a quantity of the order
     const form = e.target.closest("[data-price-form]");
     if (!form) return;
     const p = product(form.dataset.priceForm);
@@ -1020,7 +1023,7 @@ function wirePanel() {
   }, true);
   panel.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (e.target.id === "order-form") return order(orderProduct, e.target.quantity.value);
+    if (e.target.id === "order-form") return order();
     const form = e.target.closest("[data-price-form]");
     if (form) savePrice(form);
   });
@@ -1028,8 +1031,10 @@ function wirePanel() {
 
 // ---- actions -------------------------------------------------------------------------
 
-async function order(pid, quantityText) {
-  const data = await send("/api/buy", { product: pid, quantity: quantityText });
+async function order() {
+  const { lines, bad } = orderLines();
+  if (bad || !lines.length) return;
+  const data = await send("/api/buy-many", { items: lines });
   if (!data) return;
   state = data.state;
   renderHud();

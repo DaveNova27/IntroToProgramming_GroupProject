@@ -166,3 +166,17 @@ def test_a_crafted_order_is_refused_and_changes_nothing(run_on_disk, body):
     assert response.status_code == 400, response.get_json()
     assert response.get_json()["error"]
     assert db.load(run_on_disk) == before
+
+
+# ---- Check 3: the order window --------------------------------------------------------------
+
+def test_the_order_window_has_a_row_per_product_and_one_button():
+    from pathlib import Path
+
+    ui = (Path(app.__file__).parent / "static" / "world" / "ui.js").read_text()
+    assert '<div class="order-row"' in ui and 'name="qty-${esc(x.id)}"' in ui
+    assert 'id="order-submit">Order all</button>' in ui
+    assert 'send("/api/buy-many", { items: lines })' in ui
+    assert '"/api/buy"' not in ui  # the window no longer orders one product at a time
+    # the button stays off while nothing is chosen, a field is not a whole number, or the total is too high
+    assert '$("#order-submit").disabled = bad || !lines.length || tooMuch;' in ui
