@@ -862,6 +862,35 @@ function drawPallet(item) {
   }
 }
 
+// The order PC (spec order-at-warehouse): a desk with a monitor turned to the room, the order list on
+// its screen, a keyboard and a small stack of order slips. Only drawn; ordering is a request to the server.
+function drawOrderPc(item) {
+  const leg = (px, py) => drawBlock(px, py, 0.08, 0.08, 24, "#274a52", "#1b363c", "#22434b");
+  leg(item.x + 0.06, item.y + item.h - 0.14);
+  leg(item.x + item.w - 0.14, item.y + item.h - 0.14);
+  drawRaisedSlab(item.x, item.y, item.w, item.h, 28, 4, "#d8c9a8", "#8a7656", "#b29d78");
+  // the monitor on its foot, the screen to the front
+  const sx = item.x + 0.08, sw = item.w - 0.16, sy = item.y + 0.32;
+  drawBlock(item.x + item.w / 2 - 0.05, sy, 0.1, 0.06, 36, "#31545b", "#1f3c43", "#294a51");
+  drawFacadeBandY(sx - 0.02, sy, sw + 0.04, 35, 58, "#183740", 0);
+  drawFacadeBandY(sx + 0.02, sy + 0.001, sw - 0.04, 37, 56, "#2f7f86", 0);
+  // the order list on the screen: a header and four lines, the last one highlighted
+  for (let i = 0; i < 5; i++) {
+    const a = isoPoint(sx + 0.06, sy + 0.002, 53.5 - i * 3.4);
+    const b = isoPoint(sx + sw - (i === 0 ? 0.06 : 0.14 + (i % 2) * 0.06), sy + 0.002, 53.5 - i * 3.4);
+    ctx.strokeStyle = i === 0 ? "#f5c95e" : i === 4 ? "#bce65f" : "rgba(235,250,248,.85)";
+    ctx.lineWidth = i === 0 ? 1.8 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  // keyboard and order slips in front of the screen
+  drawRaisedSlab(sx + 0.04, sy + 0.18, sw - 0.08, 0.16, 29.5, 1.5, "#e9eef0", "#9aa7ab", "#c4cdd0");
+  drawRaisedSlab(item.x + 0.1, item.y + item.h - 0.3, 0.2, 0.18, 32, 4, "#fff6c9", "#c9b98a", "#e6d9a9");
+  drawRaisedSlab(item.x + 0.12, item.y + item.h - 0.28, 0.2, 0.18, 33, 1, "#ffffff", "#c9b98a", "#e6d9a9");
+}
+
 // plastic crates, two high
 function drawCrates(item) {
   const colors = [SUN, AQUA, SUN];
@@ -1209,6 +1238,8 @@ export function roomActors(t) {
       actors.push(...slicedY(item, 1.15, (y, length, i) => drawStorageRackSlice(item, y, length, i)));
     } else if (id.startsWith("stock-pallet")) {
       actors.push({ depth: frontDepth(item), draw: () => drawPallet(item) });
+    } else if (id === "order-pc") {
+      actors.push({ depth: frontDepth(item), draw: () => drawOrderPc(item) });
     } else if (id.startsWith("stock-crates")) {
       actors.push({ depth: frontDepth(item), draw: () => drawCrates(item) });
     } else if (id.startsWith("hub-sofa")) {
