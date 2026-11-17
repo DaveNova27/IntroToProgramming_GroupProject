@@ -180,3 +180,12 @@ def test_the_order_window_has_a_row_per_product_and_one_button():
     assert '"/api/buy"' not in ui  # the window no longer orders one product at a time
     # the button stays off while nothing is chosen, a field is not a whole number, or the total is too high
     assert '$("#order-submit").disabled = bad || !lines.length || tooMuch;' in ui
+    # review findings: an answer without a state shows its reason; the stock reads "you have N"
+    assert "if (!data.state) {" in ui and "you have ${esc(x.stock)}" in ui
+
+
+def test_an_unknown_api_request_answers_with_an_error_but_no_state():
+    """Why the window needs the check above: an old server answers 404 without a state."""
+    response = app.app.test_client().post("/api/does-not-exist", json={})
+    assert response.status_code == 404
+    assert "error" in response.get_json() and "state" not in response.get_json()

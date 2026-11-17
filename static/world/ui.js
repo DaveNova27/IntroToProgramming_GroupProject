@@ -459,7 +459,7 @@ function renderPanel() {
           ${state.products.map((x) => `
             <div class="order-row" style="--accent:${COLOR[x.id]}">
               <span class="em" aria-hidden="true">${EMOJI[x.id]}</span>
-              <span class="nm">${esc(x.name)}<small>${fmt(x.cost)} each · ${esc(x.stock)} in stock</small></span>
+              <span class="nm">${esc(x.name)}<small>${fmt(x.cost)} each · you have ${esc(x.stock)}</small></span>
               <div class="stepper">
                 <button type="button" data-step="-1" data-for="${esc(x.id)}" aria-label="One less ${esc(x.name)}">−</button>
                 <input name="qty-${esc(x.id)}" data-product="${esc(x.id)}" inputmode="numeric" autocomplete="off" value="0" aria-label="${esc(x.name)} quantity">
@@ -1036,6 +1036,12 @@ async function order() {
   if (bad || !lines.length) return;
   const data = await send("/api/buy-many", { items: lines });
   if (!data) return;
+  if (!data.state) {
+    // review finding: an answer without a state (an older server that does not know the request yet,
+    // answered 404) left the window silent; now the reason is shown and the shown run stays as it was
+    $("#order-error").textContent = data.error || "The order could not be sent.";
+    return toast(data.error || "The order could not be sent.", "error");
+  }
   state = data.state;
   renderHud();
   if (data.error) {

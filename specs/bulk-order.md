@@ -29,6 +29,13 @@ the player pick a quantity for several products and order them all with one clic
    tests and the editor. No old test changes.
 3. **Tests:** the new file `tests/test_bulk_order.py`.
 
+## AI review findings (fixed)
+
+1. An answer without a state (an older server that does not know `/api/buy-many` answers 404 with only
+   an error) made the window stay silent: the browser took the missing state as the new run. Now the
+   reason is shown under the total and as a message, and the shown run stays as it was.
+2. "0 in stock" in a row read like "the supplier has none". It reads "you have 0" now.
+
 ## Out of scope
 
 - Delivery times, the lorry (`lorry-arrival`), a central storage (`warehouse`).
