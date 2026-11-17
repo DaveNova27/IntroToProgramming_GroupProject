@@ -112,6 +112,9 @@ def test_the_stock_button_walks_to_the_pc_and_the_window_needs_the_pc():
     assert "function walkToPlace(id)" in main and "walkToPlace });" in main
     # the dashboard's button: the map walks once it is the main view again
     assert 'msg.type === "go-order"' in ui and "orderOnMain" in ui
+    # review finding: walking away from the PC closes the order window, checked every frame
+    assert 'if (panelMode === "order" && !atOrderPc()) closePanel();' in ui
+    assert "keepOrderAtPc();" in main
 
 
 # ---- Check 3: the dashboard has no buy form ---------------------------------------------------

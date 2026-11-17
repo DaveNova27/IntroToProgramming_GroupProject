@@ -298,6 +298,12 @@ const ORDER_PLACE = "supplier";
 let orderOnMain = false; // the dashboard asked for the order PC while the campus was the small window
 const atOrderPc = () => Boolean(world.locations?.[ORDER_PLACE]) && inReach(world.locations[ORDER_PLACE]);
 
+// Review finding: the order window stayed open while the player walked away from the PC. It closes
+// as soon as the PC is out of reach (checked every frame by main.js).
+export function keepOrderAtPc() {
+  if (panelMode === "order" && !atOrderPc()) closePanel();
+}
+
 function goOrder() {
   if (state.finished) return;
   if (atOrderPc()) return openPanel("order");

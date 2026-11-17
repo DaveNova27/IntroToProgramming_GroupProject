@@ -18,7 +18,7 @@ import {
   scene,
   world,
 } from "./scene.js";
-import { initUi, inputBlocked, updateClock, useLocation } from "./ui.js";
+import { initUi, inputBlocked, keepOrderAtPc, updateClock, useLocation } from "./ui.js";
 import { FADE_SECONDS, mixLooks, weatherLook } from "./weather.js";
 import { createWalkers, updateWalkers } from "./walkers.js";
 import { joinDorm } from "./zones.js";
@@ -351,6 +351,7 @@ function loop(t) {
   for (let i = 0; i < steps; i++) updateWalkers(dt / steps); // waypoints are not skipped on a slow frame
   moveCamera(dt);
   renderHint();
+  keepOrderAtPc();
   updateClock();
   drawWorld(t);
   requestAnimationFrame(loop);

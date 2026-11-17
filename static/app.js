@@ -216,7 +216,7 @@ function productCard(p) {
     </div>
 
     <div>
-      <div class="block-label"><span>Buy stock</span><span>${esc(p.stock)} in stock</span></div>
+      <div class="block-label"><span>Buy stock</span></div>
       <p class="order-note">Stock is ordered at the PC in the Supply Hall of the Mercado.</p>
       <button class="btn" type="button" data-go-order ${off}>Go to the order PC</button>
     </div>

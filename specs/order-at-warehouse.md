@@ -33,6 +33,12 @@ Mercado Supply Hall (the warehouse with the loading bay and the lorry) to a smal
 3. **The dashboard keeps no shortcut:** ordering is only at the PC (Gregor, 2026-11-17).
 4. **Tests:** the new file `tests/test_order_at_warehouse.py`.
 
+## AI review findings (fixed)
+
+1. The order window stayed open while the player walked away from the PC, so ordering still worked from
+   anywhere. It now closes as soon as the PC is out of reach (`keepOrderAtPc`, every frame).
+2. The dashboard card showed the stock twice (in its head and over the order button). The second one went.
+
 ## Out of scope
 
 - The lorry: it stays where it is, on the delivery lane west of the Supply Hall. Its road and a
