@@ -253,8 +253,32 @@ export function drawCafeTerrace() {
 
 // The delivery lane runs along the west side of the Mercado and stops where the building stops,
 // so lorries never cross the plaza: asphalt, a kerb against the wall, centre dashes, a barrier at the south end.
+// The road the lorries come by (spec lorry-road): from the north edge of the drawn ground down the west
+// side of the Learning Center to the lane. Narrower than the lane, so its kerb passes the Learning
+// Center's west wall (x 2.2). Only drawn: no solid object, no change to where a person may walk.
+export const ROAD_FROM = 0.0; // the north edge of the drawn ground: from there the road leads off the campus
+export const ROAD_WEST = -1.4, ROAD_EAST = 2.0; // the asphalt; a kerb of 0.2 on each side
+export function drawSupplyRoad() {
+  const y0 = 8.0; // where the lane begins
+  drawGroundSlab(ROAD_WEST, ROAD_FROM, ROAD_EAST - ROAD_WEST, y0 - ROAD_FROM, "#9da39e", 4);
+  drawGroundSlab(ROAD_EAST, ROAD_FROM, 0.2, y0 - ROAD_FROM, "#c9c9c0", 5); // the kerb along the Learning Center
+  drawGroundSlab(ROAD_WEST - 0.2, ROAD_FROM, 0.2, y0 - ROAD_FROM, "#c9c9c0", 5); // the kerb on the grass side
+  const middle = (ROAD_WEST + ROAD_EAST) / 2;
+  for (let y = 7.5; y > ROAD_FROM + 0.4; y -= 1.0) {
+    const a = isoPoint(middle, y - 0.4, 6),
+      b = isoPoint(middle, y, 6);
+    ctx.strokeStyle = "rgba(245,241,230,.62)";
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+}
+
 export function drawServiceLane() {
   const y0 = 8.0, y1 = 13.5;
+  drawSupplyRoad(); // first, so that the lane and its kerbs lie over the joint
   drawGroundSlab(-1.4, y0, 4.3, y1 - y0, "#9da39e", 4);
   drawGroundSlab(2.9, y0, 0.25, y1 - y0, "#c9c9c0", 5);
   drawGroundSlab(-1.4, y1 - 0.12, 4.3, 0.12, "#c9c9c0", 5); // a kerb closes the lane at the south end
