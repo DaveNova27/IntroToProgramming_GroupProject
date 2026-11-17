@@ -299,6 +299,43 @@ def buy(state, product, quantity):
     return new
 
 
+def buy_many(state, items):
+    """Buy several products in one order (specs/bulk-order.md). items: a list of
+    {"product", "quantity"}, each product at most once. Every line is checked like buy(), the
+    storeroom limit counts all lines of one shop together, and the cash is checked against the
+    total. All lines are booked together, or none: a refused line refuses the whole order."""
+    if is_finished(state):
+        raise RejectedAction("The run is complete. Buying is closed.")
+    if not isinstance(items, list) or not items:
+        raise RejectedAction("The order is empty: choose at least one product.")
+    if len(items) > len(CATALOGUE):
+        raise RejectedAction("The order has more lines than there are products.")
+    new = copy.deepcopy(state)
+    seen = set()
+    total = 0
+    for item in items:
+        if not isinstance(item, dict) or set(item) != {"product", "quantity"}:
+            raise RejectedAction("Each line of the order needs a product and a quantity.")
+        product, quantity = item["product"], item["quantity"]
+        _check_product(new, product)
+        name = CATALOGUE[product]["name"]
+        if product in seen:
+            raise RejectedAction(f"{name} is in the order twice.")
+        seen.add(product)
+        if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
+            raise RejectedAction(f"{name}: the quantity must be a positive whole number.")
+        try:
+            _check_storeroom_space(new, product, quantity)  # earlier lines of the same shop count
+        except RejectedAction as reason:
+            raise RejectedAction(f"{name}: {reason}") from None
+        new["stock"][product] += quantity
+        total += quantity * CATALOGUE[product]["cost"]
+    if total > state["cash"]:
+        raise RejectedAction(f"Not enough cash: the order costs {fmt(total)}, you have {fmt(state['cash'])}.")
+    new["cash"] -= total
+    return new
+
+
 def set_price(state, product, price_cents):
     """CT03: set a positive selling price."""
     _check_product(state, product)
