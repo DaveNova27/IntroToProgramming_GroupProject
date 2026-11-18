@@ -1,0 +1,22 @@
+# Weekly checks for newer versions (specs/docs-refresh.md). Dependabot only opens PRs; they go through
+# the same `pytest` check and a member merges them like every PR. A merged update of uv.lock is deployed
+# to the live site (render.yaml), so do not merge Dependabot PRs before the presentation.
+# Major versions are left out (review finding): they can change defaults and break the CI or the site.
+version: 2
+updates:
+  - package-ecosystem: "uv" # pyproject.toml and uv.lock
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "github-actions" # .github/workflows/
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
