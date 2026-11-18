@@ -172,6 +172,11 @@ p { margin: 0; }
 .stock-row .nm { font-size: 12px; font-weight: 700; }
 .stock-row .nm small { display: block; color: var(--on-panel-soft); font-size: 10px; font-weight: 500; }
 .stock-row .units { font: 700 14px var(--mono); }
+/* grouped by shop (spec stock-by-shop): a small heading per shop, a line between the shops; a tall card
+   scrolls inside instead of running under the toolbar */
+#hud-stock { max-height: calc(100vh - 160px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--on-panel-soft) transparent; }
+.stock-group + .stock-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--panel-line); }
+.stock-group-name { margin: 2px 0 1px; color: var(--on-panel-soft); font: 600 8px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; }
 
 /* ---- "press E" ------------------------------------------------------------ */
 .interaction-hint {
@@ -412,6 +417,13 @@ p { margin: 0; }
   .hud-stock.collapsed .stock-title { display: inline; }
   .stock-row { grid-template-columns: auto auto; }
   .stock-row + .stock-row { border-top: 0; }
+  /* the bottom bar: the shops side by side, a thin divider instead of the names */
+  /* min-width 0: without it the bar grows past the screen instead of scrolling (review finding) */
+  .hud-stock #hud-stock { max-height: none; min-width: 0; overflow-x: auto; }
+  /* each shop spreads its rows like the old bar did; the Cafe alone fills the bar as before */
+  .stock-group { display: flex; flex: 1 0 auto; justify-content: space-around; gap: 8px; }
+  .stock-group-name { display: none; }
+  .stock-group + .stock-group { margin-top: 0; padding-top: 0; border-top: 0; padding-left: 8px; border-left: 1px solid var(--panel-line); }
   .interaction-hint { bottom: 106px; }
   .evening-hint { bottom: 152px; flex-wrap: wrap; justify-content: center; font-size: 12px; }
   .tool { padding: 4px 8px 4px 4px; }

@@ -7,6 +7,7 @@ import { demoDialogOpen, renderDemo, tickMs, wireDemo } from "./demo.js";
 import { inReach } from "./locations.js";
 import { createSerial } from "./serial.js";
 import { outfitPicture } from "./wardrobe.js";
+import { stockGroups } from "./stock_groups.js";
 import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
@@ -241,12 +242,23 @@ function renderHud() {
   const gain = $("#stat-gain");
   gain.textContent = fmtSigned(state.overall_gain);
   gain.className = state.overall_gain > 0 ? "up" : state.overall_gain < 0 ? "down" : "";
-  $("#hud-stock").innerHTML = `${state.products.map((p) => `
+  // grouped by shop (spec stock-by-shop); stockGroups gives a heading only from the second shop on.
+  // The group carries the shop's name for screen readers, so the visible heading is hidden from them
+  // (said once, not twice: review finding)
+  $("#hud-stock").innerHTML = `${stockGroups(state.products, state.shops).map((g) => `
+    <div class="stock-group" role="group"${g.name ? ` aria-label="${esc(g.name)}"` : ""}>
+      ${g.heading ? `<div class="stock-group-name" aria-hidden="true">${esc(g.heading)}</div>` : ""}
+      ${g.products.map(stockRow).join("")}
+    </div>`).join("")}`;
+}
+
+function stockRow(p) {
+  return `
     <div class="stock-row" style="--accent:${COLOR[p.id]}">
       <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
       <span class="nm">${esc(p.name)}<small>${p.breakdown ? customersText(p.customers) : "trading is closed"}</small></span>
       <span class="units">${p.stock}</span>
-    </div>`).join("")}`;
+    </div>`;
 }
 
 function renderToolbar() {
@@ -1343,9 +1355,30 @@ const TOAST_ROOM = 240; // px a toast needs beside the card
 function placeBadge() {
   if (!badgeShowing) return;
   const area = $("#badge-pop");
-  const top = `${badgeTop()}px`;
+  const spot = besideTallStock(area) ?? { top: badgeTop(), left: null };
+  const top = `${spot.top}px`;
+  const left = spot.left === null ? "" : `${spot.left}px`;
   if (area.style.top !== top) area.style.top = top;
+  if (area.style.left !== left) area.style.left = left;
   makeRoomForBadge(area);
+}
+
+const BADGE_FLOOR = 70; // px kept free above the bottom edge (the toolbar)
+
+// Review finding (spec stock-by-shop): under a tall stock card (every shop open) the badge card ran
+// off the bottom of a short window. Then it stands right of the stock card, under the top bar, if
+// there is room; otherwise null and it stays below the card as before.
+function besideTallStock(area) {
+  const top = badgeTop();
+  if (top + area.offsetHeight <= window.innerHeight - BADGE_FLOOR) return null;
+  const bar = $(".topbar")?.getBoundingClientRect().bottom ?? 56;
+  const card = $(".hud-stock");
+  if (!card || !card.getClientRects().length) return null;
+  const r = card.getBoundingClientRect();
+  if (r.left >= 60 || r.top >= bar + 80) return null; // not the card at the top left (phones: bottom bar)
+  const left = Math.round(r.right + 8);
+  if (left + area.offsetWidth > window.innerWidth - 10) return null;
+  return { top: Math.round(bar + 8), left };
 }
 
 function makeRoomForBadge(area) {
