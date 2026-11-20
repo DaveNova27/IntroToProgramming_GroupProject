@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Campus Tycoon</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥪</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='10' fill='%23bce65f'/><text x='50' y='68' font-family='monospace' font-size='50' font-weight='800' text-anchor='middle' fill='%23102c35'>CT</text></svg>">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/badges.css">
 </head>
@@ -18,10 +18,10 @@
   </div>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">🥪</span>
+      <span class="brand-mark" aria-hidden="true">CT</span>
       <div>
         <h1>Campus Tycoon</h1>
-        <p class="tagline">Carcavelos, Nova SBE · your snack stand season</p>
+        <p class="tagline">Carcavelos · Nova SBE · 30-day season</p>
       </div>
     </div>
     <div class="day-track" aria-label="Progress">
@@ -77,21 +77,6 @@
       </button>
     </section>
 
-    <!-- Stock overview: what is available per product -->
-    <section class="card stock-card" aria-labelledby="stock-title">
-      <div class="chart-head">
-        <div>
-          <h2 id="stock-title">Stock overview</h2>
-          <p id="stock-sub" class="chart-sub"></p>
-        </div>
-        <ul class="legend">
-          <li><i class="key-sell"></i>Sells today at your price</li>
-          <li><i class="key-left"></i>Left after today</li>
-        </ul>
-      </div>
-      <div id="stock-overview" class="stock-grid"></div>
-    </section>
-
     <!-- Popularity of the open shops (specs/popularity.md) -->
     <section class="card pop-card" aria-labelledby="pop-title">
       <div class="chart-head">
@@ -106,8 +91,12 @@
     <!-- Products -->
     <section class="products" aria-labelledby="products-title">
       <div class="section-head">
-        <h2 id="products-title">Your stand</h2>
-        <p class="hint">Customers per day: students and visitors react to the price in different ways. Open "Why this number?" on a product to see how.</p>
+        <div>
+          <h2 id="products-title">Your stand</h2>
+          <p class="hint">Customers per day: students and visitors react to the price in different ways. Open "Why this number?" on a product to see how.</p>
+        </div>
+        <!-- one way to the order PC for all products (app.js draws the button) -->
+        <span id="stand-order"></span>
       </div>
       <div id="product-grid" class="product-grid"></div>
     </section>

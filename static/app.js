@@ -132,37 +132,6 @@ function renderKpis() {
   gain.className = `kpi-value ${state.overall_gain > 0 ? "delta-up" : state.overall_gain < 0 ? "delta-down" : ""}`;
 }
 
-// ---- stock overview -------------------------------------------------------------
-
-function renderStockOverview() {
-  const overview = state.stock_overview;
-  $("#stock-sub").textContent = `${overview.units} unit${overview.units === 1 ? "" : "s"} available · ${fmt(overview.value)} at cost`;
-  // one scale for all products so the bars compare; at least one day of full demand
-  const scale = Math.max(state.base_customers, ...overview.lines.map((l) => l.units));
-  $("#stock-overview").innerHTML = overview.lines.map((line) => {
-    const p = state.products.find((x) => x.id === line.product);
-    const caption = line.units === 0
-      ? "No stock"
-      : state.finished
-        ? `${line.units} left · trading is closed`
-        : `sells ${line.sells_today} today · ${line.left_after_today} left after today`;
-    return `
-      <div class="stock-item" style="--accent: ${ACCENT[line.product]}">
-        <div class="stock-top">
-          <span class="dot" aria-hidden="true"></span>
-          <span class="name">${esc(p.name)}</span>
-          <span class="value">${fmt(line.value)} at cost</span>
-        </div>
-        <div class="stock-units"><strong>${line.units}</strong>unit${line.units === 1 ? "" : "s"} available</div>
-        <div class="stock-bar" role="img" aria-label="${esc(p.name)}: ${caption}">
-          ${line.sells_today ? `<span class="seg sell" style="width:${(line.sells_today / scale) * 100}%"></span>` : ""}
-          ${line.left_after_today ? `<span class="seg left" style="width:${(line.left_after_today / scale) * 100}%"></span>` : ""}
-        </div>
-        <p class="stock-caption">${caption}</p>
-      </div>`;
-  }).join("");
-}
-
 // ---- popularity of the open shops (specs/popularity.md) -------------------------------------
 
 function renderPopularity() {
@@ -172,18 +141,38 @@ function renderPopularity() {
 
 // ---- product cards ---------------------------------------------------------
 
+// The products grouped by shop (specs/dashboard-look.md). Pure, the same rule as the campus's
+// stockGroups (static/world/stock_groups.js, an ES module this classic script cannot import): one group
+// per unlocked shop that has a product, in shop order; a product no unlocked shop names is kept in a
+// last group without a name. The heading is the shop's name once there are two groups or more.
+function shopGroups(products, shops) {
+  const groups = [];
+  const placed = new Set();
+  for (const shop of shops) {
+    if (!shop.unlocked) continue;
+    const mine = products.filter((p) => shop.products.includes(p.id) && !placed.has(p.id));
+    if (!mine.length) continue;
+    mine.forEach((p) => placed.add(p.id));
+    groups.push({ shop: shop.id, name: shop.name, products: mine });
+  }
+  const rest = products.filter((p) => !placed.has(p.id));
+  if (rest.length) groups.push({ shop: null, name: "", products: rest });
+  return groups.map((g) => ({ ...g, heading: groups.length > 1 ? g.name : "" }));
+}
+
 // Where a price sits on the curve: the curve runs from 0 to 250 % of the reference price.
 const pricePercentOf = (price, ref) => (price / ref) * 100;
 const openWhy = new Set(); // products whose "why" lines are open, kept over re-renders
 
-function productCard(p) {
+// level: the heading level of the product's name (4 under a shop heading, else 3)
+function productCard(p, level = 3) {
   const off = state.finished ? "disabled" : "";
   return `
   <article class="card product" style="--accent: ${ACCENT[p.id]}" data-product="${p.id}">
     <div class="product-head">
       <span class="product-emoji" aria-hidden="true">${EMOJI[p.id] ?? "🛒"}</span>
       <div>
-        <h3>${esc(p.name)}</h3>
+        <h${level}>${esc(p.name)}</h${level}>
         <p class="product-meta"><span>Cost ${fmt(p.cost)}</span><span>Ref. price ${fmt(p.ref_price)}</span></p>
       </div>
       <div class="stock-badge"><strong>${p.stock}</strong><span>in stock</span></div>
@@ -199,26 +188,20 @@ function productCard(p) {
         </label>
         <button class="btn secondary" type="submit" ${off}>Save</button>
       </form>
-      <div class="curve">
-        ${curveSvg(state.price_curves[p.shop], pricePercentOf(p.price, p.ref_price))}
-        <div class="curve-scale" aria-hidden="true">
-          <span style="left:0">€0</span>
-          <span style="left:40%">${fmt(p.ref_price)}</span>
-          <span style="left:80%">${fmt(2 * p.ref_price)}</span>
+      <details class="why" data-why="${p.id}" ${openWhy.has(p.id) ? "open" : ""}>
+        <summary>${p.breakdown ? "Why this number?" : "Price curve"}</summary>
+        <div class="curve">
+          ${curveSvg(state.price_curves[p.shop], pricePercentOf(p.price, p.ref_price))}
+          <div class="curve-scale" aria-hidden="true">
+            <span style="left:0">€0</span>
+            <span style="left:40%">${fmt(p.ref_price)}</span>
+            <span style="left:80%">${fmt(2 * p.ref_price)}</span>
+          </div>
+          <p class="curve-caption">Customers at each price on a normal day</p>
         </div>
-        <p class="curve-caption">Customers at each price on a normal day</p>
-      </div>
-      ${p.breakdown ? `<details class="why" data-why="${p.id}" ${openWhy.has(p.id) ? "open" : ""}>
-        <summary>Why this number?</summary>
-        <div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>
-      </details>` : ""}
+        ${p.breakdown ? `<div class="why-body">${breakdownHtml(p.breakdown, state.segments)}</div>` : ""}
+      </details>
       <p class="field-error" data-error="price"></p>
-    </div>
-
-    <div>
-      <div class="block-label"><span>Buy stock</span></div>
-      <p class="order-note">Stock is ordered at the PC in the Supply Hall of the Mercado.</p>
-      <button class="btn" type="button" data-go-order ${off}>Go to the order PC</button>
     </div>
   </article>`;
 }
@@ -256,7 +239,11 @@ function captureInputs() {
 
 function renderProducts(kept = {}) {
   const grid = $("#product-grid");
-  grid.innerHTML = state.products.map(productCard).join("");
+  grid.innerHTML = shopGroups(state.products, state.shops).map((g) => (
+    (g.heading ? `<h3 class="shop-heading">${esc(g.heading)}</h3>` : "")
+      + g.products.map((p) => productCard(p, g.heading ? 4 : 3)).join("")
+  )).join("");
+  $("#stand-order [data-go-order]").disabled = state.finished;
   grid.querySelectorAll(".product").forEach((card) => {
     const typed = kept[card.dataset.product];
     if (typed?.price !== undefined && !state.finished) {
@@ -284,9 +271,13 @@ function wireProducts() {
     if (e.target.name === "price") previewPrice(card);
   });
 
-  // stock is ordered at the PC in the Supply Hall (spec order-at-warehouse): the button switches to the
-  // campus, where the player walks to the PC (views.js passes it on to the map)
-  grid.addEventListener("click", (e) => {
+  // stock is ordered at the PC in the Supply Hall (spec order-at-warehouse): one button for all products
+  // (spec dashboard-look) switches to the campus, where the player walks to the PC (views.js passes it
+  // on to the map)
+  const order = $("#stand-order");
+  order.innerHTML = `<button class="btn lime" type="button" data-go-order
+    title="Stock is ordered at the PC in the Supply Hall of the Mercado"><span aria-hidden="true">▦</span> Go to the order PC</button>`;
+  order.addEventListener("click", (e) => {
     if (e.target.closest("[data-go-order]")) window.dispatchEvent(new CustomEvent("go-order"));
   });
 
@@ -360,6 +351,27 @@ function renderOpenPanel() {
 }
 
 // ---- charts (hand-drawn SVG) -----------------------------------------------
+
+// Gross profit per shop and day (specs/dashboard-look.md). Pure: days = state.history, shops =
+// state.shops, lastDay = state.last_day. One series per shop that is unlocked with a product or has a
+// line in the history, in shop order; its colour is the one of its first product. A line whose product
+// no shop names (an edited run) counts under "Other". values[d] is the sum of that shop's lines on day
+// d + 1, null when it had none (or the day is still to come).
+function profitByShop(days, shops, lastDay) {
+  const shopOf = (product) => shops.find((s) => s.products.includes(product))?.id ?? null;
+  const traded = new Set(days.flatMap((day) => day.lines.map((line) => shopOf(line.product))));
+  const series = shops
+    .filter((s) => (s.unlocked && s.products.length) || traded.has(s.id))
+    .map((s) => ({ shop: s.id, name: s.name, color: accentOf(s.products[0]) }));
+  if (traded.has(null)) series.push({ shop: null, name: "Other", color: accentOf(null) });
+  return series.map((s) => ({
+    ...s,
+    values: Array.from({ length: lastDay }, (_, d) => {
+      const lines = days[d]?.lines.filter((line) => shopOf(line.product) === s.shop) ?? [];
+      return lines.length ? lines.reduce((sum, line) => sum + line.gross_profit, 0) : null;
+    }),
+  }));
+}
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -443,7 +455,7 @@ function columnChart(container, { categories, series, tooltip, label, animate })
 
     // hover target bigger than the marks: the whole band
     const g = el("g");
-    const hover = el("rect", { class: "hover-band", x: bandX + 2, y: m.top, width: band - 4, height: innerH, rx: 8 });
+    const hover = el("rect", { class: "hover-band", x: bandX + 2, y: m.top, width: band - 4, height: innerH, rx: 3 });
     g.append(hover);
 
     series.forEach((s, j) => {
@@ -480,13 +492,14 @@ function renderCharts(animate = false) {
   const cashBox = $("#cash-chart");
   const profitBox = $("#profit-chart");
 
-  $("#profit-legend").innerHTML = state.products
-    .map((p) => `<li style="--accent: ${ACCENT[p.id]}"><i></i>${esc(p.name)}</li>`)
+  const perShop = profitByShop(days, state.shops, state.last_day);
+  $("#profit-legend").innerHTML = perShop
+    .map((s) => `<li style="--accent: ${s.color}"><i></i>${esc(s.name)}</li>`)
     .join("");
 
   if (!days.length) {
     cashBox.innerHTML = `<div class="empty">Your cash curve starts after the first trading day.</div>`;
-    profitBox.innerHTML = `<div class="empty">Open the stand to see profit per product here.</div>`;
+    profitBox.innerHTML = `<div class="empty">Open the stand to see profit per shop here.</div>`;
     return;
   }
 
@@ -511,21 +524,15 @@ function renderCharts(animate = false) {
     },
   });
 
-  // Gross profit per product and day (grouped, so a loss can dip below zero).
+  // Gross profit per shop and day (grouped, so a loss can dip below zero).
   columnChart(profitBox, {
     animate,
     categories: Array.from({ length: state.last_day }, (_, i) => `Day ${i + 1}`),
-    series: state.products.map((p) => ({
-      color: ACCENT[p.id],
-      values: Array.from({ length: state.last_day }, (_, d) => {
-        const line = days[d]?.lines.find((l) => l.product === p.id);
-        return line ? line.gross_profit : null;
-      }),
-    })),
+    series: perShop,
     tooltip: (i) => {
       const day = days[i];
-      const rows = day.lines.map((line) => {
-        return `<div class="row"><span><i style="--accent:${accentOf(line.product)}"></i>${esc(nameOf(line.product))}</span><span>${fmt(line.gross_profit)}</span></div>`;
+      const rows = perShop.filter((s) => s.values[i] !== null).map((s) => {
+        return `<div class="row"><span><i style="--accent:${s.color}"></i>${esc(s.name)}</span><span>${fmt(s.values[i])}</span></div>`;
       }).join("");
       return `<strong>Day ${day.day}</strong>${rows}
         <div class="row" style="margin-top:4px;font-weight:600"><span>Total</span><span>${fmt(day.gross_profit)}</span></div>`;
@@ -672,7 +679,6 @@ function render(kept) {
   renderHeader();
   renderFinalBanner();
   renderKpis();
-  renderStockOverview();
   renderPopularity();
   renderProducts(kept);
   renderOpenPanel();
