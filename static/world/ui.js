@@ -8,6 +8,7 @@ import { inReach } from "./locations.js";
 import { createSerial } from "./serial.js";
 import { outfitPicture } from "./wardrobe.js";
 import { stockGroups } from "./stock_groups.js";
+import { guideAllDone, guideSteps, guideVisible } from "./guide.js";
 import { DAWN, DAY_END, MORNING, reducedMotion, scene, server, world } from "./scene.js";
 
 const COLOR = ACCENT; // from common.js: one colour per product
@@ -250,6 +251,8 @@ function renderHud() {
       ${g.heading ? `<div class="stock-group-name" aria-hidden="true">${esc(g.heading)}</div>` : ""}
       ${g.products.map(stockRow).join("")}
     </div>`).join("")}`;
+  // every answer of the server redraws the HUD (an order only redraws this), so the guide ticks here
+  renderGuide();
 }
 
 function stockRow(p) {
@@ -297,6 +300,88 @@ function renderAll() {
   noticeBadges();
   placeBadge();
   renderDemo(state);
+}
+
+// ---- the guide for the first day (specs/onboarding-guide.md) -------------------------
+// Three steps, ticked from the server's state (guide.js); Go presses the toolbar's own button.
+// Whether it was finished or closed is a per-browser convenience in localStorage, never game state.
+
+const GUIDE_KEY = "ct-guide";
+const GUIDE_DONE_MS = 4000; // how long "All set" stays
+let guideRemembered = null; // "done", "closed" or null
+let guideShown = false; // the card was on screen at the last redraw
+let guideTimer = null; // runs while "All set" is shown
+let guideDrawn = "";
+
+function rememberGuide(value) {
+  guideRemembered = value;
+  try { localStorage.setItem(GUIDE_KEY, value); } catch { /* not remembered: it shows again on a new first day */ }
+}
+
+function hideGuide() {
+  clearTimeout(guideTimer);
+  guideTimer = null;
+  guideShown = false;
+  $("#guide-card").hidden = true;
+  placeBadge(); // on phones the badge card stands below the guide
+}
+
+function guideStepsHtml(steps) {
+  return steps.map((s) => `
+    <li class="guide-step${s.done ? " done" : ""}${s.current ? " current" : ""}">
+      <span class="guide-check" aria-hidden="true">${s.done ? "✓" : ""}</span>
+      <span class="guide-text">${esc(s.text)}${s.current && s.where ? `<small>${esc(s.where)}</small>` : ""}<span class="guide-sr">${s.done ? " (done)" : ""}</span></span>
+      ${s.current ? `<button class="guide-go" type="button" data-guide-go="${s.id}">Go</button>` : ""}
+    </li>`).join("");
+}
+
+function renderGuide() {
+  if (guideTimer) return; // "All set" is on screen and goes by itself
+  const card = $("#guide-card");
+  const steps = guideSteps(state);
+  if (guideShown && guideAllDone(state, guideRemembered)) {
+    // the last step was just done: say so once, then go for good
+    rememberGuide("done");
+    card.classList.add("all-done");
+    $("#guide-steps").innerHTML = guideStepsHtml(steps);
+    $("#guide-note").textContent = "All set. Good luck with the season!";
+    $("#guide-live").textContent = "All set. Good luck with the season!"; // read out (review finding)
+    guideDrawn = "";
+    guideTimer = setTimeout(hideGuide, GUIDE_DONE_MS);
+    return;
+  }
+  const visible = guideVisible(state, guideRemembered);
+  if (visible !== guideShown) {
+    guideShown = visible;
+    card.hidden = !visible;
+    placeBadge();
+  }
+  if (!visible) return;
+  const drawn = JSON.stringify(steps.map((s) => [s.done, s.current]));
+  if (drawn === guideDrawn) return; // renderHud runs with every answer: redraw only when a step changed
+  const ticked = guideDrawn !== ""; // not the first drawing: a step was just done
+  guideDrawn = drawn;
+  $("#guide-steps").innerHTML = guideStepsHtml(steps);
+  // screen readers hear the tick and the next step (review finding); the first drawing stays quiet
+  const next = steps.find((s) => s.current);
+  if (ticked && next) $("#guide-live").textContent = `Step done. Next: ${next.text}.`;
+}
+
+function wireGuide() {
+  try {
+    const kept = localStorage.getItem(GUIDE_KEY);
+    guideRemembered = kept === "done" || kept === "closed" ? kept : null;
+  } catch { /* blocked: nothing remembered */ }
+  $("#guide-close").addEventListener("click", () => {
+    if (guideRemembered !== "done") rememberGuide("closed");
+    hideGuide();
+  });
+  // Go does exactly what the toolbar does (a disabled button does nothing here either)
+  const buttons = { order: "#btn-order", open: "#btn-open", shift: "#btn-shift" };
+  $("#guide-steps").addEventListener("click", (event) => {
+    const step = event.target.closest("[data-guide-go]")?.dataset.guideGo;
+    if (buttons[step]) $(buttons[step]).click();
+  });
 }
 
 // ---- panels --------------------------------------------------------------------------
@@ -1311,7 +1396,7 @@ function sparksHtml() {
 // (phones), never on top of it.
 function badgeTop() {
   const bar = $(".topbar")?.getBoundingClientRect().bottom ?? 56;
-  const bottoms = [".hud-stock", ".zone-banner"]
+  const bottoms = [".hud-stock", ".zone-banner", ".guide-card"] // the guide: only on phones up here
     .map((sel) => $(sel))
     .filter((el) => el && el.getClientRects().length)
     .map((el) => el.getBoundingClientRect())
@@ -1570,6 +1655,7 @@ export function initUi(firstState, actions) {
   wireEditor();
   wireOverlay();
   wireBadgePop();
+  wireGuide();
   wireStockToggle();
   wireDemoActions();
   $("#btn-editor").addEventListener("click", () => openPanel("editor"));
