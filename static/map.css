@@ -507,7 +507,8 @@ body.preview .loading { font-size: 13px; }
 .guest-list small { display: block; color: var(--ink-soft); font-size: 11px; }
 
 /* ---- demo (specs/demo-scenarios.md) ----------------------------------------------------- */
-.demo-card {
+/* the box of the demo card, shared with the guide for the first day (the same place and look) */
+.demo-card, .guide-card {
   position: absolute;
   z-index: 5;
   left: 10px;
@@ -540,6 +541,34 @@ body.preview .loading { font-size: 13px; }
 .demo-card.folded .demo-actions { margin-top: 6px; }
 .demo-pick { display: grid; gap: 4px; margin-top: 12px; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
 .demo-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); font: inherit; }
+
+/* the guide for the first day (specs/onboarding-guide.md): the demo card's box (above), only smaller */
+.guide-card { width: min(300px, calc(100vw - 32px)); padding: 10px 12px; }
+.guide-card[hidden] { display: none; }
+.guide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guide-head h2 { color: var(--lime); font: 600 9px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.guide-close { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--on-panel-soft); font-size: 16px; line-height: 1; cursor: pointer; }
+.guide-close:hover, .guide-close:focus-visible { color: var(--on-panel); background: var(--panel-deep); }
+.guide-steps { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; }
+.guide-step { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px; min-height: 26px; color: var(--on-panel-soft); font-size: 12px; }
+.guide-check { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--panel-line); font-size: 11px; }
+.guide-step.done { opacity: 0.6; }
+.guide-step.done .guide-check { background: var(--lime); color: var(--ink); box-shadow: none; }
+.guide-step.current { color: var(--on-panel); font-weight: 700; }
+.guide-step.current .guide-check { box-shadow: inset 0 0 0 2px var(--lime); }
+.guide-text small { display: block; color: var(--on-panel-soft); font-size: 10px; font-weight: 500; }
+.guide-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.guide-go { min-height: 26px; padding: 0 12px; border: 0; border-radius: 3px; background: var(--lime); color: var(--ink); font: 700 12px var(--font); cursor: pointer; }
+.guide-go:hover, .guide-go:focus-visible { filter: brightness(1.08); }
+.guide-note { margin-top: 6px; color: var(--on-panel-soft); font-size: 11px; }
+.guide-card.all-done .guide-note { color: var(--lime); font-weight: 700; }
+body.preview .guide-card { display: none !important; }
+@media (max-width: 760px) {
+  /* the bottom holds the stock bar and the "press E" hint: the guide stands at the top, one step only */
+  .guide-card { top: 110px; bottom: auto; right: 10px; width: auto; padding: 8px 10px; }
+  .guide-step:not(.current) { display: none; }
+  .guide-card:not(.all-done) .guide-note { display: none; }
+}
 
 /* popularity of a shop (specs/popularity.md) */
 .pop { margin: 6px 0; }

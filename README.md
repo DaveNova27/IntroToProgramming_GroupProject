@@ -174,6 +174,7 @@ animate that answer.
 | `lorry-road.md` | `lorry-road` (PR #120) | The road of the delivery lorry runs north from the lane to the edge of the campus. Drawing only. |
 | `stock-by-shop.md` | `stock-by-shop` (PR #122) | The stock card on the campus page is grouped by shop: only unlocked shops with the products the player owns, a heading per shop from the second shop on, a divider on phones; it stays foldable and scrolls inside when tall. |
 | `docs-refresh.md` | `docs-refresh` | The README brought up to date (name, the missing specs, three outdated known issues); the CI actions pinned to commit SHAs (same versions); Dependabot checks the Python packages and the actions weekly. No game code changes. |
+| `onboarding-guide.md` | `onboarding-guide` | A small card guides a new player through the first day in three steps (order coffee at the PC, open the day, take the shift in the Cafe), each with a *Go* button that presses the toolbar's own button. The steps tick off from the server's state (`static/world/guide.js`, pure); after the last one it says "All set" and goes. Only on the first day of a run, not in a demo; finishing or closing it is remembered per browser. On phones it stands at the top and shows one step. |
 | `employees.md`, `investments.md`, `multi-business.md`, `net-worth.md` | none (PR #1) | **Dropped.** The first draft of the group features, kept as history only; they describe nothing in the game today. The plan that replaced them is `docs/feature-roadmap.md`. |
 
 The tag `v1.0` is the dashboard-only version before the map.

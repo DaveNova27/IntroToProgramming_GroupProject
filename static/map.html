@@ -96,6 +96,17 @@
       </div>
     </aside>
 
+    <!-- the guide for the first day (specs/onboarding-guide.md): 3 steps, ticked from the server's state -->
+    <aside id="guide-card" class="guide-card" hidden aria-labelledby="guide-title">
+      <div class="guide-head">
+        <h2 id="guide-title">Your first day</h2>
+        <button id="guide-close" class="guide-close" type="button" aria-label="Close the guide" title="Close the guide">×</button>
+      </div>
+      <ol id="guide-steps" class="guide-steps"></ol>
+      <p id="guide-note" class="guide-note">Then fill the counter and sell to the guests.</p>
+      <p id="guide-live" class="guide-sr" aria-live="polite"></p>
+    </aside>
+
     <!-- the night between two days: black for a moment while the player sleeps -->
     <div id="night-fade" class="night-fade" aria-hidden="true"></div>
 
