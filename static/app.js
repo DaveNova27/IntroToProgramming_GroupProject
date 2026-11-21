@@ -116,9 +116,10 @@ function renderKpis() {
     ? "Same as the €100 start"
     : `<span class="${delta > 0 ? "delta-up" : "delta-down"}">${delta > 0 ? "▲" : "▼"} ${fmtSigned(delta)}</span> vs start`;
 
-  const units = state.products.reduce((sum, p) => sum + p.stock, 0);
+  // storeroom and counters together, like the stock card (specs/stock-on-counter.md)
+  const units = state.products.reduce((sum, p) => sum + p.stock + (p.on_counter ?? 0), 0);
   setMoney($("#kpi-stock"), state.stock_value);
-  $("#kpi-stock-units").textContent = `${units} unit${units === 1 ? "" : "s"} on the shelf`;
+  $("#kpi-stock-units").textContent = `${units} unit${units === 1 ? "" : "s"} in stock`;
 
   const profit = state.history.reduce((sum, day) => sum + day.gross_profit, 0);
   const days = state.history.length;

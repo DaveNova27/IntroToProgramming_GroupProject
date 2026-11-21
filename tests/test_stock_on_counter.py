@@ -98,6 +98,12 @@ def test_the_rule_counts_the_counters_and_the_view_only_passes_it_on():
     assert logic.units_on_counter(logic.new_state(), "coffee") == 0
 
 
+def test_the_dashboard_stock_tile_counts_the_counter_too():
+    assert "sum + p.stock + (p.on_counter ?? 0)" in DASHBOARD
+    assert 'unit${units === 1 ? "" : "s"} in stock`' in DASHBOARD
+    assert "on the shelf" not in DASHBOARD
+
+
 def test_the_order_hint_uses_the_same_total():
     assert "state.products.every((p) => held(p) === 0)" in UI
 

@@ -939,7 +939,7 @@ function renderShiftPanel(body) {
       <div class="shift-row" style="--accent:${COLOR[pid]}">
         <span class="em" aria-hidden="true">${EMOJI[pid]}</span>
         <span class="nm">${esc(p.name)}<small>storeroom ${p.stock} · counter ${onCounter} · waiting ${waiting} · sold ${sh.sold[pid] ?? 0}</small></span>
-        ${step > 0 // no "+0": an empty cell keeps the columns in line (specs/stock-on-counter.md)
+        ${step > 0 // no "+0": an empty cell takes its grid place, so Fill and Sell stay at the row's end (specs/stock-on-counter.md)
           ? `<button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${step}">+${step}</button>`
           : `<span class="refill-none" aria-hidden="true"></span>`}
         <button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${fill}" ${fill > 0 ? "" : "disabled"}>Fill</button>

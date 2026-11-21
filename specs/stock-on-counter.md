@@ -23,9 +23,13 @@ Issue #138. Asked for by Christopher on 2026-11-21, item B6 of the audit of 2026
 2. **The stock card shows what the player holds.** The number is `stock + on_counter`; when
    `on_counter` is more than 0 the small line under the name ends with "· N on the counter".
 3. **The same total** for the glow of the "Order" button (it glows only when the player holds nothing
-   at all) and for the "N in stock" badge of each product on the dashboard, so both screens agree.
-4. **No "+0".** The Shift panel leaves the "+N" button out when N is 0 (an empty cell keeps the
-   columns of the rows in line); "Fill" and "Sell" stay as they are, disabled when they can do nothing.
+   at all), for the "N in stock" badge of each product on the dashboard and for the dashboard's stock
+   tile ("N units in stock", before "on the shelf"; the euro value beside it, `stock_value`, always
+   counted the counter), so both screens agree.
+4. **No "+0".** The Shift panel leaves the "+N" button out when N is 0; an empty cell takes its place
+   in the row's grid, so "Fill" and "Sell" stay at the end of the row (each row is a grid of its own,
+   so this is no alignment across rows). "Fill" and "Sell" stay as they are, disabled when they can do
+   nothing.
 
 ## Decide
 
@@ -44,13 +48,17 @@ Issue #138. Asked for by Christopher on 2026-11-21, item B6 of the audit of 2026
    `_shift_parts` like `_counter_units`), the view only passes it on; the dashboard's "in stock" badge
    shows the same total (it said 0 during a shift too); the crew test waits for the crew's first refill
    instead of a fixed 5 ticks. Answered, not changed: the screen tests read the source of `ui.js`, as
-   the other page tests of the project do. The dashboard's "N units on the shelf" stays the storeroom:
-   that is what its label says.
+   the other page tests of the project do.
+7. **After Felix' review (2026-11-21):** the dashboard's stock tile counts the counter too and says
+   "in stock" (it said "on the shelf" with the storeroom only, next to a euro value that counted the
+   counter); the comment and this spec no longer promise that the empty cell lines up the columns of
+   all rows. "you have N" in the order window stays the storeroom (Decide 4): changing it would change
+   the old test `test_bulk_order.py:184`, and Christopher decided to leave old tests as they are.
 
 ## Out of scope
 
-- The dashboard's stock overview (`stock_overview`), its "units on the shelf" and "you have N" in the
-  order window, any rule or number of a shift.
+- The dashboard's stock overview (`stock_overview`) and "you have N" in the order window, any rule or
+  number of a shift.
 - The Cafe message (`cafe-staff-message`, #136), the price message (audit C2).
 
 ## Done when
@@ -60,8 +68,8 @@ Issue #138. Asked for by Christopher on 2026-11-21, item B6 of the audit of 2026
    `on_counter` 16; a crew's counter in another shop counts for its products.
 3. After the day ends, `on_counter` is 0 again and `stock` holds the unsold units.
 4. The stock card draws `stock + on_counter` and "on the counter" only when there is some; the order
-   hint and the dashboard's "in stock" badge use the same total.
-5. The Shift panel draws no "+0" button; the rows keep their columns.
+   hint, the dashboard's "in stock" badge and its stock tile ("N units in stock") use the same total.
+5. The Shift panel draws no "+0" button; "Fill" and "Sell" stay at the end of the row.
 6. Checked in the browser: during a Cafe shift with a full counter the card shows the total and
    "on the counter", and no "+0" button.
 7. The full suite passes; no old test changed.
