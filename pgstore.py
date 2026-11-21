@@ -173,6 +173,28 @@ def count():
     return _run(lambda conn: conn.execute(f"SELECT count(*) FROM {SCHEMA}.runs").fetchone()[0])
 
 
+def oldest_idle(seconds, limit=1):
+    """[(player id, idle seconds)] of the runs saved longest ago that were not saved for `seconds`, oldest
+    first, at most `limit`. For a full game (specs/player-cap.md)."""
+    rows = _run(lambda conn: conn.execute(
+        f"SELECT player_id, EXTRACT(EPOCH FROM now() - updated_at) FROM {SCHEMA}.runs "
+        "WHERE updated_at <= now() - make_interval(secs => %s) ORDER BY updated_at, player_id LIMIT %s",
+        (seconds, limit)).fetchall())
+    return [(player_id, float(idle)) for player_id, idle in rows]
+
+
+def delete_if_idle(player_id, seconds):
+    """Delete that run in one statement if it is still not saved for `seconds` (it may have been saved
+    since it was picked), and forget the copy in memory. True if it was deleted."""
+    row = _run(lambda conn: conn.execute(
+        f"DELETE FROM {SCHEMA}.runs WHERE player_id = %s AND updated_at <= now() - make_interval(secs => %s) "
+        "RETURNING player_id", (player_id, seconds)).fetchone())
+    if row is not None:
+        with _lock:
+            _cache.pop(player_id, None)
+    return row is not None
+
+
 def reset():
     """Forget the pool, the schema flag and the copies in memory (tests; a "restart")."""
     global _pool, _schema_ready

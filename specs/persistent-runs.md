@@ -170,7 +170,8 @@ The ones marked ► were answered by Felix on 2026-11-16; the rest follows from 
 ## Out of scope
 
 Accounts and login (Supabase Auth); one run on several devices; moving local SQLite runs to Supabase;
-deleting old runs (2,000 runs × 8 KB is far below the 500 MB of the free plan); backups; `verify-full`;
+deleting old runs (2,000 runs × 8 KB is far below the 500 MB of the free plan; *later `player-cap`
+replaces an idle run only when the game is full*); backups; `verify-full`;
 Supabase's Data API, Realtime or Storage; a second worker or instance; the bugs of the test report
 (own specs).
 

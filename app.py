@@ -35,20 +35,27 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Let the browser re-check the page files on every load (a cheap "not modified"
 # answer), so an updated dashboard or map is never served from an old cache.
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
-_locks = [threading.Lock() for _ in range(64)]  # one change at a time per run: load -> rule -> save
+# one change at a time per run: load -> rule -> save. Reentrant (specs/player-cap.md): load_run takes the
+# lock of its own run again, and a full game may take an idle player's lock that is this request's stripe
+_locks = [threading.RLock() for _ in range(64)]
+
+
+def _lock_of(player):
+    """The lock of a player's run (a stripe of 64, so players hardly wait for each other); one lock
+    without a player (the one run of this computer)."""
+    return _locks[0 if player is None else int.from_bytes(hashlib.sha256(player.encode()).digest()[:2], "big") % 64]
 
 
 def run_lock():
-    """The lock of this player's run (a stripe of 64, so players hardly wait for each other). Without
-    public mode there is one run and one lock."""
-    player = getattr(g, "player", None)
-    return _locks[0 if player is None else int.from_bytes(hashlib.sha256(player.encode()).digest()[:2], "big") % 64]
+    """The lock of this request's run."""
+    return _lock_of(getattr(g, "player", None))
 
 # ---- public mode (specs/deploy-ready.md) ---------------------------------------------------------
 PLAYER_COOKIE = "ct_player"
 PLAYER_ID = re.compile(r"[A-Za-z0-9_-]{22}")  # what secrets.token_urlsafe(16) gives: nothing else is a file name
 PLAYERS_DIR = db.DEFAULT_PATH.parent / "players"
-MAX_PLAYERS = 2000  # runs on disk; a new run beyond it is refused ("the game is full")
+MAX_PLAYERS = 2000  # runs stored; a new run beyond it first replaces an idle one (specs/player-cap.md)
+IDLE_BEFORE_REPLACE = 10 * 60  # seconds without a save before a full game may replace a run
 RATE_LIMIT = 240  # API requests per player and window (a played day needs about 60 a minute)
 RATE_WINDOW = 60  # seconds
 NEW_PLAYER_LIMIT = 60  # new players per address and window (a class on one network, a crawler)
@@ -288,12 +295,75 @@ def _save_new_run(state):
         db.save_new_run(state, **_db_kw())
 
 
+REPLACE_CANDIDATES = 5  # idle runs tried, oldest first, when the first one's lock is taken
+
+
+def _oldest_idle_runs():
+    """[(player id, idle seconds)] of the stored runs changed longest ago that have been idle for at least
+    IDLE_BEFORE_REPLACE, oldest first, at most REPLACE_CANDIDATES. "Changed" is the last save: Postgres'
+    updated_at, a file's mtime."""
+    if _in_postgres():
+        return pgstore.oldest_idle(IDLE_BEFORE_REPLACE, REPLACE_CANDIDATES)
+    now, idle_runs = time.time(), []
+    for path in PLAYERS_DIR.glob("*.db"):
+        if not PLAYER_ID.fullmatch(path.stem):
+            continue
+        try:
+            idle = now - path.stat().st_mtime
+        except FileNotFoundError:  # removed meanwhile
+            continue
+        if idle >= IDLE_BEFORE_REPLACE:
+            idle_runs.append((path.stem, idle))
+    return sorted(idle_runs, key=lambda run: (-run[1], run[0]))[:REPLACE_CANDIDATES]
+
+
+def _remove_if_idle(player_id):
+    """Remove that run if it is still idle (checked again: it may have been saved since). True if removed."""
+    if _in_postgres():
+        return pgstore.delete_if_idle(player_id, IDLE_BEFORE_REPLACE)
+    path = _player_file(player_id)
+    try:
+        if time.time() - path.stat().st_mtime < IDLE_BEFORE_REPLACE:
+            return False
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def _make_room():
+    """The game is full (specs/player-cap.md): replace the run changed longest ago that has been idle for
+    IDLE_BEFORE_REPLACE. Called by load_run under this request's run lock and _create_lock, one run for one
+    run. Each candidate's lock is taken without waiting: a stripe held by another request (that player,
+    or anybody waiting on the same stripe) moves on to the next candidate instead of answering "full";
+    a stripe this request holds is taken again (reentrant). True if there is room now."""
+    for victim, idle in _oldest_idle_runs():
+        lock = _lock_of(victim)
+        if not lock.acquire(blocking=False):
+            continue
+        try:
+            removed = _remove_if_idle(victim)
+        finally:
+            lock.release()
+        if removed:
+            # WARNING, not INFO: Flask logs from WARNING on in production (review finding); never the player
+            app.logger.warning("the game was full: replaced a run idle for %d minutes", idle // 60)
+            return True
+    return False
+
+
 def load_run():
-    """Load the saved run, or start and save a fresh one (first start). In public mode a new run
-    is refused (503) once MAX_PLAYERS runs exist."""
+    """Load the saved run, or start and save a fresh one (first start). In public mode a full game
+    (MAX_PLAYERS runs) first replaces an idle run; only if none is idle is the new run refused (503).
+    Takes this run's lock itself (reentrant: the callers hold it already for their load -> rule -> save)."""
+    with run_lock():
+        return _load_run()
+
+
+def _load_run():
     if getattr(g, "player", None) and not _run_exists():
         with _create_lock:  # one new run at a time: the cap is a hard one
-            if _run_count() >= MAX_PLAYERS:
+            if _run_count() >= MAX_PLAYERS and not _make_room():
                 abort(503, description="The game is full right now. Try again later.")
             state = logic.new_state(logic.new_seed())
             _save_run(state)  # the run exists before the lock is let go
