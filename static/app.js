@@ -116,9 +116,10 @@ function renderKpis() {
     ? "Same as the €100 start"
     : `<span class="${delta > 0 ? "delta-up" : "delta-down"}">${delta > 0 ? "▲" : "▼"} ${fmtSigned(delta)}</span> vs start`;
 
-  const units = state.products.reduce((sum, p) => sum + p.stock, 0);
+  // storeroom and counters together, like the stock card (specs/stock-on-counter.md)
+  const units = state.products.reduce((sum, p) => sum + p.stock + (p.on_counter ?? 0), 0);
   setMoney($("#kpi-stock"), state.stock_value);
-  $("#kpi-stock-units").textContent = `${units} unit${units === 1 ? "" : "s"} on the shelf`;
+  $("#kpi-stock-units").textContent = `${units} unit${units === 1 ? "" : "s"} in stock`;
 
   const profit = state.history.reduce((sum, day) => sum + day.gross_profit, 0);
   const days = state.history.length;
@@ -175,7 +176,7 @@ function productCard(p, level = 3) {
         <h${level}>${esc(p.name)}</h${level}>
         <p class="product-meta"><span>Cost ${fmt(p.cost)}</span><span>Ref. price ${fmt(p.ref_price)}</span></p>
       </div>
-      <div class="stock-badge"><strong>${p.stock}</strong><span>in stock</span></div>
+      <div class="stock-badge"><strong>${p.stock + (p.on_counter ?? 0)}</strong><span>in stock</span></div>
     </div>
 
     <div>

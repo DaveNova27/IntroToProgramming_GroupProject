@@ -1903,6 +1903,13 @@ def _shift_parts(state):
     return [shift, *shift.get("extra", {}).values()]
 
 
+def units_on_counter(state, product):
+    """Units of a product on the counters of the open day, the player's and every crew's (0 without an
+    open day). They are still the player's: unsold units go back at the day's end
+    (specs/stock-on-counter.md)."""
+    return sum(part["counter"].get(product, 0) for part in _shift_parts(state))
+
+
 def _sold_so_far(state):
     """Units sold in this run: the booked days and the day that is open now."""
     booked = sum(day_sold(r) for r in state["history"])

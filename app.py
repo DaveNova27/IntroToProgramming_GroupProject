@@ -663,7 +663,8 @@ def product_view(state, pid, finished):
         "cost": item["cost"],
         "ref_price": item["ref_price"],
         "price": state["prices"][pid],
-        "stock": state["stock"][pid],
+        "stock": state["stock"][pid],  # the storeroom
+        "on_counter": logic.units_on_counter(state, pid),  # the player's too: unsold units go back at the day's end
         "shop": logic.shop_of_product(pid),
         "customers": 0 if finished else breakdown["customers"],
         "breakdown": breakdown,
