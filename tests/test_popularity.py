@@ -452,7 +452,10 @@ def test_the_state_shows_the_popularity_of_every_shop(api):
 
 
 def test_the_state_explains_the_last_day(api):
-    assert api.post("/api/open", json={"day": 1}).status_code == 200
+    # the day is booked the way the game plays it: /api/open is retired (specs/retire-trade-endpoint.md)
+    assert api.post("/api/day/open").status_code == 200
+    assert api.post("/api/shift/start", json={"shop": "cafe"}).status_code == 200
+    assert api.post("/api/shift/skip").status_code == 200
     cafe = next(s for s in api.get("/api/state").get_json()["shops"] if s["id"] == "cafe")
     assert cafe["popularity"]["value"] < 50
     assert cafe["popularity"]["yesterday"] == {"served": 0, "fair": None, "score": 0}
