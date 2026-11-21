@@ -175,7 +175,7 @@ function productCard(p, level = 3) {
         <h${level}>${esc(p.name)}</h${level}>
         <p class="product-meta"><span>Cost ${fmt(p.cost)}</span><span>Ref. price ${fmt(p.ref_price)}</span></p>
       </div>
-      <div class="stock-badge"><strong>${p.stock}</strong><span>in stock</span></div>
+      <div class="stock-badge"><strong>${p.stock + (p.on_counter ?? 0)}</strong><span>in stock</span></div>
     </div>
 
     <div>

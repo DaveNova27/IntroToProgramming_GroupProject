@@ -255,12 +255,19 @@ function renderHud() {
   renderGuide();
 }
 
+// What the player holds of a product: the storeroom and the counters of the open day, both counted by
+// the server (specs/stock-on-counter.md). Unsold units on a counter go back at the end of the day.
+function held(p) {
+  return p.stock + (p.on_counter ?? 0);
+}
+
 function stockRow(p) {
+  const counter = (p.on_counter ?? 0) > 0 ? ` · ${p.on_counter} on the counter` : "";
   return `
     <div class="stock-row" style="--accent:${COLOR[p.id]}">
       <span class="em" aria-hidden="true">${EMOJI[p.id]}</span>
-      <span class="nm">${esc(p.name)}<small>${p.breakdown ? customersText(p.customers) : "trading is closed"}</small></span>
-      <span class="units">${p.stock}</span>
+      <span class="nm">${esc(p.name)}<small>${p.breakdown ? customersText(p.customers) : "trading is closed"}${counter}</small></span>
+      <span class="units">${held(p)}</span>
     </div>`;
 }
 
@@ -277,7 +284,7 @@ function renderToolbar() {
     : state.finished ? "Run complete"
     : dayButtonLabel();
   if (evening) $("#btn-open").disabled = scene.sleeping || fading;
-  const empty = state.products.every((p) => p.stock === 0);
+  const empty = state.products.every((p) => held(p) === 0);
   $("#btn-order").classList.toggle("hint", empty && !locked);
 }
 
@@ -932,7 +939,9 @@ function renderShiftPanel(body) {
       <div class="shift-row" style="--accent:${COLOR[pid]}">
         <span class="em" aria-hidden="true">${EMOJI[pid]}</span>
         <span class="nm">${esc(p.name)}<small>storeroom ${p.stock} · counter ${onCounter} · waiting ${waiting} · sold ${sh.sold[pid] ?? 0}</small></span>
-        <button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${step}" ${step > 0 ? "" : "disabled"}>+${step}</button>
+        ${step > 0 // no "+0": an empty cell keeps the columns in line (specs/stock-on-counter.md)
+          ? `<button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${step}">+${step}</button>`
+          : `<span class="refill-none" aria-hidden="true"></span>`}
         <button class="btn" type="button" data-refill="${esc(pid)}" data-qty="${fill}" ${fill > 0 ? "" : "disabled"}>Fill</button>
         <button class="btn" type="button" data-sell="${esc(pid)}" ${onCounter > 0 && waiting > 0 ? "" : "disabled"}>Sell ${fmt(p.price)}</button>
       </div>`;
