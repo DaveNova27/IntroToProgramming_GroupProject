@@ -14,6 +14,7 @@ nothing changes: one run on this computer.
 
 import hashlib
 import hmac
+import ipaddress
 import os
 import re
 import secrets
@@ -35,6 +36,10 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Let the browser re-check the page files on every load (a cheap "not modified"
 # answer), so an updated dashboard or map is never served from an old cache.
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+# a body larger than this is refused with 413 before any rule reads it (specs/request-limits.md): the
+# largest real request is a few hundred bytes, and Flask would otherwise read any size into memory
+MAX_REQUEST_BYTES = 64 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 # one change at a time per run: load -> rule -> save. Reentrant (specs/player-cap.md): load_run takes the
 # lock of its own run again, and a full game may take an idle player's lock that is this request's stripe
 _locks = [threading.RLock() for _ in range(64)]
@@ -88,6 +93,57 @@ def client_address():
         if forwarded:
             return forwarded.split(",")[-1].strip()  # the address our proxy saw
     return request.remote_addr
+
+
+CHAIN_SAMPLES = 5  # visits (requests for "/") per process whose proxy chain is logged (one could mislead)
+_chain_logged = [0]
+_chain_lock = threading.Lock()
+
+
+def _same_address(text):
+    """An address in one spelling, so "2001:db8::1" and "2001:0db8:0:0:0:0:0:1" compare equal; text
+    that is no address stays as it is."""
+    try:
+        return str(ipaddress.ip_address(text.strip()))
+    except ValueError:
+        return text.strip()
+
+
+def _proxy_chain_summary():
+    """Which proxy headers reach us and how X-Forwarded-For is built (specs/request-limits.md, audit B3):
+    names and counts only, never an address."""
+    forwarded = [_same_address(entry) for entry in request.headers.get("X-Forwarded-For", "").split(",")
+                 if entry.strip()]
+    cf = _same_address(request.headers.get("CF-Connecting-IP", ""))
+    if not cf:
+        cf_text = "CF-Connecting-IP absent"
+    else:
+        if forwarded and cf == forwarded[0]:
+            where = "the first entry" if len(forwarded) > 1 else "the only entry"
+        elif forwarded and cf == forwarded[-1]:
+            where = "the last entry"
+        elif cf in forwarded:
+            where = "another entry"
+        else:
+            where = "no entry"
+        cf_text = f"CF-Connecting-IP present ({where})"
+    present = {name: "present" if request.headers.get(name) else "absent" for name in ("True-Client-IP", "Forwarded")}
+    count = f"{len(forwarded)} entry" if len(forwarded) == 1 else f"{len(forwarded)} entries"
+    return (f"proxy chain: X-Forwarded-For has {count}; {cf_text}; "
+            f"True-Client-IP {present['True-Client-IP']}; Forwarded {present['Forwarded']}")
+
+
+def _log_proxy_chain():
+    """A WARNING line with the proxy chain for each of the first CHAIN_SAMPLES visits of a process (only "/":
+    the campus iframe /map?embed=1 of the same visit is no new sample),
+    to see behind Cloudflare which address client_address() takes. Removed again once that is decided."""
+    if not behind_proxy():
+        return
+    with _chain_lock:  # two requests at once must not both take the last sample
+        if _chain_logged[0] >= CHAIN_SAMPLES:
+            return
+        _chain_logged[0] += 1
+    app.logger.warning("%s", _proxy_chain_summary())
 
 
 def is_https():
@@ -186,6 +242,8 @@ def _identify_player():
     if not public_mode() or request.path == "/healthz":
         return None  # the health check touches nothing, not even the players folder (specs/deploy.md)
     _ensure_players_dir()
+    if request.path == "/":  # one sample per visit (specs/request-limits.md)
+        _log_proxy_chain()
     g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
     if g.player is None:
         if request.path.startswith("/api/"):
@@ -224,6 +282,14 @@ def add_headers(response):
         response.set_cookie(PLAYER_COOKIE, f"{g.player}.{_sign(g.player)}", max_age=365 * 24 * 3600,
                             httponly=True, samesite="Lax", secure=is_https() or None)
     return response
+
+
+@app.errorhandler(413)
+def too_large(error):
+    """A body over MAX_REQUEST_BYTES (specs/request-limits.md): refused before any rule, nothing saved."""
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "The request is too large."}), 413
+    return error
 
 
 @app.errorhandler(Exception)
