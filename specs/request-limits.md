@@ -26,14 +26,21 @@ Asked for by Christopher on 2026-11-21, items B2 and B3 of the audit of 2026-11-
    A body without a length (streamed, "chunked") is read only up to the limit; what is cut off is no
    valid request, so the rule refuses it.
 2. **A log line about the proxy chain (measuring B3).** In public mode with `CT_PROXY=1`, each of the
-   first `CHAIN_SAMPLES = 5` page requests (`/` or `/map`) after a start writes one WARNING line with:
-   the number of entries in `X-Forwarded-For`, whether `CF-Connecting-IP`, `True-Client-IP` and
-   `Forwarded` are present, and which entry of `X-Forwarded-For` (first, last, another, none) equals
-   `CF-Connecting-IP`. Never an address. Example:
+   first `CHAIN_SAMPLES = 5` visits after a start (requests for `/`; the campus iframe
+   `/map?embed=1` of the same visit and the redirect from `/map` are no new sample) writes one WARNING
+   line with: the number of entries in `X-Forwarded-For`, whether `CF-Connecting-IP`, `True-Client-IP`
+   and `Forwarded` are present, and which entry of `X-Forwarded-For` (first, last, another, none)
+   equals `CF-Connecting-IP`. Addresses are compared as addresses, so one IPv6 address in two
+   spellings is the same entry. Never an address in the line. Example:
    `proxy chain: X-Forwarded-For has 2 entries; CF-Connecting-IP present (the first entry); True-Client-IP absent; Forwarded absent`
 3. **`client_address()` does not change yet.** After the deploy, Felix (owner of the Render account,
-   `specs/deploy.md`) reads the line in Render's log. The change of the address, if one is needed, is a
+   `specs/deploy.md`) reads the lines in Render's log. The change of the address, if one is needed, is a
    small follow-up spec, and then the log line goes again.
+4. **How to read the lines.** Every visitor's lines count, not only one's own, and the five lines of
+   a start may stand further up in the log if others visited first; each restart (also Render's sleep
+   after 15 minutes) writes five new ones. A visitor can send an `X-Forwarded-For` of their own, which
+   adds entries to their line. So read all lines and take the pattern most of them show, never a single
+   line.
 
 ## Decide
 
@@ -64,6 +71,11 @@ Asked for by Christopher on 2026-11-21, items B2 and B3 of the audit of 2026-11-
    the spec names); the test fixtures are copied from `test_world_api.py` and `test_player_cap.py`
    instead of a shared `conftest.py`, so no other test file's setup changes two days before the
    deadline.
+7. **After Felix' review (2026-11-21):** one sample per visit (only `/`: a visit loaded `/` and the
+   iframe `/map?embed=1`, so five samples covered only about two visitors); addresses compared as
+   addresses (IPv6 in another spelling gave a wrong "no entry"); how to read the lines (What, 4); the
+   test for a body without a length expects exactly 400. The copied fixtures stay until after the
+   deadline (Felix agreed).
 
 ## Out of scope
 
@@ -77,8 +89,10 @@ Asked for by Christopher on 2026-11-21, items B2 and B3 of the audit of 2026-11-
    unchanged (local mode and public mode).
 2. A body just under the limit is read as before (a rule answers, here with its normal refusal).
 3. A real request of the game (an order) still works.
-4. Public mode with `CT_PROXY=1`: each of the first 5 page requests writes one WARNING line about the
-   chain, later ones write none; no line holds an address that was sent.
+4. Public mode with `CT_PROXY=1`: each of the first 5 visits (`/`) writes one WARNING line about the
+   chain, later ones write none; the campus iframe and the redirect from `/map` write none; no line
+   holds an address that was sent.
+4b. One IPv6 address in two spellings counts as the same entry.
 4a. A body without a length is read only up to 64 KB, refused, and nothing is saved.
 5. The line says which entry equals `CF-Connecting-IP` (first, last, none) and counts the entries.
 6. Without `CT_PROXY=1`, or on `/healthz`, no such line.

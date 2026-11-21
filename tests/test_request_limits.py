@@ -99,7 +99,7 @@ def test_a_large_body_without_a_length_is_refused_and_nothing_is_saved(run_on_di
     response = app.app.test_client().post(
         "/api/buy", input_stream=io.BytesIO(body_of(LIMIT * 4).encode()), content_type="application/json",
         environ_overrides=STREAMED)
-    assert response.status_code in (400, 413)  # cut at the limit, the rest is no valid order
+    assert response.status_code == 400  # cut at the limit: no valid JSON, so the rule refuses an empty order
     assert "error" in response.get_json()
     assert db.load(run_on_disk) == before
 
@@ -132,14 +132,17 @@ def chain_lines(caplog):
     return [r.getMessage() for r in caplog.records if r.getMessage().startswith("proxy chain:")]
 
 
-def test_the_first_page_requests_log_the_chain_and_no_address(public, monkeypatch, caplog):
+def test_a_visit_logs_the_chain_once_and_no_address(public, monkeypatch, caplog):
+    """A visit loads "/" and the campus iframe /map?embed=1: one sample, not two."""
     monkeypatch.setenv("CT_PROXY", "1")
     caplog.set_level(logging.WARNING)
-    assert app.app.test_client().get("/", headers=HEADERS).status_code == 200
-    assert app.app.test_client().get("/map", headers=HEADERS).status_code in (200, 302)  # a second page
+    client = app.app.test_client()
+    assert client.get("/", headers=HEADERS).status_code == 200
+    assert client.get("/map?embed=1", headers=HEADERS).status_code == 200
+    assert client.get("/map", headers=HEADERS).status_code == 302  # the redirect to "/" is no sample
     lines = chain_lines(caplog)
     assert lines == ["proxy chain: X-Forwarded-For has 2 entries; CF-Connecting-IP present (the first entry); "
-                     "True-Client-IP absent; Forwarded absent"] * 2
+                     "True-Client-IP absent; Forwarded absent"]
     for address in ("203.0.113.7", "198.51.100.20"):
         assert all(address not in r.getMessage() for r in caplog.records)
 
@@ -162,6 +165,10 @@ def test_only_the_first_samples_are_logged(public, monkeypatch, caplog):
     ({"X-Forwarded-For": "198.51.100.20", "CF-Connecting-IP": "203.0.113.7"},
      "X-Forwarded-For has 1 entry; CF-Connecting-IP present (no entry)"),
     ({"X-Forwarded-For": "198.51.100.20"}, "X-Forwarded-For has 1 entry; CF-Connecting-IP absent"),
+    ({"X-Forwarded-For": "2001:0db8:0:0:0:0:0:1, 198.51.100.20", "CF-Connecting-IP": "2001:db8::1"},
+     "X-Forwarded-For has 2 entries; CF-Connecting-IP present (the first entry)"),  # IPv6, two spellings
+    ({"X-Forwarded-For": "not-an-address", "CF-Connecting-IP": "not-an-address"},
+     "X-Forwarded-For has 1 entry; CF-Connecting-IP present (the only entry)"),
     ({"True-Client-IP": "203.0.113.7", "Forwarded": "for=203.0.113.7"},
      "X-Forwarded-For has 0 entries; CF-Connecting-IP absent; True-Client-IP present; Forwarded present"),
 ])
@@ -171,7 +178,8 @@ def test_the_line_says_where_the_visitor_stands(public, monkeypatch, caplog, hea
     app.app.test_client().get("/", headers=headers)
     (line,) = chain_lines(caplog)
     assert expected in line
-    assert "203.0.113.7" not in line and "198.51.100.20" not in line
+    for address in ("203.0.113.7", "198.51.100.20", "2001:db8::1", "2001:0db8", "not-an-address"):
+        assert address not in line
 
 
 def test_no_line_without_a_trusted_proxy(public, monkeypatch, caplog):

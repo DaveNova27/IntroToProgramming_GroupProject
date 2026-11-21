@@ -14,6 +14,7 @@ nothing changes: one run on this computer.
 
 import hashlib
 import hmac
+import ipaddress
 import os
 import re
 import secrets
@@ -94,16 +95,26 @@ def client_address():
     return request.remote_addr
 
 
-CHAIN_SAMPLES = 5  # page requests per process whose proxy chain is logged (one sample could mislead)
+CHAIN_SAMPLES = 5  # visits (requests for "/") per process whose proxy chain is logged (one could mislead)
 _chain_logged = [0]
 _chain_lock = threading.Lock()
+
+
+def _same_address(text):
+    """An address in one spelling, so "2001:db8::1" and "2001:0db8:0:0:0:0:0:1" compare equal; text
+    that is no address stays as it is."""
+    try:
+        return str(ipaddress.ip_address(text.strip()))
+    except ValueError:
+        return text.strip()
 
 
 def _proxy_chain_summary():
     """Which proxy headers reach us and how X-Forwarded-For is built (specs/request-limits.md, audit B3):
     names and counts only, never an address."""
-    forwarded = [entry.strip() for entry in request.headers.get("X-Forwarded-For", "").split(",") if entry.strip()]
-    cf = request.headers.get("CF-Connecting-IP", "").strip()
+    forwarded = [_same_address(entry) for entry in request.headers.get("X-Forwarded-For", "").split(",")
+                 if entry.strip()]
+    cf = _same_address(request.headers.get("CF-Connecting-IP", ""))
     if not cf:
         cf_text = "CF-Connecting-IP absent"
     else:
@@ -123,7 +134,8 @@ def _proxy_chain_summary():
 
 
 def _log_proxy_chain():
-    """A WARNING line with the proxy chain for each of the first CHAIN_SAMPLES page requests of a process,
+    """A WARNING line with the proxy chain for each of the first CHAIN_SAMPLES visits of a process (only "/":
+    the campus iframe /map?embed=1 of the same visit is no new sample),
     to see behind Cloudflare which address client_address() takes. Removed again once that is decided."""
     if not behind_proxy():
         return
@@ -230,7 +242,7 @@ def _identify_player():
     if not public_mode() or request.path == "/healthz":
         return None  # the health check touches nothing, not even the players folder (specs/deploy.md)
     _ensure_players_dir()
-    if request.path in ("/", "/map"):
+    if request.path == "/":  # one sample per visit (specs/request-limits.md)
         _log_proxy_chain()
     g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
     if g.player is None:
