@@ -94,7 +94,9 @@ def client_address():
     return request.remote_addr
 
 
-_chain_logged = [False]
+CHAIN_SAMPLES = 5  # page requests per process whose proxy chain is logged (one sample could mislead)
+_chain_logged = [0]
+_chain_lock = threading.Lock()
 
 
 def _proxy_chain_summary():
@@ -120,12 +122,15 @@ def _proxy_chain_summary():
             f"True-Client-IP {present['True-Client-IP']}; Forwarded {present['Forwarded']}")
 
 
-def _log_proxy_chain_once():
-    """One WARNING line per process with the proxy chain of the first page request, to see behind
-    Cloudflare which address client_address() takes. Removed again once that is decided."""
-    if _chain_logged[0] or not behind_proxy():
+def _log_proxy_chain():
+    """A WARNING line with the proxy chain for each of the first CHAIN_SAMPLES page requests of a process,
+    to see behind Cloudflare which address client_address() takes. Removed again once that is decided."""
+    if not behind_proxy():
         return
-    _chain_logged[0] = True
+    with _chain_lock:  # two requests at once must not both take the last sample
+        if _chain_logged[0] >= CHAIN_SAMPLES:
+            return
+        _chain_logged[0] += 1
     app.logger.warning("%s", _proxy_chain_summary())
 
 
@@ -226,7 +231,7 @@ def _identify_player():
         return None  # the health check touches nothing, not even the players folder (specs/deploy.md)
     _ensure_players_dir()
     if request.path in ("/", "/map"):
-        _log_proxy_chain_once()
+        _log_proxy_chain()
     g.player = _player_from_cookie(request.cookies.get(PLAYER_COOKIE, ""))
     if g.player is None:
         if request.path.startswith("/api/"):

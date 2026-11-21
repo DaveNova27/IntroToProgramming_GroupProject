@@ -1,11 +1,13 @@
 """Checks from specs/request-limits.md ("Done when"): a body over MAX_REQUEST_BYTES is refused with 413
-and a JSON error before any rule, nothing saved; behind a trusted proxy the first page request logs the
-proxy chain once, with names and counts and never an address."""
+and a JSON error before any rule, nothing saved; behind a trusted proxy the first CHAIN_SAMPLES page
+requests log the proxy chain, with names and counts and never an address."""
 
+import io
 import json
 import logging
 
 import pytest
+from flask import request
 
 import app
 import db
@@ -33,7 +35,7 @@ def public(monkeypatch, tmp_path):
     monkeypatch.setenv("CT_PUBLIC", "1")
     monkeypatch.setattr(app, "PLAYERS_DIR", tmp_path / "players")
     app._hits.clear()
-    monkeypatch.setattr(app, "_chain_logged", [False])
+    monkeypatch.setattr(app, "_chain_logged", [0])
     yield
     pgstore.reset()
 
@@ -79,6 +81,29 @@ def test_a_large_body_is_refused_in_public_mode_too(public):
     assert after["cash"] == state["cash"] and after["products"] == state["products"]
 
 
+STREAMED = {"wsgi.input_terminated": True, "CONTENT_LENGTH": "", "HTTP_TRANSFER_ENCODING": "chunked"}
+
+
+def test_a_large_body_without_a_length_is_read_only_up_to_the_limit():
+    """A streamed (chunked) body says no Content-Length (gunicorn marks such a stream as terminated,
+    wsgi.input_terminated): Werkzeug reads at most the limit of it, never the whole body."""
+    big = body_of(LIMIT * 4).encode()
+    with app.app.test_request_context("/api/buy", method="POST", input_stream=io.BytesIO(big),
+                                      content_type="application/json", environ_overrides=STREAMED):
+        assert request.content_length is None
+        assert len(request.get_data()) <= LIMIT
+
+
+def test_a_large_body_without_a_length_is_refused_and_nothing_is_saved(run_on_disk):
+    before = db.load(run_on_disk)
+    response = app.app.test_client().post(
+        "/api/buy", input_stream=io.BytesIO(body_of(LIMIT * 4).encode()), content_type="application/json",
+        environ_overrides=STREAMED)
+    assert response.status_code in (400, 413)  # cut at the limit, the rest is no valid order
+    assert "error" in response.get_json()
+    assert db.load(run_on_disk) == before
+
+
 def test_the_limit_is_64_kb():
     assert LIMIT == 64 * 1024 and app.app.config["MAX_CONTENT_LENGTH"] == LIMIT
 
@@ -107,16 +132,24 @@ def chain_lines(caplog):
     return [r.getMessage() for r in caplog.records if r.getMessage().startswith("proxy chain:")]
 
 
-def test_the_first_page_request_logs_the_chain_once_and_no_address(public, monkeypatch, caplog):
+def test_the_first_page_requests_log_the_chain_and_no_address(public, monkeypatch, caplog):
     monkeypatch.setenv("CT_PROXY", "1")
     caplog.set_level(logging.WARNING)
     assert app.app.test_client().get("/", headers=HEADERS).status_code == 200
     assert app.app.test_client().get("/map", headers=HEADERS).status_code in (200, 302)  # a second page
     lines = chain_lines(caplog)
     assert lines == ["proxy chain: X-Forwarded-For has 2 entries; CF-Connecting-IP present (the first entry); "
-                     "True-Client-IP absent; Forwarded absent"]
+                     "True-Client-IP absent; Forwarded absent"] * 2
     for address in ("203.0.113.7", "198.51.100.20"):
         assert all(address not in r.getMessage() for r in caplog.records)
+
+
+def test_only_the_first_samples_are_logged(public, monkeypatch, caplog):
+    monkeypatch.setenv("CT_PROXY", "1")
+    caplog.set_level(logging.WARNING)
+    for _ in range(app.CHAIN_SAMPLES + 3):
+        app.app.test_client().get("/", headers=HEADERS)
+    assert len(chain_lines(caplog)) == app.CHAIN_SAMPLES == 5
 
 
 @pytest.mark.parametrize("headers, expected", [
@@ -156,13 +189,13 @@ def test_no_line_for_the_health_check_or_files(public, monkeypatch, caplog):
     client.get("/static/app.js", headers=HEADERS)
     assert chain_lines(caplog) == []
     client.get("/", headers=HEADERS)
-    assert len(chain_lines(caplog)) == 1
+    assert len(chain_lines(caplog)) == 1  # the page request is the first sample
 
 
 def test_no_line_in_local_mode(monkeypatch, caplog):
     monkeypatch.delenv("CT_PUBLIC", raising=False)
     monkeypatch.setenv("CT_PROXY", "1")
-    monkeypatch.setattr(app, "_chain_logged", [False])
+    monkeypatch.setattr(app, "_chain_logged", [0])
     caplog.set_level(logging.WARNING)
     app.app.test_client().get("/", headers=HEADERS)
     assert chain_lines(caplog) == []
