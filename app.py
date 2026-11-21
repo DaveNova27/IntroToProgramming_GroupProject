@@ -1011,21 +1011,17 @@ def shift_skip():
     return apply(action)
 
 
+TRADE_RETIRED = "A day is played on the campus: open the day and take a shift."
+
+
 @app.post("/api/open")
 def open_day():
-    body = json_body()
-
+    """Retired (specs/retire-trade-endpoint.md): it booked a whole day with trade_day, with no shift, no
+    staff and no wages, so a request sent by hand earned money without working. No screen calls it any
+    more; it stays as a route that always refuses (400, the unchanged state), whatever the body says.
+    logic.trade_day itself stays for the dashboard's forecast and the editor's Skip days."""
     def action(state):
-        # The page says which day it meant to open. If that day is already
-        # traded (second click, old tab), refuse instead of trading again.
-        if body.get("day") != state["day"]:
-            raise logic.RejectedAction(
-                f"Day {body.get('day')} is already traded. The dashboard is now up to date."
-            )
-        new_state, result = logic.trade_day(state)
-        return new_state, (
-            f"Day {result['day']} closed: gross profit {logic.fmt(result['gross_profit'])}."
-        )
+        raise logic.RejectedAction(TRADE_RETIRED)
 
     return apply(action)
 

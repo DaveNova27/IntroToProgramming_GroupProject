@@ -249,7 +249,7 @@ change in the spec. The old truck of the three.js map is only a reference for th
 | Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #17 `shop-unlock`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #38 `pricing`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #15 `badges`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #14 `events-and-disruptions`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #22 `guests` (PR #95), #23 `demo-scenarios` (PR #96) |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
 | Open | #93 `deploy`, #11 `nova-design`, #13 `popularity`, #16 `weather-visuals` (built, PR #105 open), #18 `shop-art`, #20 `staff` (follow-up), #21 `outfits`, #24 `final-polish`, #40 `shop-walk`, #71 `map-layout` |
-| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`retire-trade-endpoint`, `lean-responses`), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
+| To open | `warehouse`, and the specs proposed in `docs/audit-report.md` section 4 that have no issue yet (`lean-responses`; `retire-trade-endpoint` is built, see its spec), and `disruptions` (outages and strikes, split off from `events-and-disruptions`) |
 
 ## 6. Suggested next steps (proposal)
 
