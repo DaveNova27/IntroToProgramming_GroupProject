@@ -22,7 +22,8 @@ README (`uv run python app.py`), does not change.
      with made-up ids.
    - **Limits.** 240 API requests per player per minute (a played day needs about 60), 60 new players
      per address per minute, at most 2,000 runs on disk (made one at a time, so it is a hard limit; a new
-     run is then refused with 503 "the game is full"; whoever has a run stays in), at most 20,000
+     run is then refused with 503 "the game is full"; whoever has a run stays in; *changed by
+     `player-cap`: a full game first replaces a run idle for 10 minutes*), at most 20,000
      counters at once (beyond that 503 "busy", swept at most once a second). A refused request changes
      nothing. One lock per player (64 stripes), not one for everybody.
    - **Behind a proxy** (`CT_PROXY=1`, only when the proxy is the only way in): the address is the last
