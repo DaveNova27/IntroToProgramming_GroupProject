@@ -263,7 +263,7 @@ The public server: one run per player, limits, hosting and storage.
 | [`demo-day.md`](specs/demo-day.md) | #146 | The demo becomes one day from bed to bed in seven steps (`scenarios.py`). The card shows the next step as a button that walks the figure there; a reached goal moves it on (`advance`), the two jumps (sun, rain again) load a prepared state of the same day (`POST /api/demo/next`). Replaces the four scenarios of `demo-scenarios`. |
 | [`docs-cleanup.md`](specs/docs-cleanup.md) | #145 | The README tidied (specs grouped with their PRs, every route of the server named, the known issues checked against the code) and the roadmap brought to v7 of 2026-11-23. No game code changes. |
 | [`docs-final.md`](specs/docs-final.md) | #149 | Docs for the submission: the old audit report (`docs/audit-report.md`) removed from the repository (it stays in the git history), and the roadmap names the demo day (`demo-day`, #146) instead of the four prepared days. No game code changes. |
-| [`readme-install.md`](specs/readme-install.md) | – | The README gets the two parts the submission asks for: the project's objectives, and installation instructions (install uv on macOS, Linux or Windows, clone, `uv sync`). No game code changes. |
+| [`readme-install.md`](specs/readme-install.md) | #151 | The README gets the two parts the submission asks for: the project's objectives, and installation instructions (install uv on macOS, Linux or Windows, clone, `uv sync`). No game code changes. |
 | `employees.md`, `investments.md`, `multi-business.md`, `net-worth.md` | #1 | **Dropped.** The first draft of the group features, kept as history only; they describe nothing in the game today. The plan that replaced them is `docs/feature-roadmap.md`. |
 
 ## Known issues and ideas
