@@ -22,7 +22,7 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 - `db.py`: stored state (what is saved and loaded)
 - `pgstore.py`: the runs of the public server in Postgres (Supabase), through `db.py`'s rules
 - `README.md`: how everything fits together, list of specs, known issues
-- `docs/feature-roadmap.md`: group plan: features, build order, demo mode, open decisions. Read it before starting a spec.
+- `docs/feature-roadmap.md`: the group's plan and state (Part A) and the game design reference (Part B: core loop, weather and events, demo mode, glossary). Read Part B before starting a spec; the open work is in the GitHub Issues (label `spec`).
 
 ## Storage
 - SQLite, written only by `db.py`. Locally one file, `data/campus_tycoon.db`; in public mode
