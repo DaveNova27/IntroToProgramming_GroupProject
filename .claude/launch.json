@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "campus-tycoon-public-test",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["CT_PUBLIC=1", "CT_PORT=8010", "uv", "run", "python", "app.py"],
+      "port": 8010
+    }
+  ]
+}
