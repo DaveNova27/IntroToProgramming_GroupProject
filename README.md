@@ -11,8 +11,7 @@ GitHub Issues (label `spec`).
 Built individually for the Solo Project, now extended as the Group Project for
 2477-2627_S1 Introduction to Programming. The campus is the 2.5D world taken from a teammate's
 project (Nova Beach Ventures, code and art made with AI, credit:
-https://github.com/felix-anthes-png/nova-beach-ventures). The audit of 2026-11-09
-(`docs/audit-report.md`) lists findings, measurements and feature ideas.
+https://github.com/felix-anthes-png/nova-beach-ventures).
 
 ## Group
 
@@ -232,6 +231,7 @@ The public server: one run per player, limits, hosting and storage.
 | [`docs-sync.md`](specs/docs-sync.md) | #141 | The docs brought up to date after the audit of 2026-11-21 (items D1, D4): `AGENTS.md` names every module of `static/world/`, `badges.css` and `checks/`; three outdated sentences fixed (the deploy line, the roadmap link, the health check's docstring). No game code changes. |
 | [`demo-day.md`](specs/demo-day.md) | #146 | The demo becomes one day from bed to bed in seven steps (`scenarios.py`). The card shows the next step as a button that walks the figure there; a reached goal moves it on (`advance`), the two jumps (sun, rain again) load a prepared state of the same day (`POST /api/demo/next`). Replaces the four scenarios of `demo-scenarios`. |
 | [`docs-cleanup.md`](specs/docs-cleanup.md) | #145 | The README tidied (specs grouped with their PRs, every route of the server named, the known issues checked against the code) and the roadmap brought to v7 of 2026-11-23. No game code changes. |
+| [`docs-final.md`](specs/docs-final.md) | #149 | Docs for the submission: the old audit report (`docs/audit-report.md`) removed from the repository (it stays in the git history), and the roadmap names the demo day (`demo-day`, #146) instead of the four prepared days. No game code changes. |
 | `employees.md`, `investments.md`, `multi-business.md`, `net-worth.md` | #1 | **Dropped.** The first draft of the group features, kept as history only; they describe nothing in the game today. The plan that replaced them is `docs/feature-roadmap.md`. |
 
 ## Known issues and ideas
