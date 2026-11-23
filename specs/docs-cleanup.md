@@ -53,13 +53,13 @@ The long documents have grown spec by spec and now say things that are no longer
    - Decisions and next steps that are done are marked done.
    - "The game today" says one shift per shop.
    - Part B does not change (it is the game design reference).
-3. **`AGENTS.md`** says to read Part B of the roadmap (the game design) before a spec, and that the open
-   work is in the GitHub Issues (label `spec`). Everything else in it stays.
+3. **`AGENTS.md`** says to read Part B of the roadmap (the game design) and its security rules
+   (section 3) before a spec, and that the open work is in the GitHub Issues (label `spec`). Everything else in it stays.
 4. **`tests/test_docs_cleanup.py`** checks that it stays true:
    - no "one shift per day" or "the one shift of the day" in the README or the roadmap;
    - every route of `app.py` named in the README;
    - every spec row at most 400 characters of description;
-   - the roadmap says v7 and lists no closed issue as open.
+   - the roadmap's header agrees with itself and lists nothing as both built and open.
 
 ## Decide
 
@@ -77,6 +77,21 @@ The long documents have grown spec by spec and now say things that are no longer
 4. **The old audit (`docs/audit-report.md`) is not touched** (Felix). The audit of 2026-11-21 does not
    go into the repo either (it names security details).
 5. **`checks/` stays where it is** (as in `docs-sync`, Decide 2).
+6. **After the AI review (2026-11-23), all eight findings fixed:**
+   - `AGENTS.md` names the security rules of section 3 (3a, 3b) next to Part B, since the PR template
+     asks for them.
+   - The README's copy tip lists `pgstore.py` (`app.py` imports it).
+   - The roadmap's header says "with PR #145", like its built table.
+   - `tests/test_docs_cleanup.py` checks rules that stay true instead of today's values:
+     - the sections present and in order (more are fine);
+     - the version in the title equal to the one in the status line;
+     - no spec both built and open, and no issue both open and closed;
+     - routes read from Flask's route table.
+     
+     Closing an issue or writing roadmap v8 needs no change to it. It finds its tables at test time,
+     so a renamed heading fails one check with a message instead of the whole file. It no longer
+     repeats `test_docs_refresh.py` (every spec named); it checks that no row links to a missing spec.
+   - PR #109 changes the same roadmap lines: close it once this is merged, or it will conflict.
 
 ## Out of scope
 
@@ -94,8 +109,8 @@ The long documents have grown spec by spec and now say things that are no longer
    characters of description per spec.
 2. The README and the roadmap no longer say "one shift per day". Every route of `app.py` is named in
    the README's Server row.
-3. The roadmap is v7 of 2026-11-23 and lists no closed issue as open. `AGENTS.md` points to Part B and
-   the Issues.
+3. The roadmap is v7 of 2026-11-23 and lists no closed issue as open. `AGENTS.md` points to Part B,
+   section 3 and the Issues.
 4. `tests/test_docs_cleanup.py` passes; the full suite passes; no old test changed.
 
 ## Security

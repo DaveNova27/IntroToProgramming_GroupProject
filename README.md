@@ -47,7 +47,7 @@ decide, weather and events, grow. The demo replaces your run; *Free play* at the
 you as it is. It works locally and on the public URL; the browser only sends a scenario id.
 
 **Trying changes without touching your own save:** copy `app.py`, `logic.py`, `guests.py`,
-`scenarios.py`, `world.py`, `db.py` and `static/` to a temporary folder and start it there on another
+`scenarios.py`, `world.py`, `db.py`, `pgstore.py` and `static/` to a temporary folder and start it there on another
 port (`python -c "import app; app.app.run(port=8770)"`): `db.py` keeps its database next to itself.
 
 ## Putting it online

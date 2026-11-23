@@ -1,6 +1,6 @@
 # Campus Tycoon: Feature Roadmap (v7)
 
-Status: roadmap v7, state of 2026-11-23 (after PR #143, the day of the submission). It replaces v6
+Status: roadmap v7, state of 2026-11-23 (with PR #145 `docs-cleanup`, the day of the submission). It replaces v6
 of 2026-11-11. What the team decided stays marked "decided"; what is done since is marked done. Part A
 is the plan and the current state. Part B keeps the game design reference (core loop, weather and
 event factors, demo mode, glossary). Read `AGENTS.md` first for the working rules. The three roadmap
