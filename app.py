@@ -87,11 +87,72 @@ def behind_proxy():
     return os.environ.get("CT_PROXY") == "1"
 
 
+# Behind Cloudflare and Render (specs/client-address.md): measured in Render's log, every visit arrives with
+# three X-Forwarded-For entries, the visitor first. The last PROXY_HOPS entries are written by Render's
+# proxies; the first of them is the address Render received the request from. Only when that is a
+# Cloudflare address did the request come through Cloudflare, and then the entry before it is the one
+# Cloudflare wrote: the visitor. Nothing a visitor sends can move it (their own entries land further left),
+# and a request that reached Render without Cloudflare keeps the old, coarse rule. CF-Connecting-IP is not
+# used: such a request could carry it.
+PROXY_HOPS = 2
+# Cloudflare's published ranges (https://www.cloudflare.com/ips-v4 and /ips-v6, fetched on 2026-11-23)
+CLOUDFLARE_NETWORKS = tuple(ipaddress.ip_network(n) for n in (
+    "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18",
+    "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17",
+    "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+    "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32",
+    "2a06:98c0::/29", "2c0f:f248::/32",
+))
+
+
+def _parse_entry(text):
+    """An X-Forwarded-For entry as an address, a port written with it dropped ("203.0.113.7:51234",
+    "[2001:db8::1]:443"); None if it is no address."""
+    text = text.strip()
+    if text.startswith("[") and "]" in text:
+        text = text[1:text.index("]")]
+    elif text.count(":") == 1:  # IPv4 with a port (an IPv6 address has more colons)
+        text = text.split(":")[0]
+    try:
+        return ipaddress.ip_address(text)
+    except ValueError:
+        return None
+
+
+def _from_cloudflare(text):
+    address = _parse_entry(text)
+    if address is None:
+        return False
+    address = getattr(address, "ipv4_mapped", None) or address
+    return any(address.version == net.version and address in net for net in CLOUDFLARE_NETWORKS)
+
+
+def _visitor_key(text):
+    """One spelling per address for the counters: an IPv6 address by its /64 network (one connection
+    usually holds a whole /64), every other address as itself; None if the text is no address."""
+    address = _parse_entry(text)
+    if address is None:
+        return None
+    if address.version == 6:
+        if address.ipv4_mapped is not None:  # an IPv4 address written as IPv6 (::ffff:a.b.c.d) is that address
+            return str(address.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{address}/64", strict=False))
+    return str(address)
+
+
 def client_address():
+    """Who the visitor is, for the limits. Behind the trusted proxy (CT_PROXY=1): when Render received the
+    request from Cloudflare (entry PROXY_HOPS from the right is a Cloudflare address), the entry Cloudflare
+    wrote, PROXY_HOPS + 1 from the right of X-Forwarded-For; any other chain the last entry, as before; no
+    entry: the connection's address. Without the proxy the headers are ignored: anybody can write them."""
     if behind_proxy():
-        forwarded = request.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            return forwarded.split(",")[-1].strip()  # the address our proxy saw
+        entries = [entry.strip() for entry in request.headers.get("X-Forwarded-For", "").split(",") if entry.strip()]
+        if entries:
+            if len(entries) > PROXY_HOPS and _from_cloudflare(entries[-PROXY_HOPS]):
+                visitor = _visitor_key(entries[-(PROXY_HOPS + 1)])
+                if visitor is not None:
+                    return visitor
+            return _visitor_key(entries[-1]) or entries[-1]  # the address our nearest proxy saw
     return request.remote_addr
 
 
@@ -135,8 +196,10 @@ def _proxy_chain_summary():
 
 def _log_proxy_chain():
     """A WARNING line with the proxy chain for each of the first CHAIN_SAMPLES visits of a process (only "/":
-    the campus iframe /map?embed=1 of the same visit is no new sample),
-    to see behind Cloudflare which address client_address() takes. Removed again once that is decided."""
+    the campus iframe /map?embed=1 of the same visit is no new sample), to see behind Cloudflare which address
+    client_address() takes. It stays (specs/client-address.md, Decide 3): its checks are old tests of
+    request-limits, and it shows if Render's chain ever changes. A second line says what client_address()
+    makes of the chain, again without an address."""
     if not behind_proxy():
         return
     with _chain_lock:  # two requests at once must not both take the last sample
@@ -144,6 +207,20 @@ def _log_proxy_chain():
             return
         _chain_logged[0] += 1
     app.logger.warning("%s", _proxy_chain_summary())
+    app.logger.warning("%s", _client_address_summary())
+
+
+def _client_address_summary():
+    """What client_address() sees in the chain (specs/client-address.md): whether Render received the request
+    from a Cloudflare address and which entry it takes. Never an address."""
+    entries = [e.strip() for e in request.headers.get("X-Forwarded-For", "").split(",") if e.strip()]
+    if len(entries) > PROXY_HOPS:
+        via = _from_cloudflare(entries[-PROXY_HOPS])
+        taken = f"entry {PROXY_HOPS + 1} from the right" if via and _visitor_key(entries[-(PROXY_HOPS + 1)]) else "the last entry"
+        return (f"client address: entry {PROXY_HOPS} from the right is "
+                f"{'a Cloudflare address' if via else 'not a Cloudflare address'}; the visitor is taken from {taken}")
+    return f"client address: {len(entries)} entries, the visitor is taken from " + (
+        "the last entry" if entries else "the connection")
 
 
 def is_https():
@@ -202,11 +279,23 @@ def _player_from_cookie(cookie):
     return None
 
 
-def _too_many(key, limit):
+def _too_many(key, limit, overflow=None):
     """Count this request for the key; True when the limit of the window is used up (or too many
-    keys are being counted at once)."""
+    keys are being counted at once).
+
+    overflow (specs/client-address.md): the key to count under once half of MAX_KEYS is in use, for keys
+    a stranger can make up in numbers (the first visits from many addresses). They then share one budget
+    instead of filling the counters, so the other half stays free for the players' own keys and nobody
+    gets "busy" because of them."""
     now = time.monotonic()
     with _hits_lock:
+        if overflow is not None and key not in _hits and len(_hits) >= MAX_KEYS // 2:
+            if now - _last_sweep[0] >= 1:  # first sweep the quiet keys (at most once a second)
+                _last_sweep[0] = now
+                for old in [k for k, v in _hits.items() if not v or now - v[-1] > RATE_WINDOW]:
+                    del _hits[old]
+            if len(_hits) >= MAX_KEYS // 2:
+                key = overflow
         if len(_hits) >= MAX_KEYS and key not in _hits:
             # sweep the quiet keys (at most once a second, the scan is long); if still full: busy
             if now - _last_sweep[0] >= 1:
@@ -251,7 +340,7 @@ def _identify_player():
             return jsonify({"error": "Open the game page first (the game needs cookies)."}), 400
         if request.path not in ("/", "/map"):
             return None  # files, icons and probes get no player
-        if _too_many(("new", client_address()), NEW_PLAYER_LIMIT):
+        if _too_many(("new", client_address()), NEW_PLAYER_LIMIT, overflow=("new", "many addresses")):
             return jsonify({"error": "Too many new players from this address. Try again in a minute."}), 429
         g.player, g.new_player = secrets.token_urlsafe(16), True
     if request.path.startswith("/api/") and _too_many(("player", g.player), RATE_LIMIT):
