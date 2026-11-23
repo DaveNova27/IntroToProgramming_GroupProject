@@ -45,7 +45,7 @@ where the player also buys outfits (`outfits`). The player earns badges (`badges
 a new player through the first day (`onboarding-guide`). All numbers are still placeholders.
 
 The game runs at https://campus-tycoon.onrender.com: one run per player (signed cookie), stored in
-Postgres at Supabase, with a demo of four prepared days (`demo-scenarios`) for the presentation.
+Postgres at Supabase, with the demo for the presentation: one prepared day from bed to bed (`demo-day`, built on `demo-scenarios`).
 
 ### What is built (merged)
 
@@ -79,6 +79,7 @@ Postgres at Supabase, with a demo of four prepared days (`demo-scenarios`) for t
 | `render-cache` | #90 | The campus works out its tile list and the Nova's walls once and skips what is far outside the picture (about 10 % less JavaScript time, same picture) |
 | `guests` | Built. #95 | Small version: the day's crowd becomes guests with a kind, a start place and a taste; a third look around and go to another shop with an employee when it is closer, its queue shorter or they like it more. They walk on the map and show their thought in a bubble. The crowd keeps its size |
 | `demo-scenarios` | Built. #96 | The 3-minute live demo: four prepared days in `scenarios.py` (run the Cafe, guests decide, weather and events, grow), loaded by id into the player's own run, also on the public URL; a card on the campus, two ticks a second in a scenario, free play at the end |
+| `demo-day` | Built. #146 | The demo rebuilt as one continuous day from bed to bed in seven steps; the card shows the next step as a button that walks the figure there; two jumps (sun, rain again) load a prepared state of the same day. Replaces the four scenarios |
 | `stale-tick` | #100 | No stray tick after the run is replaced (demo, new run): queued ticks of the old run are dropped |
 | `shift-any-shop` | #103 | A shift in every unlocked shop, one per shop, several a day one after the other |
 | `popularity` | Built. #104 | Per shop 0 to 100, from the day's report card; moves the next days' customers by 85 to 115 % |
@@ -105,7 +106,7 @@ Postgres at Supabase, with a demo of four prepared days (`demo-scenarios`) for t
 | `docs-sync` | #141 | `AGENTS.md` names every module of the world; three outdated sentences fixed |
 | `client-address` | #143 | Behind Cloudflare the limit of new players counts each visitor on their own (confirmed in Render's log) |
 | `docs-cleanup` | #145 | README tidied, this roadmap brought to v7 |
-| Audit | #72 | `docs/audit-report.md`: findings, measurements, balance simulation, feature ideas (state of 2026-11-09) |
+| Audit | #72 | The audit report of 2026-11-09 (findings, measurements, balance simulation, feature ideas); removed from the repository by `docs-final` on 2026-11-23, it stays in the git history |
 | Rules | #25, #47, #70 | AI review replaces the human review; the owner of a PR confirms test exceptions; model and effort hint |
 
 The "PR" column above holds pull request numbers; the issue status (section 5) holds issue
@@ -132,7 +133,7 @@ Source: the team project page of the course wiki
 | Submit the link to the public GitHub repository on Moodle by **2026-11-23, 23:59** (one member); commits after the deadline do not count | The repository is public. |
 | The deployed code is on `main` | Yes: Render deploys `main` after the `Tests` check passed (`deploy`, #93, PR #110) |
 | README: the deployed URL, names and student numbers of all members, the commands to run the app and the tests | Yes: https://campus-tycoon.onrender.com, all four names and numbers, run and test commands |
-| Live demo at the deployed URL in week 11 or 12; slides or recorded videos are no replacement | Done: the demo (`demo-scenarios`) runs on the public URL |
+| Live demo at the deployed URL in week 11 or 12; slides or recorded videos are no replacement | Done: the demo (`demo-day`) runs on the public URL |
 | Repository walkthrough: any member can be asked about any part of the project | Every member must be able to explain the whole project, also the world code taken from Felix |
 
 Grading in short: it works (20 %: all workflows run on the deployed app, also with invalid input),
@@ -174,7 +175,7 @@ in the repository), walkthrough (20 %: how it is built, why, its limits and how 
 | Test changes | The owner of a PR may confirm a test change for their own PR, only when the old test names data the spec changes on purpose (see `AGENTS.md`). |
 | Security | Every spec follows section 3a and the per spec list in 3b. |
 | AI use | Required by the course. Felix' code and art are AI made and may be used. Credit is in the README. |
-| Demo mode | Built: `demo-scenarios` (#96), four prepared days loaded by id, also on the public URL. The editor mode is the base. |
+| Demo mode | Built: `demo-scenarios` (#96), rebuilt by `demo-day` (#146) as one continuous day, loaded by id, also on the public URL. The editor mode is the base. |
 
 ## 3. Security
 
@@ -217,7 +218,7 @@ only the request limit slows it. Still open.
 | `badges` | Awarded only by the server, after an accepted action or at the end of a day (`specs/badges.md`). No endpoint lets the browser grant a badge. |
 | `outfits` | Refuse without enough money and change nothing. Validate the outfit id. |
 | `guests` | Number of guests is capped. Guest data comes only from the server. |
-| `demo-scenarios` | The live demo runs on the public URL (course rule), so it cannot be local only. A scenario is loaded by id from a fixed list on the server, into the player's own run; the browser never sends a state. Validate the id. The editor mode and the free state patch stay off in public mode. |
+| `demo-scenarios`, `demo-day` | The live demo runs on the public URL (course rule), so it cannot be local only. A scenario is loaded by id from a fixed list on the server, into the player's own run; the browser never sends a state. Validate the id. The editor mode and the free state patch stay off in public mode. |
 | `deploy`, `persistent-runs`, `retire-trade-endpoint`, `player-cap`, `request-limits`, `client-address` | Built. The connection string only in Render's dashboard, never in the repository; the runs table hidden from Supabase's Data API; no address or player id in the log. |
 | `final-polish` | Last pass: headers, CSP, dependency versions, no leftover debug code, run `/security-review`. |
 
@@ -270,14 +271,14 @@ change in the spec. The old truck of the three.js map is only a reference for th
 - The cleanup of the audit (dead code, this roadmap and the README, old specs, price text, product name fallback) was built as one spec: `cleanup-dead-code` (#88). The two items above belonged to it.
 - `shop-skip` (#43) and `clock-follows-day` (#51) have no spec file of their own. The day clock, the shift and Skip are described in `specs/shop-process.md`; the clock display is not described in any spec. Either write a short spec for each or say in `specs/shop-process.md` where they went.
 
-## 5. Issue status (2026-11-23, after PR #143)
+## 5. Issue status (2026-11-23, after PR #146)
 
 | Issue | State |
 |---|---|
-| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #13 `popularity`, #14 `events-and-disruptions`, #15 `badges`, #16 `weather-visuals`, #17 `shop-unlock`, #18 `shop-art`, #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #38 `pricing`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #71 `map-layout`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #93 `deploy`, #99 `stale-tick`, #101 `shift-any-shop`, #112 `persistent-runs`, #121 `stock-by-shop`, #123 `docs-refresh`, #126 `onboarding-guide`, #128 `dashboard-look`, #130 `retire-trade-endpoint`, #132 `player-cap`, #135 `request-limits`, #136 `cafe-staff-message`, #138 `stock-on-counter`, #140 `docs-sync`, #142 `client-address` |
+| Closed, built | #2 `longer-run`, #9 `world-core`, #10 `day-context`, #12 `outlook`, #13 `popularity`, #14 `events-and-disruptions`, #15 `badges`, #16 `weather-visuals`, #17 `shop-unlock`, #18 `shop-art`, #21 `outfits`, #22 `guests`, #23 `demo-scenarios`, #26 `world-art`, #27 `world-api`, #28 `nova-zones`, #36 `shop-process`, #38 `pricing`, #43 `shop-skip`, #46 `walk-in`, #48 `nova-wings`, #51 `clock-follows-day`, #55 `editor-mode`, #61 `collapsible-stock-panel`, #64 `day-cycle`, #66 `map-view`, #68 `click-walk`, #71 `map-layout`, #73 `smooth-frames`, #74 `calm-panels`, #75 `hidden-weather`, #76 `balance-pass`, #83 `editor-staff`, #84 `cleanup-dead-code`, #85 `deploy-ready`, #86 `render-cache`, #93 `deploy`, #99 `stale-tick`, #101 `shift-any-shop`, #112 `persistent-runs`, #121 `stock-by-shop`, #123 `docs-refresh`, #126 `onboarding-guide`, #128 `dashboard-look`, #130 `retire-trade-endpoint`, #132 `player-cap`, #135 `request-limits`, #136 `cafe-staff-message`, #138 `stock-on-counter`, #140 `docs-sync`, #142 `client-address`, #147 `demo-day` |
 | Closed, dropped | #3 to #6 (first plan), #19 `walkways` (zones and collision replace it), #29 `build-rules`, #30 `build-mode-ui` |
 | Open | #11 `nova-design`, #20 `staff` (follow-up), #24 `final-polish`, #40 `shop-walk` |
-| To open | `warehouse`, `disruptions` (outages and strikes, split off from `events-and-disruptions`), and `lean-responses` from `docs/audit-report.md` section 4 |
+| To open | `warehouse`, `disruptions` (outages and strikes, split off from `events-and-disruptions`), and `lean-responses` (section 4 of the audit report of 2026-11-09, removed by `docs-final`; it is in the git history) |
 
 Some specs were built without an issue of their own (for example `smooth-walk`, `merch-wear`,
 `order-at-warehouse`, `bulk-order`, `lorry-road`); their pull requests are in section 1.
