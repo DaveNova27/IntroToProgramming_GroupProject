@@ -757,8 +757,9 @@ def apply(action):
 @app.get("/healthz")
 def health():
     """The host's health check (specs/deploy.md): proves only that the process answers. No player, no
-    cookie, no database, no counter: a failed check makes the host restart us, and a restart on the free
-    plan erases every run, so nothing here may fail for a reason a restart would not fix."""
+    cookie, no database, no counter: a failed check makes the host restart us, which drops every request
+    that is running and the copies in memory (before persistent-runs it also erased every run), so nothing
+    here may fail for a reason a restart would not fix."""
     return "ok", 200, {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"}
 
 

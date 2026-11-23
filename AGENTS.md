@@ -4,14 +4,15 @@ Snack-stand simulation: a 30-day season, start with €100. Product rules are in
 
 ## Commands
 - Run the app: `uv run python app.py` (then open http://127.0.0.1:8000)
-- Run tests: `uv run pytest`
+- Run tests: `uv run pytest` (collects `tests/` and `checks/`: three older regression checks live in `checks/`; new checks go in new files in `tests/`)
 
 ## Structure
 - `app.py` + `static/`: screen (what the user sees and clicks)
   - `app.py`: Flask server and JSON API; it calls the rules, the browser never decides them
   - `static/index.html`, `style.css`, `app.js`: dashboard
+  - `static/badges.css`: the medals of the badges, shared by dashboard and campus
   - `static/map.html`, `map.css`: campus page with its display on top
-  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and the roof of the Nova; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `nova.js` (walls, canopy and roofs of the Nova and its wings), `rooms.js` (their rooms), `roofs.js` (when each wing's roof fades), `beach.js` (the beach front, the boardwalk, the outdoor shops, the Dorm's surroundings), `zones.js` (joins the Dorm to the Nova's data), `environment.js` (light, sky, sea and the weather over the scene), `primitives.js`, `locations.js` drawing; `weather.js` how each weather looks (pure data and functions, no drawing); `guests.js` the guests walking to their shop (drawn from the API); `demo.js` the card of the demo scenarios; `physics.js`, `paths.js` collision and finding a way
+  - `static/world/`: the 2.5D world as ES modules. `main.js` loop, walking and the roof of the Nova; `ui.js` display and panels; `scene.js` shared state and projection; `render.js` one frame; `campus.js`, `nova.js` (walls, canopy and roofs of the Nova and its wings), `rooms.js` (their rooms), `roofs.js` (when each wing's roof fades), `beach.js` (the beach front, the boardwalk, the outdoor shops, the Dorm's surroundings), `zones.js` (joins the Dorm to the Nova's data), `environment.js` (light, sky, sea and the weather over the scene), `primitives.js`, `locations.js` drawing; `weather.js` how each weather looks (pure data and functions, no drawing); `guests.js` the guests walking to their shop (drawn from the API); `demo.js` the card of the demo scenarios; `guide.js` the guide for the first day (pure); `stock_groups.js` the stock card's rows grouped by shop (pure); `cull.js` which objects are inside the view (pure); `serial.js` requests one after the other, dropped when the run is replaced (pure); `people.js` how a person looks (walking, poses, hair, props); `player.js` the player's figure (and in bed at night); `walkers.js` the passers-by (decoration only, no rule reads them); `shop-signs.js` the shops' name signs; `wardrobe.js` the pictures of the outfits; `physics.js`, `paths.js` collision and finding a way
   - `static/views.js`: switching between campus and dashboard, keeps both in sync
   - `static/common.js`: helpers shared by dashboard and campus
 - `logic.py`: rules (what is valid, how results are calculated)
