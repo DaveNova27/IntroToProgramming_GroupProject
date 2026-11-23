@@ -93,7 +93,7 @@ def damaged_run():
     lambda: logic.new_state(logic.new_seed()),
     complete_run,
     staffed_run,
-    lambda: scenarios.load_scenario("grow"),
+    lambda: scenarios.load_scenario("demo-day"),
     damaged_run,
 ], ids=["fresh", "full-season", "staff", "demo-scenario", "damaged"])
 def test_through_sqlite_gives_exactly_what_a_file_gives(make, tmp_path):

@@ -166,6 +166,14 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion
 async function sleep() {
   hideOverlay();
   evening = false;
+  await nightToMorning();
+  if (state.finished) showFinal();
+  else showMorning();
+}
+
+// The night and the sunrise of sleep(), also the start of the demo day (specs/demo-day.md: the player
+// lies in bed, it is dark and slowly gets light). Only light and the figure; no request.
+async function nightToMorning() {
   fading = true;
   $("#night-fade").classList.add("on");
   try {
@@ -191,8 +199,6 @@ async function sleep() {
     $("#night-fade").classList.remove("on", "night", "sunrise");
     renderAll();
   }
-  if (state.finished) showFinal();
-  else showMorning();
 }
 
 // The morning card: the day, the forecast with the tips, the stock and what to do. Everything in
@@ -223,6 +229,9 @@ export function updateClock() {
 // ---- head-up display -----------------------------------------------------------------
 
 function renderHud() {
+  // the demo card follows every answer (specs/demo-day.md: a reached goal moves it on); it is
+  // redrawn only when it changed
+  renderDemo(state);
   scene.day = Math.min(state.day, state.last_day);
   // the world draws the weather of the opened day only (spec weather-visuals): the server sends none before
   scene.weather = state.weather?.id ?? null;
@@ -397,6 +406,7 @@ function wireGuide() {
 // there and the window opens on arrival; at the PC it opens at once. Only the screen: the server
 // decides every purchase and never reads the position.
 let walkToPlace = () => false;
+let walkToSpot = () => false;
 const ORDER_PLACE = "supplier";
 let orderOnMain = false; // the dashboard asked for the order PC while the campus was the small window
 const atOrderPc = () => Boolean(world.locations?.[ORDER_PLACE]) && inReach(world.locations[ORDER_PLACE]);
@@ -1266,6 +1276,7 @@ export function useLocation(action) {
     openPanel("dorm");
   }
   if (action === "wardrobe") openPanel("wardrobe"); // the wardrobe in the Dorm (spec outfits)
+  if (action === "shift" || action === "shops") openPanel(action); // a spot of the demo card (demo-day)
   if (action === "dashboard") tellDashboard({ type: "open-dashboard" });
 }
 
@@ -1590,9 +1601,32 @@ function wireDemoActions() {
         return toast(data.error, "error");
       }
       freshRun(data);
-      const panel = state.demo?.active?.panel; // which panel the scenario needs: from the server's data
-      if (panel === "shift" || panel === "shops") openPanel(panel);
+      // the demo day starts in bed: dark, then the sun rises (specs/demo-day.md)
+      if (state.demo?.active?.index === 1) {
+        scene.sleeping = true;
+        demoNight = nightToMorning().catch((err) => console.error(err));
+      }
     }, { keep: true })),
+    // the card's button (specs/demo-day.md): the next step. A jump replaces the run like a load, so it
+    // waits in the queue of the ticks too. Gives true when the server moved on.
+    next: () => enqueue(() => requests.run(async () => {
+      const data = await send("/api/demo/next", {});
+      if (!data) return false;
+      if (data.state) state = data.state;
+      if (data.error) {
+        renderAll();
+        toast(data.error, "error");
+        return false;
+      }
+      if (data.jumped) {
+        freshRun(data);
+      } else {
+        renderAll();
+        tellDashboard({ type: "action", after: data.state });
+      }
+      return true;
+    }, { keep: true })),
+    go: demoGo,
     // the end of the demo books an open day: a tick after it would find no open day
     finish: () => enqueue(() => requests.run(async () => {
       const data = await send("/api/demo/finish", {});
@@ -1607,6 +1641,34 @@ function wireDemoActions() {
       if (state.day !== before) startEvening(); // an open day was booked first: the evening follows
     }, { keep: true })),
   });
+}
+
+// Where the demo card's button walks (specs/demo-day.md). The target is an id from the server's data;
+// the spots come from /api/world. Only the screen: no rule reads the position.
+const DEMO_SPOTS = {
+  wardrobe: () => walkToPlace("wardrobe"),
+  supplier: () => walkToPlace(ORDER_PLACE),
+  bed: () => walkToPlace("bed"),
+  cafe: () => walkToSpot(world.work_spots?.cafe?.front, "shift"),
+  beach_cafe: () => {
+    const line = world.guests?.lines?.beach_cafe;
+    return walkToSpot(line && { x: line.x - 1.4, y: line.y }, "shops");
+  },
+};
+
+// The sunrise at the start of the demo: the card's walk waits for it (review finding: a click during
+// the night moved the step on but the figure stayed in bed).
+let demoNight = Promise.resolve();
+
+async function demoGo(card) {
+  await demoNight;
+  if (!card || scene.preview || inputBlocked()) return;
+  closePanel();
+  // the shift needs an open day: the button opens it first, with the request the bed uses
+  if (card.open_day && !state.shift) await shiftAction("/api/day/open", {});
+  if (card.target === "bed" && evening) return walkHome();
+  const walk = DEMO_SPOTS[card.target];
+  if (walk && !walk()) toast("No way there from here. Walk there yourself.", "error");
 }
 
 // ---- start ---------------------------------------------------------------------------
@@ -1660,6 +1722,7 @@ export function initUi(firstState, actions) {
   jumpHome = actions.jumpHome;
   wakeAt = actions.wakeAt;
   walkToPlace = actions.walkToPlace;
+  walkToSpot = actions.walkToSpot;
   wirePanel();
   wireEditor();
   wireOverlay();

@@ -31,6 +31,8 @@ const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arr
 const keys = new Set();
 let route = []; // the points a click sends the player through
 let pendingUse = null; // the door or desk to use on arrival
+let pendingSpot = null; // a spot of the demo card (specs/demo-day.md): {point, action} to use on arrival
+const SPOT_REACH = 1.2; // tiles around such a spot that count as arrived
 let stuckFor = 0; // seconds without getting closer to the target
 let lastTime = 0;
 let wasWalking = false;
@@ -104,6 +106,7 @@ function placePlayer({ zone, x, y }) {
   camera.y = scene.player.y;
   route = [];
   pendingUse = null;
+  pendingSpot = null;
   savedSpot = `${zone}:${x.toFixed(2)}:${y.toFixed(2)}`;
   updateRoof(0, true);
 }
@@ -111,6 +114,7 @@ function placePlayer({ zone, x, y }) {
 // "Go home" (spec day-cycle): walk to the bed by itself, the same way a click on it does. A move key
 // or a click on the map stops it. Gives false when no way was found.
 function goHome() {
+  pendingSpot = null; // another walk replaces one of the demo card (review finding)
   const bed = world.locations.bed;
   if (!bed) return false;
   if (inReach(bed)) {
@@ -127,6 +131,7 @@ function goHome() {
 // Walk to a place and use it on arrival (spec order-at-warehouse: the "Stock" button walks to the order
 // PC), the same way a click on it does. Standing there it is used at once. Gives false when no way was found.
 function walkToPlace(id) {
+  pendingSpot = null; // another walk replaces one of the demo card (review finding)
   const loc = world.locations[id];
   if (!loc || loc.zone !== scene.zoneId) return false;
   if (inReach(loc)) {
@@ -138,6 +143,23 @@ function walkToPlace(id) {
   if (route.length) return true;
   pendingUse = null;
   return false;
+}
+
+// The demo card's button (specs/demo-day.md): walk to a spot that is no door or desk (a shop's counter,
+// its queue) and open a panel there on arrival. Only the screen: the server never reads the position.
+// Gives false when no way was found.
+function walkToSpot(point, action) {
+  if (!point || (point.zone ?? "campus") !== scene.zoneId) return false;
+  const target = { x: point.x, y: point.y };
+  if (Math.hypot(target.x - scene.player.x, target.y - scene.player.y) < SPOT_REACH) {
+    useLocation(action);
+    return true;
+  }
+  pendingUse = null;
+  walkTo(target);
+  if (!route.length) return false;
+  pendingSpot = { point: target, action };
+  return true;
 }
 
 // "Skip the walk" (spec day-cycle): straight to the bed without walking there. Only the shown position
@@ -160,6 +182,7 @@ function wakeAt({ zone, x, y }) {
   camera.y = scene.player.y;
   route = [];
   pendingUse = null;
+  pendingSpot = null;
   updateRoof(0, true);
   savePlayer();
 }
@@ -193,6 +216,7 @@ function onClick(event) {
   // closed roof must not pick one
   const places = openPlaces();
   const hit = places.find(([, loc]) => Math.hypot(point.x - loc.x, point.y - loc.y) < CLICK_REACH);
+  pendingSpot = null; // a click of the player's own ends a walk of the demo card
   if (!hit) {
     pendingUse = null;
     return walkTo(point);
@@ -211,6 +235,7 @@ function onKeyDown(event) {
     keys.add(key);
     route = [];
     pendingUse = null;
+    pendingSpot = null;
     event.preventDefault();
   } else if (key === "e") {
     const near = nearestLocation();
@@ -246,6 +271,7 @@ function keyDirection() {
 function stopWalking() {
   route = [];
   pendingUse = null;
+  pendingSpot = null;
   scene.walking = false;
   if (wasWalking) savePlayer();
   wasWalking = false;
@@ -292,6 +318,11 @@ function walk(dt) {
     }
   }
   if (pendingUse && inReach(world.locations[pendingUse])) use(pendingUse);
+  if (pendingSpot && !route.length) { // the walk of the demo card ended: arrived, or stuck on the way
+    const { point, action } = pendingSpot;
+    pendingSpot = null;
+    if (Math.hypot(point.x - scene.player.x, point.y - scene.player.y) < SPOT_REACH) useLocation(action);
+  }
   if (wasWalking && !scene.walking) savePlayer();
   wasWalking = scene.walking;
 }
@@ -381,7 +412,7 @@ async function boot() {
   }
   placePlayer(state.player);
   createWalkers();
-  initUi(state, { placePlayer, goHome, jumpHome, wakeAt, walkToPlace });
+  initUi(state, { placePlayer, goHome, jumpHome, wakeAt, walkToSpot, walkToPlace });
   $("#loading").hidden = true;
   requestAnimationFrame(loop);
 }

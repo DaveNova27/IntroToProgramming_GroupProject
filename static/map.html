@@ -83,15 +83,16 @@
       <div id="panel-body"></div>
     </aside>
 
-    <!-- the demo (specs/demo-scenarios.md): the card of the running scenario; texts from the server -->
+    <!-- the demo (specs/demo-scenarios.md, specs/demo-day.md): the card of the step; texts from the server -->
     <aside id="demo-card" class="demo-card" hidden aria-labelledby="demo-title">
       <p class="demo-step"><span>DEMO</span> <strong id="demo-step"></strong></p>
       <h2 id="demo-title"></h2>
       <p id="demo-text" class="demo-text"></p>
       <p class="demo-goal" aria-live="polite"><span id="demo-check" class="demo-check" aria-hidden="true">○</span><span id="demo-goal"></span></p>
       <div class="demo-actions">
+        <button id="demo-go" class="btn" type="button">Next step</button>
         <button id="demo-hide" class="btn ghost" type="button">Got it</button>
-        <button id="demo-next" class="btn" type="button">Skip scenario</button>
+        <button id="demo-skip" class="btn ghost" type="button" title="Go on without the goal (rehearsal)">Skip</button>
         <button id="demo-free" class="btn ghost" type="button">End demo</button>
       </div>
     </aside>
@@ -145,9 +146,6 @@
     <form method="dialog">
       <h2 id="demo-dialog-title">Start the demo?</h2>
       <p id="demo-dialog-text"></p>
-      <label class="demo-pick">Start with
-        <select id="demo-pick"></select>
-      </label>
       <div class="dialog-actions">
         <button class="btn ghost" value="cancel" autofocus>Cancel</button>
         <button class="btn danger" value="confirm">Start demo</button>

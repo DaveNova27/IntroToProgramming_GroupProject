@@ -839,6 +839,8 @@ def apply(action):
         # a badge is reached the moment its condition is true, e.g. at the first sale
         # (specs/badges.md); only the server gives it, never from the request
         logic.award_badges(new_state)
+        # the demo day (specs/demo-day.md): a reached goal moves the card on to the next continuous step
+        new_state = scenarios.advance(new_state)
         _save_run(new_state)
         return jsonify({"message": message, "state": view(new_state)})
 
@@ -1272,7 +1274,7 @@ def new_run():
         })
 
 
-# ---- demo mode (specs/demo-scenarios.md) -------------------------------------------------
+# ---- demo mode (specs/demo-scenarios.md, specs/demo-day.md) -------------------------------------------------
 # It runs on the public URL too (the live demo of the course), so it only loads a scenario by its
 # id from the fixed list in scenarios.py into the player's own run. The browser never sends a
 # state; the editor and the free state patch stay as they are (local, CT_EDITOR=1).
@@ -1295,6 +1297,28 @@ def demo_load():
         _save_new_run(new_state)  # the old run's history goes with it
         title = scenarios.SCENARIOS[new_state["scenario"]["id"]]["title"]
         return jsonify({"message": f"Demo: {title}.", "state": view(new_state)})
+
+
+@app.post("/api/demo/next")
+def demo_next():
+    """The demo card's button (specs/demo-day.md): the next step of the demo day. A jump replaces the run
+    with the step's prepared state, like a load; a continuous step keeps the run. Takes no fields."""
+    body = json_body()
+    with run_lock():
+        state = load_run()
+        try:
+            if body:
+                raise logic.RejectedAction("The next demo step takes no fields.")
+            new_state, jumped = scenarios.next_step(state)
+        except logic.RejectedAction as reason:
+            return jsonify({"error": str(reason), "state": view(state)}), 400
+        logic.award_badges(new_state)
+        if jumped:
+            _save_new_run(new_state)  # the prepared state replaces the run and its history
+        else:
+            _save_run(new_state)
+        title = scenarios.demo_view(new_state)["active"]["title"]
+        return jsonify({"message": f"Demo: {title}.", "state": view(new_state), "jumped": jumped})
 
 
 @app.post("/api/demo/finish")
