@@ -13,6 +13,19 @@ Built individually for the Solo Project, now extended as the Group Project for
 project (Nova Beach Ventures, code and art made with AI, credit:
 https://github.com/felix-anthes-png/nova-beach-ventures).
 
+## Objectives
+
+- **A playable business game.** The player learns by playing how price, stock, weather, campus
+  events, staff and new shops decide the profit of a small business over a 30-day season.
+- **Rules you can trust.** Every rule is decided on the server (`logic.py`); the browser only shows
+  and sends requests. Money is stored in whole cents, and a refused action never changes the saved run.
+- **Reproducible.** All randomness comes from a seed stored in the run, so tests and the live demo give
+  the same result every time, and the whole game state can be set for a demo.
+- **Online for everyone.** The game runs at a public URL, one run per player, stored in a database so
+  it survives restarts.
+- **Verified.** Each feature has its own spec and automatic tests for accepted and refused actions and
+  edge cases; every pull request needs passing tests and a code review.
+
 ## Group
 
 | Name | Student number |
@@ -28,6 +41,24 @@ On the public server every run is stored in a Postgres database at Supabase (Fra
 restarts and deploys (spec `persistent-runs`; without `DATABASE_URL` the server falls back to its
 temporary disk, which the free host erases). The first visit after a pause takes about a minute while
 the server wakes up.
+
+## Installation
+
+You need [uv](https://docs.astral.sh/uv/), the Python package manager the project uses. It installs
+the right Python (3.11 or newer) and the exact library versions of `uv.lock` by itself.
+
+1. Install uv (once per computer):
+   - macOS or Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh` (or `brew install uv`)
+   - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+2. Get the code and install the libraries:
+
+```
+git clone https://github.com/DaveNova27/IntroToProgramming_GroupProject.git
+cd IntroToProgramming_GroupProject
+uv sync
+```
+
+No account, key or database is needed to play locally: the game saves to a file in `data/`.
 
 ## Run
 
@@ -232,6 +263,7 @@ The public server: one run per player, limits, hosting and storage.
 | [`demo-day.md`](specs/demo-day.md) | #146 | The demo becomes one day from bed to bed in seven steps (`scenarios.py`). The card shows the next step as a button that walks the figure there; a reached goal moves it on (`advance`), the two jumps (sun, rain again) load a prepared state of the same day (`POST /api/demo/next`). Replaces the four scenarios of `demo-scenarios`. |
 | [`docs-cleanup.md`](specs/docs-cleanup.md) | #145 | The README tidied (specs grouped with their PRs, every route of the server named, the known issues checked against the code) and the roadmap brought to v7 of 2026-11-23. No game code changes. |
 | [`docs-final.md`](specs/docs-final.md) | #149 | Docs for the submission: the old audit report (`docs/audit-report.md`) removed from the repository (it stays in the git history), and the roadmap names the demo day (`demo-day`, #146) instead of the four prepared days. No game code changes. |
+| [`readme-install.md`](specs/readme-install.md) | – | The README gets the two parts the submission asks for: the project's objectives, and installation instructions (install uv on macOS, Linux or Windows, clone, `uv sync`). No game code changes. |
 | `employees.md`, `investments.md`, `multi-business.md`, `net-worth.md` | #1 | **Dropped.** The first draft of the group features, kept as history only; they describe nothing in the game today. The plan that replaced them is `docs/feature-roadmap.md`. |
 
 ## Known issues and ideas
