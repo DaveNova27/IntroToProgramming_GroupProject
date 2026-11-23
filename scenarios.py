@@ -229,7 +229,9 @@ def load_step(index, scenario_id=DEMO_ID):
 def _current(state):
     """(id, step index) of the running demo, or None (no key, None, an unknown id or step)."""
     current = state.get("scenario")
-    if not isinstance(current, dict) or current.get("id") not in SCENARIOS:
+    # the type first (review finding): a list or dict id would raise in the lookup and break every request
+    if not isinstance(current, dict) or not isinstance(current.get("id"), str) \
+            or current["id"] not in SCENARIOS:
         return None
     index = current.get("step")
     if isinstance(index, bool) or not isinstance(index, int):
@@ -413,7 +415,8 @@ def demo_view(state):
             # the day must be open before the shift: the button opens it first (the bed's request)
             "open_day": step["open_day"] and shown == index and state.get("shift") is None,
             "call_next": shown != index or step["goal"]["kind"] == "manual",
-            "done": done and last, "last": last, "tick_ms": step["tick_ms"],
+            # the pace of the running step, also while the card already shows the jump (review finding)
+            "done": done and last, "last": last, "tick_ms": steps[index]["tick_ms"],
         }
     return {"scenarios": [{"id": sid, "title": SCENARIOS[sid]["title"]} for sid in scenario_ids()],
             "active": card, "stale": stale}

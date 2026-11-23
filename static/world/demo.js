@@ -6,6 +6,7 @@
 let folded = null; // the step whose text the presenter folded away ("Got it"); browser only
 let actions = { getState: () => null, load: () => {}, next: () => {}, go: () => {}, finish: () => {} };
 let shown = ""; // what the card shows now: it is redrawn only when that changes, not on every tick
+let busy = false; // a click of the card is on its way: a second click (a double click) is ignored
 
 // A saved demo that no longer exists (a later version renamed it): only the way out is offered.
 const STALE = { id: "", index: 0, count: 0, title: "Demo", text: "This demo no longer exists. End it to play on.",
@@ -84,15 +85,26 @@ export function wireDemo(given) {
     folded = folded === active.id ? null : active.id;
     renderDemo(actions.getState());
   });
-  $("#demo-go").addEventListener("click", async () => {
+  // review finding: a double click sent two requests for the next step and skipped a whole step.
+  // While one click is on its way (the request and the start of the walk) the buttons do nothing.
+  const once = (job) => async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await job();
+    } finally {
+      busy = false;
+    }
+  };
+  $("#demo-go").addEventListener("click", once(async () => {
     const active = actions.getState()?.demo?.active;
     if (!active) return;
     if (active.call_next && !(await actions.next())) return;
-    actions.go(actions.getState()?.demo?.active);
-  });
-  $("#demo-skip").addEventListener("click", async () => {
-    if (await actions.next()) actions.go(actions.getState()?.demo?.active);
-  });
+    await actions.go(actions.getState()?.demo?.active);
+  }));
+  $("#demo-skip").addEventListener("click", once(async () => {
+    if (await actions.next()) await actions.go(actions.getState()?.demo?.active);
+  }));
   $("#demo-free").addEventListener("click", () => actions.finish());
   // a bookmark for the presenter: /?demo opens the start card (nothing changes before the click).
   // The campus runs inside the main page (views.js), so the address is the parent's.

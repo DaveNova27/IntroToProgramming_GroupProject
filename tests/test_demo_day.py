@@ -285,3 +285,93 @@ def test_a_guest_who_left_does_not_stop_the_demo(index):
         state, _result = logic.tick(state)
     assert state["shift"]["over"] and not state["shift"].get("staffed")
     assert scenarios.step_done(state)
+
+
+# ---- checks moved here from test_demo_scenarios.py (review finding: new checks go in new files) ---------
+
+LOADED = [i for i, step in enumerate(scenarios.STEPS) if step["state"] is not None]
+
+
+def test_only_the_start_and_the_two_jumps_have_a_state():
+    assert LOADED == [0, 4, 5]
+    assert scenarios.load_scenario(DEMO) == scenarios.load_step(0)
+    weathers = [scenarios.load_step(i)["day_override"]["weather"] for i in LOADED]
+    assert weathers == ["rain", "sun", "rain"]  # the jumps bring the other weather
+
+
+@pytest.mark.parametrize("index", range(len(scenarios.STEPS)))
+def test_every_step_plays_on_day_1_and_has_one_placeholder_at_most(index):
+    step = scenarios.STEPS[index]
+    for field in ("title", "text", "goal_text", "button"):
+        assert "{" not in step[field].replace(scenarios.NEED, "")  # only the one placeholder
+    if step["state"] is not None:
+        assert step["state"]["day"] == scenarios.DAY
+        assert "outfits" in scenarios.load_step(index)
+
+
+def test_loading_does_not_change_the_outfits_in_the_data():
+    before = copy.deepcopy(scenarios.SCENARIOS)
+    for index in LOADED:
+        scenarios.load_step(index)["outfits"]["owned"].append("x")
+    assert scenarios.SCENARIOS == before
+
+
+@pytest.mark.parametrize("bad", ["grow", "serve-the-cafe", "guests-decide", "other-day-other-choice"])
+def test_the_old_scenarios_are_gone(bad):
+    with pytest.raises(logic.RejectedAction):
+        scenarios.load_scenario(bad)
+
+
+@pytest.mark.parametrize("saved", [{"id": "grow"}, {"id": DEMO}, {"id": DEMO, "step": 99}, {"id": DEMO, "step": -1},
+                                   {"id": DEMO, "step": "1"}, {"id": DEMO, "step": True},
+                                   {"id": ["demo-day"], "step": 0}, {"id": {"x": 1}, "step": 0}])
+def test_a_damaged_saved_demo_counts_as_none_and_never_raises(saved):
+    """Review finding: an id that is a list or a dict raised in the lookup and broke every request."""
+    state = logic.new_state(1)
+    state["scenario"] = saved
+    assert scenarios.active(state) is None and not scenarios.step_done(state)
+    view = scenarios.demo_view(state)
+    assert view["active"] is None and view["stale"] is True
+    assert scenarios.advance(state) is state
+    with pytest.raises(logic.RejectedAction):
+        scenarios.next_step(state)
+
+
+def test_a_watched_rainy_step_is_not_done_at_its_start():
+    assert not scenarios.step_done(scenarios.load_step(5))
+
+
+def test_the_card_never_sends_the_seed():
+    for index in range(len(scenarios.STEPS)):
+        assert "seed" not in repr(scenarios.demo_view(at_step(index)))
+
+
+def test_the_card_keeps_the_pace_of_the_running_step():
+    """Review finding: once the Cafe shift is done the card shows the jump, but the open day still runs
+    at the Cafe shift's pace."""
+    state = logic.open_day(at_step(3))
+    state["shift"]["sold"] = {"coffee": scenarios.need(state, "coffee")}
+    card = scenarios.demo_view(state)["active"]
+    assert card["id"] == "beach-cafe" and card["tick_ms"] == scenarios.STEPS[3]["tick_ms"]
+
+
+@pytest.mark.parametrize("body", [{"id": "grow", "confirm": True}, {"id": DEMO, "confirm": True, "step": 5}])
+def test_a_load_of_an_old_scenario_or_a_step_is_refused(run_on_disk, body):
+    before, raw = db.load(run_on_disk), run_on_disk.read_bytes()
+    assert app.app.test_client().post("/api/demo/load", json=body).status_code == 400
+    assert db.load(run_on_disk) == before and run_on_disk.read_bytes() == raw
+
+
+def test_the_card_ignores_a_second_click_while_one_is_on_its_way():
+    """Review finding: a double click on the big button skipped a whole step."""
+    assert "let busy = false;" in DEMO_JS and "if (busy) return;" in DEMO_JS
+    assert '$("#demo-go").addEventListener("click", once(' in DEMO_JS
+    assert '$("#demo-skip").addEventListener("click", once(' in DEMO_JS
+
+
+def test_the_walk_waits_for_the_sunrise_and_other_walks_clear_a_demo_spot():
+    assert "await demoNight;" in UI and "demoNight = nightToMorning()" in UI
+    main = (ROOT / "static/world/main.js").read_text(encoding="utf-8")
+    for name in ("goHome", "walkToPlace", "wakeAt"):
+        body = re.search(rf"^function {name}\(.*?^}}$", main, re.S | re.M).group(0)
+        assert "pendingSpot = null;" in body, name

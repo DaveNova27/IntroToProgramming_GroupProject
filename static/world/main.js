@@ -114,6 +114,7 @@ function placePlayer({ zone, x, y }) {
 // "Go home" (spec day-cycle): walk to the bed by itself, the same way a click on it does. A move key
 // or a click on the map stops it. Gives false when no way was found.
 function goHome() {
+  pendingSpot = null; // another walk replaces one of the demo card (review finding)
   const bed = world.locations.bed;
   if (!bed) return false;
   if (inReach(bed)) {
@@ -130,6 +131,7 @@ function goHome() {
 // Walk to a place and use it on arrival (spec order-at-warehouse: the "Stock" button walks to the order
 // PC), the same way a click on it does. Standing there it is used at once. Gives false when no way was found.
 function walkToPlace(id) {
+  pendingSpot = null; // another walk replaces one of the demo card (review finding)
   const loc = world.locations[id];
   if (!loc || loc.zone !== scene.zoneId) return false;
   if (inReach(loc)) {
@@ -180,6 +182,7 @@ function wakeAt({ zone, x, y }) {
   camera.y = scene.player.y;
   route = [];
   pendingUse = null;
+  pendingSpot = null;
   updateRoof(0, true);
   savePlayer();
 }

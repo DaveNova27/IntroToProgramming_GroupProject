@@ -202,34 +202,53 @@ Every old test function is still there and checks the same thing on the new data
 
 | Old check | Now |
 |---|---|
-| `test_the_demo_has_four_scenarios_in_order` | renamed `test_the_demo_has_its_seven_steps_in_order`: one demo id, the seven step ids in order, the loadable steps 0, 4, 5 |
-| `test_every_entry_is_complete_and_valid` | per step: the new field set, ids, texts (only the `{need}` placeholder), targets, openings, goal kinds, `tick_ms`, the patch accepted by `editor_set_state`, cents, day 1 |
+| `test_the_demo_has_four_scenarios_in_order` | renamed `test_the_demo_has_its_seven_steps_in_order`: one demo id, the seven step ids in order |
+| `test_every_entry_is_complete_and_valid` | per step: the new field set, ids, texts, targets, openings, goal kinds, `tick_ms`, the patch accepted by `editor_set_state`, cents |
 | `test_no_scenario_ticks_into_the_rate_limit` | per step |
-| `test_load_scenario_is_deterministic_and_complete` | per loadable step, plus `outfits` among the keys and `load_scenario` equal to step 0 |
-| `test_different_ids_give_different_runs` | the three loadable steps differ; their weathers are rain, sun, rain |
+| `test_load_scenario_is_deterministic_and_complete` | per loadable step (the start and the two jumps) |
+| `test_different_ids_give_different_runs` | the three loadable steps differ |
 | `test_the_loaded_run_survives_save_and_load` | jump 5 |
-| `test_load_scenario_refuses_anything_but_a_known_id` | the same bad values on the new id, plus the old ids `grow` and `serve-the-cafe` |
-| `test_the_data_is_not_changed_by_loading` | the three loadable steps, also the outfits |
+| `test_load_scenario_refuses_anything_but_a_known_id` | the same bad values on the new id |
+| `test_the_data_is_not_changed_by_loading` | the three loadable steps |
 | `test_both_shops_have_a_working_employee` | jump 4 (after buying the beach employee: Cafe and Beach Cafe) and jump 5 (three staffed shops, all four in the guest plan) |
 | `test_guests_change_their_mind_early_in_scenario_2` | jump 5: at least two guests change shop before tick 45, the Merch shop receives, Cafe and Merch beat the beach in the rain |
 | `test_without_the_cafe_employee_the_cafe_receives_no_guest` | jump 5 (the Cafe has no employee) and jump 4 with its Cafe employee removed |
-| `test_scenario_3_turns_the_crowd_round_and_names_the_event` | sun (jump 4) against rain (jump 5): the beach wins in the sun, the Cafe in the rain, the beach has more guests in the sun, coffee has more guests in the rain (compared per product, because jump 5's Cafe sells coffee only), and a thought says "Rainy" |
+| `test_scenario_3_turns_the_crowd_round_and_names_the_event` | sun (jump 4) against rain (jump 5), from the guest plans as before: the beach wins in the sun, the Cafe in the rain, the beach has more guests in the sun, the Cafe more coffee guests in the rain (counted per product, because jump 5's Cafe sells coffee only), and a thought says "Rainy" |
 | `test_every_scenario_is_solved_in_its_time` | per step 1 to 6: reached by the reference play, not done at the start, the check only reads, done within its ticks (Cafe shift 90, rainy shift 40) |
 | `test_a_watched_day_that_is_over_counts_as_seen` | jump 5 skipped: day 2, the step counts as seen |
 | `test_selling_on_a_skipped_day_is_booked_from_the_history` | the Cafe shift: sold and then skipped still counts (from the booked line); skipped without selling does not |
 | `test_the_whole_demo_ends_in_free_play` | the whole day by the reference play, then `finish_demo` |
 | `test_finish_on_an_open_day_books_it_under_the_fixed_weather_first` | jump 5: day 1 booked under rain |
-| `test_a_stale_scenario_can_still_be_left`, `test_an_unknown_saved_scenario_counts_as_none` | new id; also an old `{"id": "grow"}`, a missing, negative, too high, text or boolean step |
-| `test_demo_view_sends_texts_but_never_the_seed_or_the_patch` | the new card fields; `{need}` filled; the first card asks the server first; the last is marked |
-| endpoint and public-mode tests | the new id; the load test also skips to jump 5 and checks the saved run and its badges; the bad-load list gains the old id and a `step` field; the finish test buys the jacket instead of unlocking a shop; "Day 1 closed" instead of "Day 8 closed" |
+| `test_a_stale_scenario_can_still_be_left`, `test_an_unknown_saved_scenario_counts_as_none` | the new id; the same saved values as before |
+| `test_demo_view_sends_texts_but_never_the_seed_or_the_patch` | the new card fields; the first card asks the server first (was: the panel of scenario 1); the last is marked (was: no next after "grow") |
+| endpoint and public-mode tests | the new id; the load test reaches the badges check (first-hire, expansion) through the jump to step 5, because the start has no employee; the finish test buys the jacket instead of unlocking a shop; "Day 1 closed" instead of "Day 8 closed" |
 
-New checks are in `tests/test_demo_day.py` (32 tests).
+New checks are in `tests/test_demo_day.py`, also the ones first written into the changed file (moved
+there after the review).
 
 ### Changed check outside that file (Decide 7)
 
 `tests/test_persistent_runs.py:96` loaded `scenarios.load_scenario("grow")`, which is gone. David
 confirmed the change on 2026-11-23 ("CONFIRM", his answer to that question); the line now loads
 `"demo-day"`. The check is the same: a demo run gives the same state through SQLite as from a file.
+
+### Code review (`/code-review`, high effort, 2026-11-23): 8 findings, all fixed
+
+1. A double click on *Next step* sent two requests and skipped a whole step: the card's buttons now
+   ignore clicks while one is on its way (`demo.js`).
+2. The type check of the saved id was lost: a list or dict id raised in the lookup and broke every
+   request. Back in `_current`; checked with damaged ids in `test_demo_day.py`.
+3. *Next step* pressed during the opening sunrise could move the step on without a walk: the walk now
+   waits for the sunrise (`ui.js`). In the browser the night's overlay already catches such a click,
+   so this is a safety net.
+4. A walk of the card stayed pending when another walk started (toolbar, Go home): `walkToPlace`,
+   `goHome` and `wakeAt` clear it (`main.js`).
+5. While the card already shows the jump, it sent the jump's pace (500 ms) for the Cafe day that is
+   still open (400 ms): `tick_ms` now comes from the running step.
+6. The crowd check compared the demand formula instead of the guest plans: it counts the Cafe's coffee
+   guests in the two plans again.
+7. New checks had been written into the changed `test_demo_scenarios.py`: moved to `test_demo_day.py`.
+8. The PR description now lists every changed check with its reason.
 
 ### Open
 

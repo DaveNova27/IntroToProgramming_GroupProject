@@ -1604,7 +1604,7 @@ function wireDemoActions() {
       // the demo day starts in bed: dark, then the sun rises (specs/demo-day.md)
       if (state.demo?.active?.index === 1) {
         scene.sleeping = true;
-        nightToMorning().catch((err) => console.error(err));
+        demoNight = nightToMorning().catch((err) => console.error(err));
       }
     }, { keep: true })),
     // the card's button (specs/demo-day.md): the next step. A jump replaces the run like a load, so it
@@ -1656,7 +1656,12 @@ const DEMO_SPOTS = {
   },
 };
 
+// The sunrise at the start of the demo: the card's walk waits for it (review finding: a click during
+// the night moved the step on but the figure stayed in bed).
+let demoNight = Promise.resolve();
+
 async function demoGo(card) {
+  await demoNight;
   if (!card || scene.preview || inputBlocked()) return;
   closePanel();
   // the shift needs an open day: the button opens it first, with the request the bed uses
