@@ -1,4 +1,4 @@
-# Demo day (`demo-day`)
+# Demo day (`demo-day`, issue #147)
 
 Written 2026-11-23 by David (owner of this spec and its PR), for the presentation on 2026-11-24.
 Builds on `demo-scenarios` (`specs/demo-scenarios.md`, issue #23) and replaces its four separate
