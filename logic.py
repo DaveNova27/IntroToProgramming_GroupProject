@@ -1439,9 +1439,14 @@ def _check_start(state, shop):
     if open_shift is None:
         return "new"
     if open_shift["shop"] == shop:  # the shift in the slot is this shop's
+        if open_shift.get("staffed"):  # the home shop's crew holds the slot (specs/cafe-staff-message.md)
+            raise RejectedAction(f"The shift in the {name} is over for today." if open_shift.get("over")
+                                 else f"Employees run the {name}. You can serve here beside them.")
         raise RejectedAction(f"You already worked in the {name} today." if open_shift.get("over")
                              else f"You are working in the {name} already.")
     sub = open_shift.get("extra", {}).get(shop)
+    if sub is not None and sub.get("staffed") and sub.get("over"):  # a crew's shift that has ended
+        raise RejectedAction(f"The shift in the {name} is over for today.")
     if sub is not None and (sub.get("over") or not sub.get("staffed")):  # finished, or the player's own
         raise RejectedAction(f"You already worked in the {name} today.")
     if open_shift["shop"] is not None and not open_shift.get("over") and not open_shift.get("staffed"):
