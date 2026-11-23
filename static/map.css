@@ -506,7 +506,7 @@ body.preview .loading { font-size: 13px; }
 .guest-list li { padding: 8px 10px; margin-bottom: 6px; border-radius: 5px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; line-height: 1.4; }
 .guest-list small { display: block; color: var(--ink-soft); font-size: 11px; }
 
-/* ---- demo (specs/demo-scenarios.md) ----------------------------------------------------- */
+/* ---- demo (specs/demo-scenarios.md, specs/demo-day.md) ----------------------------------------------------- */
 /* the box of the demo card, shared with the guide for the first day (the same place and look) */
 .demo-card, .guide-card {
   position: absolute;
@@ -531,16 +531,15 @@ body.preview .loading { font-size: 13px; }
 .demo-card.done .demo-goal { color: var(--lime); }
 .demo-card.done .demo-check { background: var(--lime); color: var(--ink); }
 .demo-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.demo-actions .btn[hidden] { display: none; }
 .demo-actions .btn { min-height: 34px; padding: 0 12px; font-size: 13px; }
-.demo-actions #demo-next { background: var(--cream-deep); color: var(--ink); }
-.demo-card.done #demo-next { background: var(--lime); color: var(--ink); }
+.demo-actions #demo-go { flex-basis: 100%; background: var(--lime); color: var(--ink); font-weight: 700; }
+.demo-card.done #demo-free { background: var(--lime); color: var(--ink); }
 .demo-actions .btn.ghost { background: transparent; color: var(--on-panel); box-shadow: inset 0 0 0 1px var(--panel-line); }
 .demo-card.folded { padding: 8px 12px; }
 .demo-card.folded h2 { margin-top: 4px; font-size: 14px; }
 .demo-card.folded .demo-text { display: none; }
 .demo-card.folded .demo-actions { margin-top: 6px; }
-.demo-pick { display: grid; gap: 4px; margin-top: 12px; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
-.demo-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); font: inherit; }
 
 /* the guide for the first day (specs/onboarding-guide.md): the demo card's box (above), only smaller */
 .guide-card { width: min(300px, calc(100vw - 32px)); padding: 10px 12px; }

@@ -382,8 +382,10 @@ from the start:
 
 ## B4. Demo mode (presentation)
 
-Built (`demo-scenarios`, `specs/demo-scenarios.md`): four scenarios of about 45 seconds for a
-3-minute demo; the text below is the plan it was built from. Built like a tutorial, about 5 minutes, and built last, once the game is complete. Days are
+Built (`demo-scenarios`, `specs/demo-scenarios.md`), then rebuilt as one continuous day (`demo-day`,
+`specs/demo-day.md`): seven steps from the bed in the morning to the bed in the evening, two of them
+"jumps" that load a prepared state of the same day (sun, then rain again). The text below is the
+original plan. Built like a tutorial, about 5 minutes, and built last, once the game is complete. Days are
 skipped: each scenario loads a prepared start state and shows an explanation text. After
 the goal of a scenario is reached, the next scenario loads. At the end the player can keep
 playing freely. The editor mode (`editor-mode`) already sets cash, weather, day, shops and
